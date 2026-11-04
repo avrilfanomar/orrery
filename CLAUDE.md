@@ -53,3 +53,11 @@ pnpm dogfood:serve               # that universe in the UI on :4711
   `BENCH_SHAPES` in `apps/server/src/dogfood/efficiency.ts`.
 - Efficiency tests count and compare; they never time. Timings belong in a
   dogfood probe.
+- `apps/server/test/fixtures/*.jsonl` is frozen history (ADR 0005). Never
+  edit one. A new event type or format gets a new `events.v<n>.jsonl` in the
+  new shape, pinned by its hash in `flexibility.test.ts`.
+- A new environment variable needs a row in the README's configuration
+  table. A new route needs a row in its API table.
+- UI colours go through the theme tokens in `styles.css` (`--name: …`).
+- Instants that cross the API carry a zone (`Z` or an offset), so answers
+  don't depend on the server's time zone.

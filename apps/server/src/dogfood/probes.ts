@@ -26,6 +26,7 @@ import {
   type TypecheckRun,
 } from './collectors.js';
 import { EFFICIENCY_PROBES } from './efficiency.js';
+import { FLEXIBILITY_PROBES } from './flexibility.js';
 import { scrub, smoke, withLiveWeek } from './harness.js';
 import type { ProbeSpec } from './sync.js';
 
@@ -63,6 +64,7 @@ export interface Probe extends ProbeSpec {
 export const BENCH_NOW = new Date('2026-11-03T12:00:00.000Z');
 const V1 = 'First version of this method (ADR 0003)';
 const V4 = 'First version of this method (ADR 0004)';
+const V5 = 'First version of this method (ADR 0005)';
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 export function createContext(root: string, tmp: string): ProbeContext {
@@ -327,6 +329,11 @@ export const PROBES: readonly Probe[] = [
     },
   },
   ...EFFICIENCY_PROBES,
+  suite('suite-frozen-history', [{ file: `${SERVER}/flexibility.test.ts`, describe: ['frozen history'] }], V5),
+  suite('suite-time-zones', [{ file: `${SERVER}/flexibility.test.ts`, describe: ['time zones'] }], V5),
+  suite('suite-coexistence', [{ file: `${SERVER}/flexibility.test.ts`, describe: ['co-existence'] }], V5),
+  suite('suite-api-contract', [{ file: `${SERVER}/flexibility.test.ts`, describe: ['the documented API'] }], V5),
+  ...FLEXIBILITY_PROBES,
   suite('suite-sources', [{ file: `${CORE}/sources.test.ts` }, { file: `${SERVER}/sources.test.ts` }]),
   {
     id: 'audit-high',

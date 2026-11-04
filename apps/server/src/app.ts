@@ -13,6 +13,7 @@ import {
   project,
   type NewEvent,
 } from '@ru/core';
+import { z } from 'zod';
 import { Collector } from './sources/collector.js';
 import type { EventStore } from './store.js';
 
@@ -29,6 +30,12 @@ export interface AppOptions {
 }
 
 const HTTP_STATUS = { invalid: 400, not_found: 404, conflict: 409 } as const;
+/**
+ * An instant that means the same on every server: a date (UTC midnight, as
+ * ECMAScript reads it) or a date-time with Z or an offset. Without a zone,
+ * Date.parse would use the server's own (flexibility.test.ts).
+ */
+const ZonedInstantSchema = z.union([z.string().date(), z.string().datetime({ offset: true })]);
 /** The most readings one webhook request may carry; the body limit must leave room for a full batch (efficiency.test.ts). */
 export const MAX_READINGS_PER_REQUEST = 5000;
 
@@ -50,9 +57,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   const asOfFrom = (query: unknown): string | null => {
     const v = (query as { asOf?: string } | undefined)?.asOf;
     if (!v) return null;
-    const t = Date.parse(v);
-    if (Number.isNaN(t)) throw new DomainError('invalid', 'asOf must be an ISO-8601 timestamp');
-    return new Date(t).toISOString();
+    if (!ZonedInstantSchema.safeParse(v).success) throw new DomainError('invalid', 'asOf must be an ISO-8601 date, or a date-time with Z or an offset');
+    return new Date(Date.parse(v)).toISOString();
   };
 
   // Identity is out of scope for the PoC: the caller names itself.

@@ -175,6 +175,56 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     probe: 'ui-bundle-gzip', reason: 'Baseline 88.9 kB; the target leaves room for features, not for a second framework',
   },
 
+  // --- it bends without breaking ------------------------------------------
+  {
+    id: 'g-flex', kind: 'goal', parentId: 'ru', title: 'It adapts, connects and outlasts its own versions', priority: 'medium', dimensions: ['flexible'], owner: OWNER,
+    description:
+      'ADR 0005: flexibility is a set of promises — old logs keep loading, answers do not depend on where the server runs, the documented API is the API, settings are documented, components meet at fixed seams, and the look changes in one place. The suite pins the promises as contracts; static probes count what breaks them.',
+  },
+  {
+    id: 'r-history', kind: 'requirement', parentId: 'g-flex', title: 'History written today stays readable by every later version', priority: 'high', dimensions: ['flexible', 'maintainable'],
+    description: 'Longevity and evolvability: the log is the only state (ADR 0001), so a version that cannot read an old log has lost the product’s past. packages/core/src/log.ts names the frozen fixture this rests on.',
+  },
+  {
+    id: 's-old-logs', kind: 'scenario', parentId: 'r-history', title: 'A log written by an earlier version loads and reads as it did', priority: 'high', dimensions: ['flexible', 'reliable'], measure: pass, probe: 'suite-frozen-history',
+    scenario: { stimulus: 'Frozen logs in the oldest shape the schema promises to load and in the shape written today, holding every event type between them', environment: 'API tests over apps/server/test/fixtures, each file pinned by its hash', response: 'Each loads through the store and the log contract, and projects to the statuses, verdicts, bindings and links it had when written' },
+    reason: 'log.ts promised this fixture before it existed (ADR 0005)',
+  },
+  {
+    id: 'r-anywhere', kind: 'requirement', parentId: 'g-flex', title: 'It behaves the same wherever it runs, beside whatever else runs there', priority: 'medium', dimensions: ['flexible', 'operable'],
+    description: 'Portability, co-existence and configurability: the same log gives the same answers in any time zone, two universes never touch, and every setting is documented.',
+  },
+  {
+    id: 's-time-zones', kind: 'scenario', parentId: 'r-anywhere', title: 'The same log gives the same answers in any time zone', priority: 'medium', dimensions: ['flexible'], measure: pass, probe: 'suite-time-zones',
+    scenario: { stimulus: 'The server process runs at UTC+14, UTC−10 and in a zone with summer time', environment: 'API tests that switch TZ in-process and check the switch took', response: 'The seeded demo and every view are byte-identical to UTC; an instant without a zone is refused instead of read in local time' },
+    reason: 'An `asOf` without a zone was read in the server’s own time zone until ADR 0005',
+  },
+  {
+    id: 's-coexist', kind: 'scenario', parentId: 'r-anywhere', title: 'Two universes share a process or a machine without touching', priority: 'medium', dimensions: ['flexible'], measure: pass, probe: 'suite-coexistence',
+    scenario: { stimulus: 'Writes to one of two apps in one process; the demo and the dogfood servers started with no settings', environment: 'API tests', response: 'The other app answers byte for byte as before; the two servers default to different logs and ports' },
+  },
+  {
+    id: 'k-config-undocumented', kind: 'kpi', parentId: 'r-anywhere', title: 'Settings read from the environment that the README does not name', priority: 'medium', dimensions: ['flexible', 'operable'],
+    measure: zero('settings'), probe: 'config-undocumented', reason: 'A setting nobody can find is not configurable. Baseline 0, after the README gained its configuration table',
+  },
+  {
+    id: 'r-plug', kind: 'requirement', parentId: 'g-flex', title: 'Other tools plug in through documented contracts and fixed seams', priority: 'medium', dimensions: ['flexible', 'operable'],
+    description: 'Integrability, interchangeability and replaceability: the README’s API is the API, the UI reaches the server through one module, core is used through its entry, and only the collector talks to a source adapter (ADR 0002, decision 4).',
+  },
+  {
+    id: 's-api-contract', kind: 'scenario', parentId: 'r-plug', title: 'The API the README documents is the API the server serves', priority: 'medium', dimensions: ['flexible', 'usable'], measure: pass, probe: 'suite-api-contract',
+    scenario: { stimulus: 'The README’s API table, its command list and its webhook example', environment: 'API tests reading README.md', response: 'Every documented route is served and every served route documented, the command list matches the schema, and the example is accepted as written' },
+  },
+  {
+    id: 'k-seams', kind: 'kpi', parentId: 'r-plug', title: 'Imports and network calls that cross a component boundary', priority: 'medium', dimensions: ['flexible', 'maintainable'], measure: zero('crossings'), probe: 'seam-crossings',
+    reason: 'Each crossing is a place a component can no longer be replaced on its own. Baseline 0',
+  },
+  { id: 'r-theme', kind: 'requirement', parentId: 'g-flex', title: 'Its look changes in one place', priority: 'low', dimensions: ['flexible', 'usable'] },
+  {
+    id: 'k-theme-literals', kind: 'kpi', parentId: 'r-theme', title: 'Colours outside the theme tokens', priority: 'low', dimensions: ['flexible', 'usable'], measure: m('colours', 'lower', 0, 10), probe: 'theme-literals',
+    reason: 'Baseline 7: three in styles.css and four in the status icons in bits.tsx — knowingly starts in warning',
+  },
+
   // --- running it exposes nothing it shouldn't -----------------------------
   { id: 'g-safe', kind: 'goal', parentId: 'ru', title: 'Running it exposes nothing it shouldn’t', priority: 'high', dimensions: ['secure'], owner: OWNER },
   {

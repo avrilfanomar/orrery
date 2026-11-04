@@ -28,8 +28,9 @@ allowed to evolve without rewriting its past.
 The four design decisions behind this are in
 [ADR 0001](docs/adr/0001-one-graph-append-only-evolution.md). How metrics bind to
 Prometheus and Grafana is in [ADR 0002](docs/adr/0002-metrics-bind-to-configured-sources.md).
-How the repository measures itself is in [ADR 0003](docs/adr/0003-the-repository-measures-itself.md),
-and how its efficiency is tested is in [ADR 0004](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md).
+How the repository measures itself is in [ADR 0003](docs/adr/0003-the-repository-measures-itself.md).
+How its efficiency is tested is in [ADR 0004](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md),
+and how its flexibility is tested is in [ADR 0005](docs/adr/0005-flexibility-is-tested-as-promises.md).
 
 ## Run it
 
@@ -88,13 +89,14 @@ pnpm dogfood          # sync the model, measure, record, print the tree (~50 s)
 pnpm dogfood:serve    # the dogfood universe in the console on :4711
 ```
 
-The five goals:
+The six goals:
 
 | Goal | What it covers |
 |---|---|
 | *The model tells the truth* | the CLAUDE.md invariants: the log contract on load, writes only through `decide`, unknown never green, readings judged by the definition in force |
 | *Changing it stays safe and cheap* | core purity, type errors, module size, verification time |
 | *The console stays fast and frugal at realistic scale* | after a week of live signals: view, write and restart time, heap and response size; the UI bundle; and, pinned by the suite, how cost scales, the batch limit and a fixed benchmark workload |
+| *It adapts, connects and outlasts its own versions* | frozen logs that must keep loading, the same answers in any time zone, two universes side by side, the README's API and settings as contracts, component seams, theme tokens |
 | *Running it exposes nothing it shouldn't* | source and pull guards, dependency advisories |
 | *People can follow it end to end* | the demo story, the browser smoke test against the real server, doc links |
 
@@ -119,6 +121,10 @@ How a measurement is kept consistent:
 - **Efficiency is tested twice** (ADR 0004). The suite pins how cost scales
   (reads of the log per request, answer size, the batch limit) without a clock.
   The probes measure how big each cost is on this machine.
+- **Flexibility is tested as promises** (ADR 0005). The suite holds the
+  repository to what it claims: old logs load, time zones don't matter, the
+  README's API is the API. Static probes count undocumented settings, imports
+  across component seams and colours outside the theme.
 
 **To change the model**, edit `model.ts` and commit. `pnpm dogfood` turns the
 difference into reasoned commands. The reason is `--reason "…"`, or the model's
@@ -192,11 +198,41 @@ RU_SOURCES_FILE=sources.json pnpm dev
 | `POST` | `/api/commands` | `node.create · edit · redefine · reprioritize · move · link · unlink · deprecate · reactivate`, `reading.record` |
 | `POST` | `/api/readings` | Ingestion webhook (single reading or `{ readings: [...] }`) |
 | `GET` | `/api/sources` | Configured metric sources (public fields only) and each binding's pull state |
+| `GET` | `/api/health` | Liveness, and how many events the log holds |
 
 Commands are validated by `decide` in the core: unknown ids are 404, cycles
 and duplicate state are 409, and missing reasons or malformed measures are 400.
 The optional `x-actor` header names the author (there is no authentication in
-the PoC).
+the PoC). `asOf` is an ISO-8601 date (read as UTC midnight) or a date-time with
+`Z` or an offset. A date-time without a zone is refused, so an answer never
+depends on the server's time zone.
+
+## Configuration
+
+Everything is set through environment variables, and nothing is required.
+
+| Variable | Default | Used by | What it does |
+|---|---|---|---|
+| `RU_DATA_FILE` | `data/events.jsonl` | server, `reset` | The event log |
+| `RU_SEED` | `demo` | server, `reset` | What an empty log starts as: `demo` or `dogfood` |
+| `PORT` | `4710` | server, `reset`, simulator | The API port |
+| `HOST` | `127.0.0.1` | server, `reset`, simulator | The address the API binds to |
+| `RU_WEB_DIST` | `apps/web/dist` | server | The built UI to serve, if present |
+| `RU_INGEST_TOKEN` | unset | server, simulator | Requires `Authorization: Bearer …` on `POST /api/readings` |
+| `RU_SOURCES_FILE` | unset | server | Metric sources to pull from (see above). Their tokens are named by `tokenEnv` |
+| `RU_ALLOW_REMOTE` | unset | server | `1` allows a non-loopback `HOST` with sources configured |
+| `RU_API` | `http://HOST:PORT` (simulator), `http://127.0.0.1:4710` (Vite) | simulator, Vite dev server | Where the API is |
+| `RU_SIM_TICK_MS` | `30000` | simulator | How often the fast signals move |
+| `RU_DOGFOOD_FILE` | `data/dogfood.jsonl` | `dogfood`, `dogfood:serve` | The repository's own log |
+| `RU_DOGFOOD_PORT` | `4711` | `dogfood`, `dogfood:serve` | Its port |
+| `RU_DOGFOOD_URL` | `http://127.0.0.1:RU_DOGFOOD_PORT` | `dogfood` | A running dogfood server to record into; without one, the run writes the log directly |
+| `RU_PROBE_ENV` | `local` | `dogfood` | Labels the machine; compare timings within one label |
+| `NO_COLOR` | unset | `dogfood` | Prints the report without colour |
+| `RU_URL` | `http://127.0.0.1:4710` | `e2e` | The app the smoke test drives |
+| `PW_CHROMIUM` | unset | `e2e`, `dogfood` | A Chromium binary for the smoke test |
+
+The demo and the dogfood servers default to different logs and ports, so both
+can run at once.
 
 ## Layout
 

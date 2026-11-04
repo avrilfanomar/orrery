@@ -1,0 +1,2 @@
+# Frozen history (ADR 0005): its bytes are pinned by hash, so git must never rewrite its line endings.
+apps/server/test/fixtures/*.jsonl -text
