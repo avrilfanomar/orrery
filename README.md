@@ -30,7 +30,8 @@ The four design decisions behind this are in
 Prometheus and Grafana is in [ADR 0002](docs/adr/0002-metrics-bind-to-configured-sources.md).
 How the repository measures itself is in [ADR 0003](docs/adr/0003-the-repository-measures-itself.md).
 How its efficiency is tested is in [ADR 0004](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md),
-and how its flexibility is tested is in [ADR 0005](docs/adr/0005-flexibility-is-tested-as-promises.md).
+how its flexibility is tested is in [ADR 0005](docs/adr/0005-flexibility-is-tested-as-promises.md),
+and how its maintainability is tested is in [ADR 0006](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md).
 
 ## Run it
 
@@ -85,22 +86,23 @@ readings come from versioned probes in
 [`probes.ts`](apps/server/src/dogfood/probes.ts).
 
 ```bash
-pnpm dogfood          # sync the model, measure, record, print the tree (~50 s)
+pnpm dogfood          # sync the model, measure, record, print the tree (~70 s)
 pnpm dogfood:serve    # the dogfood universe in the console on :4711
 ```
 
-The six goals:
+The seven goals:
 
 | Goal | What it covers |
 |---|---|
 | *The model tells the truth* | the CLAUDE.md invariants: the log contract on load, writes only through `decide`, unknown never green, readings judged by the definition in force |
-| *Changing it stays safe and cheap* | core purity, type errors, module size, verification time |
+| *Changing it stays safe and cheap* | core purity, type errors, module size, verification time, the core's test coverage |
+| *Its code stays easy to read, test and update* | complex functions, import cycles, copied blocks, hidden clocks, dependencies a major behind; and, pinned by the suite, statuses and refusals that explain themselves, answers that ignore the system clock, dependencies declared and locked |
 | *The console stays fast and frugal at realistic scale* | after a week of live signals: view, write and restart time, heap and response size; the UI bundle; and, pinned by the suite, how cost scales, the batch limit and a fixed benchmark workload |
 | *It adapts, connects and outlasts its own versions* | frozen logs that must keep loading, the same answers in any time zone, two universes side by side, the README's API and settings as contracts, component seams, theme tokens |
 | *Running it exposes nothing it shouldn't* | source and pull guards, dependency advisories |
 | *People can follow it end to end* | the demo story, the browser smoke test against the real server, doc links |
 
-Two stubs, coverage and identity, stay *unknown* until they can be measured.
+One stub, identity, stays *unknown* until there is something to measure.
 
 How a measurement is kept consistent:
 
@@ -125,6 +127,13 @@ How a measurement is kept consistent:
   repository to what it claims: old logs load, time zones don't matter, the
   README's API is the API. Static probes count undocumented settings, imports
   across component seams and colours outside the theme.
+- **Maintainability: structure is counted, diagnosis is pinned** (ADR 0006).
+  The suite checks that every status leads to its cause and every refusal
+  names what is wrong, that no answer depends on the system clock, and that
+  every package declares and locks what it imports. Probes count functions
+  over cognitive complexity 15, import cycles, copied blocks and clock reads
+  outside the composition roots. They also measure the core's test coverage
+  and how many dependencies are a major version behind.
 
 **To change the model**, edit `model.ts` and commit. `pnpm dogfood` turns the
 difference into reasoned commands. The reason is `--reason "…"`, or the model's
@@ -137,7 +146,7 @@ explain the revert. Either carry the edit into `model.ts`, or pass `--reason`.
 `--dry-run` plans and measures without writing. `--only k-bundle,s-smoke`
 measures a subset.
 
-The two stubs keep the top level from reading green until they are refined.
+The identity stub keeps the top level from reading green until it is refined.
 The first run (2026-11-04) also found three real problems, recorded in
 [ADR 0003 → Consequences](docs/adr/0003-the-repository-measures-itself.md#consequences):
 - the store loads logs that break the contract;

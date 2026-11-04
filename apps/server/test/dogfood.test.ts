@@ -1,15 +1,19 @@
 // ADR 0003: the repository measured by itself. These pin the contract between
 // the model, the probe registry and the log — with stub probes, so no tsc,
 // vite or benchmark runs inside `pnpm verify`.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildUniverseView, evaluateUniverse, PASS_FAIL_UNIT, project, type RuEvent } from '@ru/core';
 import { buildApp } from '../src/app.js';
 import { parseVitestJson, type GitSnapshot } from '../src/dogfood/collectors.js';
 import { scrub } from '../src/dogfood/harness.js';
+import { cognitiveComplexity, duplicatedLines, importCycles, majorBehind, parseSource } from '../src/dogfood/maintainability.js';
 import { DOGFOOD_MODEL, type ModelNode } from '../src/dogfood/model.js';
 import { judgeSuite, PROBE_SPECS, PROBES, type Probe, type ProbeContext } from '../src/dogfood/probes.js';
 import { injectTransport, runDogfood } from '../src/dogfood/runner.js';
 import { currentFromView, planSync, probeQuery, ReasonRequired, resolveReasons, type ProbeSpec } from '../src/dogfood/sync.js';
+import { repoRoot } from '../src/paths.js';
 import { generateDogfood, seedKindFrom } from '../src/seeds.js';
 import { EventStore } from '../src/store.js';
 
@@ -32,6 +36,24 @@ describe('the dogfood model and its probes', () => {
     expect(DOGFOOD_MODEL.filter((n) => n.kind === 'scenario' && n.measure?.unit !== PASS_FAIL_UNIT).map((n) => n.id)).toEqual([]);
   });
 
+  it('select only test files and outermost describes that exist, so a rename fails here rather than going unknown', () => {
+    const missing: string[] = [];
+    for (const p of PROBES) {
+      for (const s of p.selectors ?? []) {
+        let src: string;
+        try {
+          src = readFileSync(join(repoRoot, s.file), 'utf8');
+        } catch {
+          missing.push(`${p.id}: ${s.file}`);
+          continue;
+        }
+        for (const title of s.describe ?? []) if (!src.includes(`\ndescribe('${title}'`)) missing.push(`${p.id}: ${s.file} › ${title}`);
+      }
+    }
+    expect(missing).toEqual([]);
+    expect(PROBES.filter((p) => p.selectors).length).toBeGreaterThan(10);
+  });
+
   it('seeds through decide as its own universe, with each probe as a provenance-only binding', () => {
     const u = project(generateDogfood(NOW));
     expect([...u.nodes.values()].filter((n) => n.parentId === null).map((n) => n.id)).toEqual(['ru']);
@@ -42,8 +64,8 @@ describe('the dogfood model and its probes', () => {
       expect(u.nodes.get(n.id)!.description).toContain(`How it is measured (${def.binding!.query})`);
     }
     const ev = evaluateUniverse(u, NOW.toISOString());
-    expect(ev.get('r-coverage')!.status).toBe('unknown'); // honest stubs
-    expect(ev.get('r-identity')!.status).toBe('unknown');
+    expect(ev.get('r-identity')!.status).toBe('unknown'); // an honest stub
+    expect(ev.get('k-core-coverage')!.status).toBe('unknown'); // defined, not yet measured
     expect(ev.get('ru')!.status).toBe('unknown'); // nothing measured yet is never green
   });
 
@@ -113,6 +135,60 @@ describe('measurement helpers', () => {
     });
     expect(parsed.tests[0]).toEqual({ file: 'packages/core/test/a.test.ts', ancestors: ['d'], title: 't', status: 'passed' });
     expect(parsed.brokenFiles).toEqual(['apps/server/test/b.test.ts']);
+  });
+
+  it('score cognitive complexity by the rules the probe states', async () => {
+    const ts = (await import('typescript')).default;
+    const src = `
+      function sumOfPrimes(max: number) {
+        let total = 0;
+        OUT: for (let i = 1; i <= max; ++i) {
+          for (let j = 2; j < i; ++j) {
+            if (i % j === 0) continue OUT;
+          }
+          total += i;
+        }
+        return total;
+      }
+      function getWords(n: number) {
+        switch (n) {
+          case 1: return 'one';
+          case 2: return 'a couple';
+          default: return 'lots';
+        }
+      }
+      function branches(a: boolean, b: boolean, c: boolean) {
+        if (a && b && c) return 1;
+        else if (a || (b && c)) return 2;
+        else return a ? 3 : 4;
+      }
+      const outer = (xs: number[]) => xs.map((x) => (x > 0 ? x : -x));
+      class Store { load(v?: string) { try { if (v) return v ?? 'none'; } catch { return null; } return ''; } }`;
+    const scores = Object.fromEntries(cognitiveComplexity(ts, parseSource(ts, 'x.ts', src)).map((s) => [`${s.name}@${s.line}`, s.score]));
+    expect(scores).toEqual({
+      'sumOfPrimes@2': 7, // SonarSource's own example: loop +1, nested loop +2, nested if +3, labelled continue +1
+      'getWords@12': 1, // a switch counts once, however many cases
+      'branches@19': 8, // if +1 and its && run +1; else if +1, || +1, && +1; else +1, ternary nested once +2
+      'outer@24': 0, // a nested function neither adds to its parent…
+      '(anonymous)@24': 1, // …nor escapes being scored itself
+      'load@25': 3, // if +1 (a try block nests nothing), ?? +1, catch +1
+    });
+  });
+
+  it('find import cycles, copied blocks and majors behind', () => {
+    const graph = new Map([['a', ['b']], ['b', ['c']], ['c', ['a']], ['d', ['d']], ['e', ['a']]]);
+    expect(importCycles(graph)).toEqual([['a', 'b', 'c'], ['d']]);
+    expect(importCycles(new Map([['a', ['b']], ['b', []]]))).toEqual([]);
+
+    const block = ['const a = 1;', 'const b = a + 1;', 'if (b > a) log(b);', 'const c = b * 2;', 'send(c);', 'return c;'].join('\n');
+    const files = new Map([['x.ts', `import { y } from './y.js';\n${block}\n}`], ['y.ts', `// copied\n${block}`], ['z.ts', block.split('\n').slice(1).join('\n')]]);
+    expect(duplicatedLines(files)).toMatchObject({ duplicated: 12, significant: 17 });
+    expect(duplicatedLines(new Map([['x.ts', block], ['y.ts', block.replace('send', 'post')]])).duplicated).toBe(0);
+
+    expect(majorBehind('5.9.3', '7.0.2')).toBe(true);
+    expect(majorBehind('1.62.1', '1.64.1')).toBe(false);
+    expect(majorBehind('0.3.1', '0.4.0')).toBe(true);
+    expect(majorBehind('0.3.1', '0.3.9')).toBe(false);
   });
 
   it('scan code, not comments or strings', () => {

@@ -27,6 +27,7 @@ import {
 } from './collectors.js';
 import { EFFICIENCY_PROBES } from './efficiency.js';
 import { FLEXIBILITY_PROBES } from './flexibility.js';
+import { MAINTAINABILITY_PROBES } from './maintainability.js';
 import { scrub, smoke, withLiveWeek } from './harness.js';
 import type { ProbeSpec } from './sync.js';
 
@@ -57,6 +58,8 @@ export interface Probe extends ProbeSpec {
   timing?: boolean;
   /** The fixed workload the number depends on. If that workload changes size, the version must change (efficiency.test.ts). */
   workload?: 'demo' | 'week';
+  /** For a test-suite scenario: the tests it judges, checked against the test files by dogfood.test.ts. */
+  selectors?: readonly SuiteSelector[];
   measure(ctx: ProbeContext): Promise<ProbeOutcome> | ProbeOutcome;
 }
 
@@ -65,6 +68,7 @@ export const BENCH_NOW = new Date('2026-11-03T12:00:00.000Z');
 const V1 = 'First version of this method (ADR 0003)';
 const V4 = 'First version of this method (ADR 0004)';
 const V5 = 'First version of this method (ADR 0005)';
+const V6 = 'First version of this method (ADR 0006)';
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 export function createContext(root: string, tmp: string): ProbeContext {
@@ -118,6 +122,7 @@ function suite(id: string, selectors: SuiteSelector[], since = V1): Probe {
     version: 1,
     since,
     method: `vitest run (JSON reporter) in packages/core and apps/server, selecting ${describeSelectors(selectors)}. Pass when at least one selected test ran and all passed; fail when one failed or a selected file failed to load; no reading when nothing matches.`,
+    selectors,
     async measure(ctx) {
       const run = await ctx.tests();
       return isSkip(run) ? run : judgeSuite(run, selectors);
@@ -334,6 +339,10 @@ export const PROBES: readonly Probe[] = [
   suite('suite-coexistence', [{ file: `${SERVER}/flexibility.test.ts`, describe: ['co-existence'] }], V5),
   suite('suite-api-contract', [{ file: `${SERVER}/flexibility.test.ts`, describe: ['the documented API'] }], V5),
   ...FLEXIBILITY_PROBES,
+  suite('suite-explained', [{ file: `${SERVER}/maintainability.test.ts`, describe: ['statuses explain themselves', 'refusals explain themselves'] }], V6),
+  suite('suite-no-hidden-inputs', [{ file: `${SERVER}/maintainability.test.ts`, describe: ['no hidden inputs'] }], V6),
+  suite('suite-dependencies', [{ file: `${SERVER}/maintainability.test.ts`, describe: ['declared dependencies'] }], V6),
+  ...MAINTAINABILITY_PROBES,
   suite('suite-sources', [{ file: `${CORE}/sources.test.ts` }, { file: `${SERVER}/sources.test.ts` }]),
   {
     id: 'audit-high',

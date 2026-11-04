@@ -24,7 +24,7 @@ const ENV_READ = /\b(?:process\.)?env\.([A-Z][A-Z0-9_]*)\b|\benv\[\s*['"]([A-Z][
 const PLATFORM_ENV = new Set(['PATH']);
 
 /** An import, resolved to a repository path when it is relative (extension dropped), else the bare specifier. */
-function resolveImport(from: string, spec: string): string {
+export function resolveImport(from: string, spec: string): string {
   return spec.startsWith('.') ? posix.normalize(posix.join(posix.dirname(from), spec)).replace(/\.(?:[cm]?js|tsx?|jsx)$/, '') : spec;
 }
 

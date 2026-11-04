@@ -24,6 +24,7 @@ decisions everything rests on.
 ```bash
 pnpm dev | start | reset | verify
 pnpm --filter @ru/core test      # domain unit tests
+pnpm --filter @ru/core exec vitest run --coverage   # its statement coverage (ADR 0006)
 pnpm --filter @ru/server test    # API + demo-story tests
 pnpm --filter @ru/web e2e        # browser smoke test (needs a running app)
 pnpm dogfood [--dry-run]         # measure this repo against its own model (ADR 0003)
@@ -61,3 +62,15 @@ pnpm dogfood:serve               # that universe in the UI on :4711
 - UI colours go through the theme tokens in `styles.css` (`--name: …`).
 - Instants that cross the API carry a zone (`Z` or an offset), so answers
   don't depend on the server's time zone.
+- Core and the server take the time and any randomness as arguments
+  (ADR 0006). A new `Date.now()`, argument-less `new Date()` or
+  `Math.random()` in `packages/*/src` or `apps/server/src` goes into
+  `SANCTIONED_CLOCKS` in `apps/server/src/dogfood/maintainability.ts`, with a
+  version bump.
+- Write new functions at or under cognitive complexity 15 (`k-complex`). Split
+  an existing one when you are changing it anyway, never just to move the
+  number.
+- Every package declares what it imports in its own `package.json`. Commit
+  `pnpm-lock.yaml` with any manifest change.
+- A suite probe names `describe` titles. `dogfood.test.ts` checks they exist,
+  so rename the test and the probe together.

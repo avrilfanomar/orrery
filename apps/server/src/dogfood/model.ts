@@ -112,7 +112,69 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   },
   {
     id: 'r-coverage', kind: 'requirement', parentId: 'g-change', title: 'The domain core is thoroughly tested', priority: 'medium', dimensions: ['maintainable'],
-    description: 'Not yet refined. Candidate measure: statement coverage of packages/core.', reason: 'Left as a stub: coverage needs @vitest/coverage-v8, which the repo does not install yet',
+    description: 'Every rule that protects the model lives in packages/core (CLAUDE.md invariant 2), so its own tests are the safety net for every change to it. Refined in ADR 0006, once @vitest/coverage-v8 was installed.',
+  },
+  {
+    id: 'k-core-coverage', kind: 'kpi', parentId: 'r-coverage', title: 'Statements of packages/core its own tests execute', priority: 'medium', dimensions: ['maintainable'], measure: m('%', 'higher', 90, 80),
+    probe: 'core-coverage', reason: 'Baseline 92.7% (branches 80.6%); format.ts, at 51%, is the gap. Below 80% the domain is no longer thoroughly tested',
+  },
+
+  // --- it stays easy to read, test and update ------------------------------
+  {
+    id: 'g-clear', kind: 'goal', parentId: 'ru', title: 'Its code stays easy to read, test and update', priority: 'medium', dimensions: ['maintainable'], owner: OWNER,
+    description:
+      'ADR 0006: analysability, testability, modularity and updateability. The suite pins what must always hold — every status and refusal explains itself, nothing reads a hidden clock, every dependency is declared and locked. Static probes count what makes the code harder to follow: tangled functions, import cycles, copied blocks. A sibling of the quorum goal on change, so its warnings are not outvoted.',
+  },
+  { id: 'r-simple', kind: 'requirement', parentId: 'g-clear', title: 'Any function can be followed in one reading', priority: 'medium', dimensions: ['maintainable'] },
+  {
+    id: 'k-complex', kind: 'kpi', parentId: 'r-simple', title: 'Functions above cognitive complexity 15', priority: 'medium', dimensions: ['maintainable'], measure: m('functions', 'lower', 10, 20), probe: 'complex-functions',
+    reason: 'Baseline 17 of 679 functions, led by decide (68) and applyEvent (57) — knowingly starts in warning. Fifteen is SonarSource’s default limit; the worst are split as they are next touched, never to hit the number',
+  },
+  {
+    id: 'r-modular', kind: 'requirement', parentId: 'g-clear', title: 'Dependencies point one way, and each piece of logic lives in one place', priority: 'medium', dimensions: ['maintainable'],
+    description: 'Modularity and loose coupling. A cycle means no module in it can be understood, tested or replaced without the others; a copied block is a fix that has to be made twice.',
+  },
+  {
+    id: 'k-cycles', kind: 'kpi', parentId: 'r-modular', title: 'Import cycles among source modules', priority: 'medium', dimensions: ['maintainable'], measure: zero('cycles'), probe: 'import-cycles',
+    reason: 'Baseline 0 at run time. The dogfood probe modules import types from probes.ts in a loop; types are erased, so that one is not counted',
+  },
+  {
+    id: 'k-duplication', kind: 'kpi', parentId: 'r-modular', title: 'Source lines in blocks repeated elsewhere', priority: 'low', dimensions: ['maintainable'], measure: m('%', 'lower', 3, 5), probe: 'duplicated-lines',
+    reason: 'Baseline 0.84% (38 of 4,519 lines). Three percent is SonarSource’s default gate for duplicated lines',
+  },
+  {
+    id: 'r-diagnosable', kind: 'requirement', parentId: 'g-clear', title: 'A status or a refusal leads straight to its cause', priority: 'high', dimensions: ['maintainable', 'usable'],
+    description: 'Analysability and debuggability: "why is this red?" is the question the console exists to answer (ADR 0001), and a refused command must say what to fix.',
+  },
+  {
+    id: 's-explained', kind: 'scenario', parentId: 'r-diagnosable', title: 'Every status and every refusal explains itself', priority: 'high', dimensions: ['maintainable', 'usable'], measure: pass, probe: 'suite-explained',
+    scenario: { stimulus: 'Every node of the demo on each of its days, the freshly seeded dogfood model, and a catalogue of bad requests', environment: 'API tests', response: 'Each status has a reason, its drivers are its own inputs and never healthy, and following them ends where the signal starts; each refusal has the matching code and names what is wrong' },
+  },
+  {
+    id: 'r-testable', kind: 'requirement', parentId: 'g-clear', title: 'Every part can be tested without faking the world', priority: 'medium', dimensions: ['maintainable'],
+    description: 'Testability: the time and any randomness reach the domain and the server as arguments, read only at the composition roots, so a test passes them in instead of mocking globals.',
+  },
+  {
+    id: 's-no-hidden-inputs', kind: 'scenario', parentId: 'r-testable', title: 'Answers depend only on the log and the clock passed in', priority: 'medium', dimensions: ['maintainable', 'reliable'], measure: pass, probe: 'suite-no-hidden-inputs',
+    scenario: { stimulus: 'The system clock set to 1999 and then to 2099, Math.random returning different numbers', environment: 'API tests over the seeded demo and dogfood logs, with the server’s clock injected', response: 'The seeds, every view and a decided command are byte-identical' },
+  },
+  {
+    id: 'k-hidden-inputs', kind: 'kpi', parentId: 'r-testable', title: 'Clock and random reads outside the composition roots', priority: 'medium', dimensions: ['maintainable'], measure: zero('reads'), probe: 'hidden-inputs',
+    reason: 'A new one must be added to the probe’s allowlist on purpose, with a version bump and a reason. Baseline 0',
+  },
+  {
+    id: 'r-updatable', kind: 'requirement', parentId: 'g-clear', title: 'Its dependencies can be updated without surprises', priority: 'medium', dimensions: ['maintainable', 'secure'],
+    description: 'Updateability and upgradeability: every package declares what it imports, the lockfile records exactly what the manifests ask for, and nothing falls far behind its current major.',
+  },
+  {
+    id: 's-dependencies', kind: 'scenario', parentId: 'r-updatable', title: 'Every package declares what it imports, and the lockfile records exactly that', priority: 'medium', dimensions: ['maintainable'], measure: pass, probe: 'suite-dependencies',
+    scenario: { stimulus: 'Every bare import in each workspace package, and every importer in pnpm-lock.yaml', environment: 'Tests reading the manifests and the lockfile, offline', response: 'No package relies on another’s dependency, and every locked range is the one its manifest asks for' },
+    reason: 'The dogfood probes import the TypeScript compiler, which only the root declared until ADR 0006',
+  },
+  {
+    id: 'k-outdated', kind: 'kpi', parentId: 'r-updatable', title: 'Direct dependencies a major version or more behind', priority: 'low', dimensions: ['maintainable'], measure: m('%', 'lower', 25, 75), probe: 'outdated-majors',
+    reason:
+      'Baseline 71.4%, 10 of 14: react and react-dom, vite, vitest and its coverage provider, typescript, zod, @fastify/static, @vitejs/plugin-react, concurrently — knowingly starts in warning. A major behind is a migration owed, not a defect (k-vulns covers what is unsafe): one in four in flight is normal, three in four means upgrades have stopped. Releases appear without a commit, so offline runs leave this unknown',
   },
 
   // --- the console stays fast and frugal ----------------------------------
