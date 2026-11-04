@@ -20,9 +20,12 @@ import {
   PASS_FAIL_UNIT,
   type CommandInput,
   type RuEvent,
+  type SourceCatalog,
 } from '@ru/core';
 
 const H = 3.6e6;
+// The seed's bindings document provenance only; it pulls from nothing.
+const NO_SOURCES: SourceCatalog = new Map();
 const D = 24 * H;
 
 export interface Profile {
@@ -108,6 +111,11 @@ interface Step {
   cmd: CommandInput;
 }
 
+// Provenance only (ADR 0002): the demo documents the PromQL behind its
+// Prometheus-fed KPIs, but the simulator pushes their readings — nothing pulls.
+const promql = (query: string) => ({ sourceId: null, language: 'promql' as const, query });
+const GRAFANA = 'https://grafana.larch.example/d/checkout-slo/checkout-slo';
+
 type CreateData = Extract<CommandInput, { type: 'node.create' }>['data'];
 const create = (daysAgo: number, actor: string, data: CreateData): Step => ({ daysAgo, actor, cmd: { type: 'node.create', data } });
 
@@ -120,13 +128,13 @@ const STRUCTURE: Step[] = [
   create(30, 'product-owner', { id: 'k-abandonment', kind: 'kpi', parentId: 'r-checkout', title: 'Cart abandonment rate', priority: 'medium', dimensions: ['business', 'usable'], measure: m('%', 'lower', 65, 70, 18) }),
   create(30, 'qa-lead', { id: 's-guest-checkout', kind: 'scenario', parentId: 'r-checkout', title: 'Guest checkout without forced sign-up', priority: 'high', dimensions: ['usable'], measure: pf(36), scenario: { stimulus: 'A first-time visitor adds three items and checks out', environment: 'Nightly end-to-end run against staging', response: 'The order is placed in at most four steps without creating an account' } }),
   create(30, 'product-owner', { id: 'r-instant', kind: 'requirement', parentId: 'g-buy', title: 'Pages feel instant', priority: 'medium', dimensions: ['efficient'], owner: 'Web platform team' }),
-  create(30, 'sre-lead', { id: 'k-p95', kind: 'kpi', parentId: 'r-instant', title: 'Product page latency (p95)', priority: 'high', dimensions: ['efficient'], measure: m('ms', 'lower', 800, 1200, 3), description: 'Server-side p95 for product detail pages, hourly.' }),
+  create(30, 'sre-lead', { id: 'k-p95', kind: 'kpi', parentId: 'r-instant', title: 'Product page latency (p95)', priority: 'high', dimensions: ['efficient'], measure: m('ms', 'lower', 800, 1200, 3), binding: promql('1000 * histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{route="/product/:id"}[1h])))'), dashboardUrl: 'https://grafana.larch.example/d/storefront/storefront?viewPanel=2', description: 'Server-side p95 for product detail pages, hourly.' }),
   create(30, 'sre-lead', { id: 's-flash-sale', kind: 'scenario', parentId: 'r-instant', title: 'Flash-sale peak load', priority: 'high', dimensions: ['efficient', 'reliable'], measure: pf(240), scenario: { stimulus: 'Traffic rises to ten times the normal peak within five minutes', environment: 'Weekly load test against a production-sized staging stack', response: 'p95 latency stays under one second and the error rate under 0.5%' } }),
 
   create(30, 'product-owner', { id: 'g-open', kind: 'goal', parentId: 'larch-store', title: 'The store is always open', priority: 'critical', dimensions: ['reliable', 'operable'], owner: 'SRE' }),
   create(30, 'sre-lead', { id: 'r-availability', kind: 'requirement', parentId: 'g-open', title: 'Checkout API stays available', priority: 'critical', dimensions: ['reliable'], owner: 'SRE' }),
-  create(30, 'sre-lead', { id: 'k-availability', kind: 'kpi', parentId: 'r-availability', title: 'Checkout availability (rolling 24 h)', priority: 'critical', dimensions: ['reliable'], measure: m('%', 'higher', 99.9, 99.5, 3) }),
-  create(30, 'sre-lead', { id: 'k-5xx', kind: 'kpi', parentId: 'r-availability', title: 'Checkout server errors (5xx rate)', priority: 'high', dimensions: ['reliable'], measure: m('%', 'lower', 0.1, 0.5, 3) }),
+  create(30, 'sre-lead', { id: 'k-availability', kind: 'kpi', parentId: 'r-availability', title: 'Checkout availability (rolling 24 h)', priority: 'critical', dimensions: ['reliable'], measure: m('%', 'higher', 99.9, 99.5, 3), binding: promql('100 * (1 - sum(increase(http_requests_total{route=~"/checkout.*",code=~"5.."}[24h])) / sum(increase(http_requests_total{route=~"/checkout.*"}[24h])))'), dashboardUrl: `${GRAFANA}?viewPanel=1` }),
+  create(30, 'sre-lead', { id: 'k-5xx', kind: 'kpi', parentId: 'r-availability', title: 'Checkout server errors (5xx rate)', priority: 'high', dimensions: ['reliable'], measure: m('%', 'lower', 0.1, 0.5, 3), binding: promql('100 * sum(rate(http_requests_total{route=~"/checkout.*",code=~"5.."}[1h])) / sum(rate(http_requests_total{route=~"/checkout.*"}[1h]))'), dashboardUrl: `${GRAFANA}?viewPanel=4` }),
   create(30, 'sre-lead', { id: 'r-recover', kind: 'requirement', parentId: 'g-open', title: 'Recover quickly from failures', priority: 'high', dimensions: ['operable'], owner: 'SRE' }),
   create(30, 'sre-lead', { id: 'k-mttr', kind: 'kpi', parentId: 'r-recover', title: 'Mean time to recovery', priority: 'high', dimensions: ['operable'], measure: m('min', 'lower', 30, 60, 24 * 60), description: 'Recorded after each incident review.' }),
   create(30, 'sre-lead', { id: 's-db-failover', kind: 'scenario', parentId: 'r-recover', title: 'Primary database failover', priority: 'high', dimensions: ['reliable'], measure: pf(24 * 45), scenario: { stimulus: 'The primary database node is lost', environment: 'Monthly game day in production', response: 'Writes resume within two minutes with no data loss' } }),
@@ -206,7 +214,7 @@ export function generateDemo(now: Date, seed = 7): RuEvent[] {
   const u = emptyUniverse();
   const events: RuEvent[] = [];
   for (const it of items) {
-    for (const e of decide(u, parseCommand(it.cmd), { now: new Date(it.at).toISOString(), actor: it.actor })) {
+    for (const e of decide(u, parseCommand(it.cmd), { now: new Date(it.at).toISOString(), actor: it.actor, sources: NO_SOURCES })) {
       const ev = { ...e, seq: events.length + 1 } as RuEvent;
       events.push(ev);
       applyEvent(u, ev);

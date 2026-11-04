@@ -2,7 +2,7 @@
 // and the commands the API accepts. Types are inferred from here so the schema
 // and the type can never disagree.
 import { z } from 'zod';
-import { DIMENSIONS, NODE_KINDS, PRIORITIES } from './constants.js';
+import { DIMENSIONS, NODE_KINDS, PRIORITIES, QUERY_LANGUAGES } from './constants.js';
 
 export const NodeIdSchema = z
   .string()
@@ -40,6 +40,40 @@ export const ScenarioSpecSchema = z.object({
 });
 export type ScenarioSpec = z.infer<typeof ScenarioSpecSchema>;
 
+export const SourceIdSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,31}$/, 'Source ids are 1–32 lowercase letters, digits and dashes');
+
+/**
+ * Where a measured node's number comes from (ADR 0002). Part of the versioned
+ * definition: the query *is* the meaning of the number. Without a source it
+ * only documents provenance; with one, the server's collector pulls it.
+ */
+export const BindingSchema = z.object({
+  sourceId: SourceIdSchema.nullable(),
+  language: z.enum(QUERY_LANGUAGES),
+  query: z.string().trim().min(1, 'A query is required').max(2000),
+});
+export type Binding = z.infer<typeof BindingSchema>;
+
+/**
+ * A link a person follows, never fetched by the server. Only http(s), so a
+ * `javascript:` URL can't be planted for the UI to render — checked here, in
+ * the event schema, so a hand-edited log is held to it too.
+ */
+export const HttpUrlSchema = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine((v) => {
+    try {
+      const u = new URL(v);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, 'Give an http(s) URL');
+
 export const RollupRuleSchema = z
   .discriminatedUnion('strategy', [
     z.object({ strategy: z.literal('worst') }),
@@ -73,6 +107,9 @@ const NodeCreatedData = z.object({
   measure: MeasureSpecSchema.nullable(),
   rollup: RollupRuleSchema,
   scenario: ScenarioSpecSchema.nullable(),
+  // Optional so logs written before ADR 0002 keep loading; absent means null.
+  binding: BindingSchema.nullable().optional(),
+  dashboardUrl: HttpUrlSchema.nullable().optional(),
   reason: z.string().trim().max(500).nullable(),
 });
 
@@ -82,6 +119,7 @@ const NodeEditedData = z.object({
   description: DescriptionSchema.optional(),
   owner: OwnerSchema.optional(),
   dimensions: DimensionsSchema.optional(),
+  dashboardUrl: HttpUrlSchema.nullable().optional(),
 });
 
 const NodeRedefinedData = z.object({
@@ -89,6 +127,8 @@ const NodeRedefinedData = z.object({
   measure: MeasureSpecSchema.nullable().optional(),
   rollup: RollupRuleSchema.optional(),
   scenario: ScenarioSpecSchema.nullable().optional(),
+  /** Absent keeps the current binding; null removes it. */
+  binding: BindingSchema.nullable().optional(),
   reason: ReasonSchema,
 });
 
@@ -152,6 +192,8 @@ export const CommandSchema = z.discriminatedUnion('type', [
       measure: MeasureSpecSchema.nullable().default(null),
       rollup: RollupRuleSchema.default({ strategy: 'worst' }),
       scenario: ScenarioSpecSchema.nullable().default(null),
+      binding: BindingSchema.nullable().default(null),
+      dashboardUrl: HttpUrlSchema.nullable().default(null),
       reason: z.string().trim().max(500).nullable().default(null),
     }),
   }),

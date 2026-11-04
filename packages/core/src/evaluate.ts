@@ -11,7 +11,7 @@ import {
 } from './constants.js';
 import { formatDuration, formatThreshold, formatValue } from './format.js';
 import type { Definition, NodeState, Reading, Universe } from './model.js';
-import type { MeasureSpec, RollupRule } from './schema.js';
+import type { Binding, MeasureSpec, RollupRule } from './schema.js';
 
 export interface MeasureEvaluation {
   status: Status;
@@ -67,13 +67,38 @@ export function yardstickAt(n: NodeState, observedAt: string): Definition | null
 /**
  * What changed between the yardstick a reading was taken under and today's, if
  * the change makes the old number meaningless rather than merely judged by a
- * new threshold (a new unit, or a flipped direction).
+ * new threshold: a new unit, a flipped direction, or a new query (ADR 0002 —
+ * the query is the meaning of the number). A new source for the same query is
+ * the same quantity, so it is not listed.
  */
-function incomparable(then: MeasureSpec, now: MeasureSpec): string | null {
+function incomparable(then: Definition, now: Definition): string | null {
   const parts: string[] = [];
-  if (then.unit !== now.unit) parts.push(`the unit (${then.unit} → ${now.unit})`);
-  if (then.direction !== now.direction) parts.push(`the direction (${then.direction} → ${now.direction} is better)`);
+  const a = then.measure!;
+  const b = now.measure!;
+  if (a.unit !== b.unit) parts.push(`the unit (${a.unit} → ${b.unit})`);
+  if (a.direction !== b.direction) parts.push(`the direction (${a.direction} → ${b.direction} is better)`);
+  const qa = then.binding;
+  const qb = now.binding;
+  if (qa && (!qb || qa.language !== qb.language || qa.query !== qb.query)) parts.push(qb ? 'the query' : 'the query (now removed)');
   return parts.length ? parts.join(' and ') : null;
+}
+
+const sameBinding = (a: Binding | null, b: Binding | null) =>
+  a === b || (!!a && !!b && a.sourceId === b.sourceId && a.language === b.language && a.query === b.query);
+
+/**
+ * When the node's current binding started: the `effectiveFrom` of the earliest
+ * version in the unbroken run of versions carrying this same binding. A pull
+ * may not reach back past it — before then another query (or none) was in
+ * force (ADR 0002, decision 3). Null when there is no current binding.
+ */
+export function bindingSince(n: NodeState): string | null {
+  const defs = n.definitions;
+  const cur = defs[defs.length - 1]!.binding;
+  if (!cur) return null;
+  let i = defs.length - 1;
+  while (i > 0 && sameBinding(defs[i - 1]!.binding, cur)) i--;
+  return defs[i]!.effectiveFrom;
 }
 
 export function judge(value: number, spec: MeasureSpec): KnownStatus {
@@ -125,7 +150,7 @@ export function evaluateMeasure(u: Universe, n: NodeState, asOf: string): Measur
   // not: the old number means something else now, so it is unknown until a
   // reading arrives under today's definition — never a false green.
   const taken = yardstickAt(n, r.observedAt);
-  const changed = taken?.measure && taken.version !== def.version ? incomparable(taken.measure, spec) : null;
+  const changed = taken?.measure && taken.version !== def.version ? incomparable(taken, def) : null;
   if (changed) {
     return {
       ...base,

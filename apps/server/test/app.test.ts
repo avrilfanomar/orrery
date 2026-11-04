@@ -31,6 +31,14 @@ describe('the demo universe', () => {
     expect(status('g-ship')).toBe('ok');
     expect(u.nodes.get('c-ie11')!.lifecycle).toBe('deprecated');
     expect(signalPath(ev, 'larch-store').at(-1)).toBe('k-5xx');
+
+    // ADR 0002: the Prometheus KPIs document their query, but nothing pulls
+    // them — the simulator keeps pushing, so the story above is unchanged.
+    for (const id of ['k-5xx', 'k-p95', 'k-availability']) {
+      const n = u.nodes.get(id)!;
+      expect(n.definitions.at(-1)!.binding).toMatchObject({ sourceId: null, language: 'promql' });
+      expect(n.dashboardUrl).toMatch(/^https:\/\/grafana\.larch\.example\//);
+    }
   });
 });
 

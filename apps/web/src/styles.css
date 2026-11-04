@@ -1456,3 +1456,69 @@ details.deprecated[open] summary {
   height: 10px;
   border-radius: 2px;
 }
+
+/* Provenance (ADR 0002): where a number comes from. */
+.provenance {
+  margin: 0 0 16px;
+  padding: 10px 14px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.prov-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  font-size: 13px;
+}
+.prov-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.provenance code,
+.query {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.query {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--sunken);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.prov-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 13px;
+}
+.prov-links a {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+.prov-links a:hover {
+  text-decoration: underline;
+}
+.pull {
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--wash-unknown);
+}
+.pull-ok {
+  background: var(--wash-ok);
+}
+.pull-failing {
+  background: var(--wash-breach);
+}
+textarea.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}

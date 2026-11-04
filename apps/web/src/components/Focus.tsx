@@ -20,6 +20,7 @@ import { api } from '../api.js';
 import type { Action } from './ActionDialog.js';
 import { Counts, Coverage, KindTag, PriorityTag, Ribbon, StatusBadge, StatusDot, ago, fmtDate, fmtDateTime } from './bits.js';
 import { NodeTile } from './NodeTile.js';
+import { Provenance, safeHref } from './Provenance.js';
 import { ReadingChart } from './ReadingChart.js';
 
 interface Props {
@@ -90,6 +91,12 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
   const scenario = node.definition.scenario;
   const hasInputs = children.length + linked.length > 0;
   const m = ev.measurement;
+  const binding = node.definition.binding;
+  const pulled = live && !!binding?.sourceId;
+  const sources = useQuery({ queryKey: ['sources', view.stats.events], queryFn: api.sources, enabled: pulled });
+  const source = sources.data?.sources.find((s) => s.id === binding?.sourceId) ?? null;
+  const pullStatus = sources.data?.bindings.find((b) => b.nodeId === id && b.sourceId === binding?.sourceId) ?? null;
+  const dashboard = safeHref(node.dashboardUrl);
 
   return (
     <article className="focus">
@@ -162,6 +169,16 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
             <dt>Owner</dt>
             <dd>{node.owner ?? '—'}</dd>
           </div>
+          {dashboard && !spec && (
+            <div>
+              <dt>Dashboard</dt>
+              <dd>
+                <a href={dashboard} target="_blank" rel="noopener noreferrer">
+                  {new URL(dashboard).host} ↗
+                </a>
+              </dd>
+            </div>
+          )}
           {node.links.length > 0 && (
             <div>
               <dt>Also counts toward</dt>
@@ -273,6 +290,7 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
           )}
           {spec && (
             <>
+              <Provenance binding={binding} dashboardUrl={node.dashboardUrl} source={source} status={pullStatus} asOf={view.asOf} live={live} />
               <div className="figure-row">
                 <div className="figure">
                   <span className="figure-value">{m?.value !== null && m?.value !== undefined ? formatValue(m.value, spec.unit) : '—'}</span>
@@ -394,6 +412,7 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
                 <th>Target</th>
                 <th>Warning</th>
                 <th>Rollup</th>
+                <th>Source</th>
                 <th>Why</th>
               </tr>
             </thead>
@@ -405,6 +424,7 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
                   <td>{d.measure ? formatThreshold(d.measure, 'target') : '—'}</td>
                   <td>{d.measure ? formatThreshold(d.measure, 'warn') : '—'}</td>
                   <td>{d.rollup.strategy}</td>
+                  <td title={d.binding?.query}>{d.binding ? (d.binding.sourceId ?? 'documented') : '—'}</td>
                   <td className="why-cell">{d.reason ?? '—'}</td>
                 </tr>
               ))}

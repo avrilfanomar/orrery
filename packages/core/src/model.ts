@@ -1,6 +1,6 @@
 // The projected state: what the event log means at one moment in time.
 import type { Dimension, NodeKind, Priority } from './constants.js';
-import type { MeasureSpec, RollupRule, ScenarioSpec } from './schema.js';
+import type { Binding, MeasureSpec, RollupRule, ScenarioSpec } from './schema.js';
 
 /**
  * One version of a node's evaluable definition. Versions are never edited:
@@ -14,6 +14,8 @@ export interface Definition {
   measure: MeasureSpec | null;
   rollup: RollupRule;
   scenario: ScenarioSpec | null;
+  /** Where the number comes from (ADR 0002); null when nobody has said. */
+  binding: Binding | null;
   reason: string | null;
 }
 
@@ -31,6 +33,8 @@ export interface NodeState {
   priority: Priority;
   dimensions: Dimension[];
   owner: string | null;
+  /** Where a person looks at this node (a Grafana panel, say). Navigation, not meaning — so it is metadata, not definition. */
+  dashboardUrl: string | null;
   lifecycle: Lifecycle;
   createdAt: string;
   updatedAt: string;

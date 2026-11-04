@@ -1,4 +1,14 @@
-import { applyEvent, checkLogEntry, decide, emptyUniverse, parseCommand, type CommandInput, type RuEvent, type Universe } from '../src/index.js';
+import {
+  applyEvent,
+  checkLogEntry,
+  decide,
+  emptyUniverse,
+  parseCommand,
+  type CommandInput,
+  type DecideContext,
+  type RuEvent,
+  type Universe,
+} from '../src/index.js';
 
 /**
  * A tiny in-memory log with a controllable clock, driven through the real
@@ -18,8 +28,8 @@ export function makeLog(start = '2026-01-01T00:00:00.000Z') {
     advanceHours: (h: number) => {
       t += h * 3.6e6;
     },
-    run(cmd: CommandInput, actor = 'test') {
-      const out = decide(u, parseCommand(cmd), { now: new Date(t).toISOString(), actor });
+    run(cmd: CommandInput, actor = 'test', ctx: Partial<Pick<DecideContext, 'sources' | 'origin'>> = {}) {
+      const out = decide(u, parseCommand(cmd), { now: new Date(t).toISOString(), actor, sources: new Map(), ...ctx });
       for (const e of out) {
         const checked = checkLogEntry({ ...e, seq: events.length + 1 }, events.at(-1));
         if (!checked.ok) throw new Error(`decide produced an event the log would refuse: ${checked.problem}`);

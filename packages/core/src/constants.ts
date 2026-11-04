@@ -70,3 +70,19 @@ export const STATUS_LABELS: Record<Status, string> = {
 
 /** The unit that turns a measure into a pass/fail check (1 = pass, 0 = fail). */
 export const PASS_FAIL_UNIT = 'pass/fail';
+
+/**
+ * Systems a metric can be pulled from (ADR 0002). Grafana is not a kind: it is
+ * a route to a Prometheus data source, chosen in server configuration.
+ */
+export const SOURCE_KINDS = ['prometheus'] as const;
+export type SourceKind = (typeof SOURCE_KINDS)[number];
+
+/** What a binding's query is written in — independent of who runs it, so re-pointing a source can't silently reinterpret logged queries. */
+export const QUERY_LANGUAGES = ['promql'] as const;
+export type QueryLanguage = (typeof QUERY_LANGUAGES)[number];
+
+export const LANGUAGES_BY_KIND: Record<SourceKind, readonly QueryLanguage[]> = { prometheus: ['promql'] };
+
+/** Readings whose source starts with this were pulled by the server's collector; nobody else may claim it (ADR 0002, decision 3). */
+export const PULL_SOURCE_PREFIX = 'pull:';

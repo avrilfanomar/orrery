@@ -1,7 +1,7 @@
 // Every way the model evolves, as one dialog per command. Changes that alter
 // how something is judged (definition, priority, structure, lifecycle) ask
 // for a reason; the server refuses them without one.
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DIMENSIONS,
   KIND_LABELS,
@@ -111,6 +111,42 @@ function MeasureFields({ value, onChange }: { value: MeasureSpec; onChange: (m: 
       <Field label="Unknown when the latest reading is older than (hours)" hint="Unmeasured is never green.">
         <input type="number" min={1} step="any" value={value.staleAfterHours} onChange={num('staleAfterHours')} required />
       </Field>
+    </fieldset>
+  );
+}
+
+interface BindingDraft {
+  on: boolean;
+  sourceId: string;
+  query: string;
+}
+
+/** Where the number comes from (ADR 0002). Part of the definition: a new query is a new yardstick. */
+function BindingFields({ value, onChange, sourceIds }: { value: BindingDraft; onChange: (b: BindingDraft) => void; sourceIds: string[] }) {
+  return (
+    <fieldset className="group">
+      <legend>Where the number comes from</legend>
+      <label className="switch">
+        <input type="checkbox" checked={value.on} onChange={(e) => onChange({ ...value, on: e.target.checked })} />
+        Record the query behind it
+      </label>
+      {value.on && (
+        <>
+          <Field label="Source" hint={sourceIds.length ? 'Pick a source to have the server pull it; “none” only documents the query.' : 'No sources are configured on this server, so the query is documentation only.'}>
+            <select value={value.sourceId} onChange={(e) => onChange({ ...value, sourceId: e.target.value })}>
+              <option value="">none — documented only</option>
+              {sourceIds.map((id) => (
+                <option key={id} value={id}>
+                  {id} — pull it
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="PromQL query" hint="Must return one series in the measure’s unit — aggregate with sum(…) if needed. Changing it later starts a new version.">
+            <textarea rows={3} className="mono" value={value.query} onChange={(e) => onChange({ ...value, query: e.target.value })} required maxLength={2000} spellCheck={false} />
+          </Field>
+        </>
+      )}
     </fieldset>
   );
 }
@@ -247,6 +283,15 @@ export function ActionDialog({ action, extra, node, view, actor, onClose, onDone
   const [value, setValue] = useState('');
   const [observedAt, setObservedAt] = useState(localInputValue(new Date()));
   const [source, setSource] = useState('manual');
+  const [binding, setBinding] = useState<BindingDraft>({ on: def.binding !== null, sourceId: def.binding?.sourceId ?? '', query: def.binding?.query ?? '' });
+  const [dashboardUrl, setDashboardUrl] = useState(action === 'edit' ? (node.dashboardUrl ?? '') : '');
+  const sources = useQuery({ queryKey: ['sources'], queryFn: api.sources, enabled: action === 'redefine' });
+  const sourceIds = useMemo(() => {
+    const ids = new Set(sources.data?.sources.map((s) => s.id) ?? []);
+    // Keep the current choice selectable even if this server no longer has it.
+    if (def.binding?.sourceId) ids.add(def.binding.sourceId);
+    return [...ids];
+  }, [sources.data, def.binding]);
 
   useEffect(() => {
     const d = ref.current;
@@ -303,7 +348,7 @@ export function ActionDialog({ action, extra, node, view, actor, onClose, onDone
         };
       }
       case 'edit':
-        return { type: 'node.edit', data: { id, title, description, owner: owner.trim() || null, dimensions } };
+        return { type: 'node.edit', data: { id, title, description, owner: owner.trim() || null, dimensions, dashboardUrl: dashboardUrl.trim() || null } };
       case 'priority':
         return { type: 'node.reprioritize', data: { id, priority, reason } };
       case 'redefine':
@@ -314,6 +359,8 @@ export function ActionDialog({ action, extra, node, view, actor, onClose, onDone
             measure: hasMeasure ? measure : null,
             rollup,
             ...(node.kind === 'scenario' || def.scenario ? { scenario } : {}),
+            // A binding needs a measure, so dropping the measure drops it too.
+            binding: hasMeasure && binding.on ? { sourceId: binding.sourceId || null, language: 'promql', query: binding.query } : null,
             reason,
           },
         };
@@ -403,6 +450,9 @@ export function ActionDialog({ action, extra, node, view, actor, onClose, onDone
               <input value={owner} onChange={(e) => setOwner(e.target.value)} maxLength={80} />
             </Field>
             <DimensionPicker value={dimensions} onChange={setDimensions} />
+            <Field label="Dashboard link" hint="Where people look at this — a Grafana panel, say. Navigation only; never fetched.">
+              <input type="url" value={dashboardUrl} onChange={(e) => setDashboardUrl(e.target.value)} placeholder="https://grafana.example.com/d/…" maxLength={2000} />
+            </Field>
           </>
         )}
 
@@ -421,6 +471,7 @@ export function ActionDialog({ action, extra, node, view, actor, onClose, onDone
               This node has its own measure
             </label>
             {hasMeasure && <MeasureFields value={measure} onChange={setMeasure} />}
+            {hasMeasure && <BindingFields value={binding} onChange={setBinding} sourceIds={sourceIds} />}
             <RollupFields value={rollup} onChange={setRollup} />
             <ReasonField value={reason} onChange={setReason} />
           </>

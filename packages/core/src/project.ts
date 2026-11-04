@@ -51,6 +51,10 @@ function insertReading(list: Reading[], r: Reading): void {
   list.splice(lo, 0, r);
 }
 
+function describeBinding(b: { sourceId: string | null; language: string }): string {
+  return b.sourceId ? `a ${b.language} query on ${b.sourceId}` : `a documented ${b.language} query`;
+}
+
 export function diffDefinitions(prev: Definition, next: Definition): string[] {
   const parts: string[] = [];
   const a = prev.measure;
@@ -70,6 +74,14 @@ export function diffDefinitions(prev: Definition, next: Definition): string[] {
   }
   if (JSON.stringify(prev.rollup) !== JSON.stringify(next.rollup)) {
     parts.push(`rollup ${shortRollup(prev.rollup)} → ${shortRollup(next.rollup)}`);
+  }
+  const a1 = prev.binding;
+  const b1 = next.binding;
+  if (!a1 && b1) parts.push(`bound to ${describeBinding(b1)}`);
+  else if (a1 && !b1) parts.push('binding removed');
+  else if (a1 && b1) {
+    if (a1.language !== b1.language || a1.query !== b1.query) parts.push('query revised');
+    if (a1.sourceId !== b1.sourceId) parts.push(`source ${a1.sourceId ?? 'none'} → ${b1.sourceId ?? 'none'}`);
   }
   if (JSON.stringify(prev.scenario) !== JSON.stringify(next.scenario)) {
     parts.push(next.scenario ? 'scenario wording revised' : 'scenario removed');
@@ -107,11 +119,20 @@ export function applyEvent(u: Universe, e: RuEvent): void {
         priority: d.priority,
         dimensions: [...d.dimensions],
         owner: d.owner,
+        dashboardUrl: d.dashboardUrl ?? null,
         lifecycle: 'active',
         createdAt: e.at,
         updatedAt: e.at,
         definitions: [
-          { version: 1, effectiveFrom: e.at, measure: d.measure, rollup: d.rollup, scenario: d.scenario, reason: d.reason },
+          {
+            version: 1,
+            effectiveFrom: e.at,
+            measure: d.measure,
+            rollup: d.rollup,
+            scenario: d.scenario,
+            binding: d.binding ?? null,
+            reason: d.reason,
+          },
         ],
       };
       u.nodes.set(d.id, node);
@@ -132,6 +153,7 @@ export function applyEvent(u: Universe, e: RuEvent): void {
       if (changes.description !== undefined) n.description = changes.description;
       if (changes.owner !== undefined) n.owner = changes.owner;
       if (changes.dimensions !== undefined) n.dimensions = [...changes.dimensions];
+      if (changes.dashboardUrl !== undefined) n.dashboardUrl = changes.dashboardUrl;
       n.updatedAt = e.at;
       const summary =
         changes.title !== undefined && changes.title !== oldTitle
@@ -150,6 +172,7 @@ export function applyEvent(u: Universe, e: RuEvent): void {
         measure: e.data.measure !== undefined ? e.data.measure : prev.measure,
         rollup: e.data.rollup ?? prev.rollup,
         scenario: e.data.scenario !== undefined ? e.data.scenario : prev.scenario,
+        binding: e.data.binding !== undefined ? e.data.binding : prev.binding,
         reason: e.data.reason,
       };
       n.definitions.push(next);

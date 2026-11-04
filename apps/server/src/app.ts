@@ -13,6 +13,7 @@ import {
   project,
   type NewEvent,
 } from '@ru/core';
+import { Collector } from './sources/collector.js';
 import type { EventStore } from './store.js';
 
 export interface AppOptions {
@@ -23,6 +24,8 @@ export interface AppOptions {
   /** The built web app to serve, if present. */
   webDist?: string | null;
   logger?: boolean;
+  /** Pulls bound metrics from configured sources (ADR 0002). Defaults to one with no sources. */
+  collector?: Collector;
 }
 
 const HTTP_STATUS = { invalid: 400, not_found: 404, conflict: 409 } as const;
@@ -32,6 +35,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: opts.logger ? { level: 'warn' } : false, bodyLimit: 4 * 1024 * 1024 });
   const now = () => (opts.clock?.() ?? new Date()).toISOString();
   const { store } = opts;
+  const collector = opts.collector ?? new Collector({ store, sources: [] });
+  const sources = collector.catalog;
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof DomainError) return reply.code(HTTP_STATUS[err.code]).send({ error: err.message, code: err.code });
@@ -71,9 +76,12 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return buildChangeFeed(store.all(), { asOf: asOfFrom(req.query), now: now(), limit: Math.min(500, Math.max(1, limit || 60)) });
   });
 
+  /** Configured sources (public fields only) and the pull state of every binding to one. */
+  app.get('/api/sources', async () => collector.describe(project(store.all())));
+
   app.post('/api/commands', async (req, reply) => {
     const cmd = parseCommand(req.body);
-    const events = decide(project(store.all()), cmd, { now: now(), actor: actorFrom(req.headers) });
+    const events = decide(project(store.all()), cmd, { now: now(), actor: actorFrom(req.headers), sources });
     return reply.code(201).send({ events: store.append(events) });
   });
 
@@ -94,7 +102,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     const events: NewEvent[] = [];
     list.forEach((r, i) => {
       try {
-        events.push(...decide(u, parseCommand({ type: 'reading.record', data: r }), { now: t, actor: 'ingest' }));
+        events.push(...decide(u, parseCommand({ type: 'reading.record', data: r }), { now: t, actor: 'ingest', sources }));
       } catch (err) {
         if (err instanceof DomainError) throw new DomainError(err.code, `readings[${i}]: ${err.message}`);
         throw err;

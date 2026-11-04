@@ -60,6 +60,8 @@ const live: Live[] = [];
 for (const p of PROFILES) {
   const n = universe.nodes[p.id];
   if (!n?.definition.measure || n.lifecycle !== 'active') continue;
+  // A metric the server pulls itself must not be fed from both sides (ADR 0002).
+  if (n.definition.binding?.sourceId) continue;
   const m = n.evaluation.measurement;
   live.push({ p, value: m?.value ?? p.base, lastAt: m?.observedAt ? Date.parse(m.observedAt) : Date.now() - p.cadenceHours * H });
 }
