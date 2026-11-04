@@ -63,6 +63,10 @@ export function Provenance({ binding, dashboardUrl, source, status, asOf, live }
             pulled from <code>{binding.sourceId}</code>
             {source && <span className="muted"> · every {source.stepSeconds >= 60 ? `${source.stepSeconds / 60} min` : `${source.stepSeconds} s`}</span>}
           </span>
+        ) : binding?.language === 'probe' ? (
+          <span className="muted">
+            measured by a repository probe (<code>pnpm dogfood</code>)
+          </span>
         ) : binding ? (
           <span className="muted">documented query — readings arrive by push or by hand</span>
         ) : (

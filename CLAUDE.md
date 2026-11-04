@@ -26,6 +26,8 @@ pnpm dev | start | reset | verify
 pnpm --filter @ru/core test      # domain unit tests
 pnpm --filter @ru/server test    # API + demo-story tests
 pnpm --filter @ru/web e2e        # browser smoke test (needs a running app)
+pnpm dogfood [--dry-run]         # measure this repo against its own model (ADR 0003)
+pnpm dogfood:serve               # that universe in the UI on :4711
 ```
 
 ## Conventions
@@ -35,3 +37,13 @@ pnpm --filter @ru/web e2e        # browser smoke test (needs a running app)
 - The demo story is pinned by `apps/server/test/app.test.ts`. If you change
   `apps/server/src/demo.ts`, keep the story coherent and update that test.
 - Commits are imperative, sentence case, with no `feat:`-style prefixes.
+- The repo's own requirements live in `apps/server/src/dogfood/model.ts`.
+  Edit it like code; the reason for a change comes from `--reason` or the
+  commit subject.
+  - If you change what a probe measures, bump its `version` and say why in
+    `since`. Its `id@version` is the node's yardstick.
+  - Never reword an old version in place.
+  - `apps/server/test/dogfood.test.ts` keeps the model and the probe registry
+    1:1.
+- A new place in `apps/server/src` that writes to an event log must be added
+  to `SANCTIONED_WRITES` in `probes.ts`, with a version bump.

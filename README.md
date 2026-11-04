@@ -28,6 +28,7 @@ allowed to evolve without rewriting its past.
 The four design decisions behind this are in
 [ADR 0001](docs/adr/0001-one-graph-append-only-evolution.md). How metrics bind to
 Prometheus and Grafana is in [ADR 0002](docs/adr/0002-metrics-bind-to-configured-sources.md).
+How the repository measures itself is in [ADR 0003](docs/adr/0003-the-repository-measures-itself.md).
 
 ## Run it
 
@@ -45,6 +46,7 @@ pnpm start      # build the UI and serve everything from :4710
 pnpm reset      # re-seed the demo relative to now (stop the server first)
 pnpm verify     # typecheck + unit/API tests + UI build
 pnpm --filter @ru/web e2e   # browser smoke test against a running app (writes to the log)
+pnpm dogfood    # measure this repository against its own requirements (see below)
 ```
 
 ## A five-minute tour
@@ -71,6 +73,64 @@ pnpm --filter @ru/web e2e   # browser smoke test against a running app (writes t
    **+ Refine** → add a KPI → **Record reading** → **Revise definition**
    (a reason is required). Watch coverage, the parent's status and the
    **Changes** feed update.
+
+## The repository measures itself
+
+The platform's own requirements form a second universe, kept apart from the
+demo. Its definitions are code, in
+[`apps/server/src/dogfood/model.ts`](apps/server/src/dogfood/model.ts). Its
+readings come from versioned probes in
+[`probes.ts`](apps/server/src/dogfood/probes.ts).
+
+```bash
+pnpm dogfood          # sync the model, measure, record, print the tree (~30 s)
+pnpm dogfood:serve    # the dogfood universe in the console on :4711
+```
+
+The five goals:
+
+| Goal | What it covers |
+|---|---|
+| *The model tells the truth* | the CLAUDE.md invariants: the log contract on load, writes only through `decide`, unknown never green, readings judged by the definition in force |
+| *Changing it stays safe and cheap* | core purity, type errors, module size, verification time |
+| *The console stays fast at realistic scale* | view time at demo scale and after a week of live signals, UI bundle size |
+| *Running it exposes nothing it shouldn't* | source and pull guards, dependency advisories |
+| *People can follow it end to end* | the demo story, the browser smoke test against the real server, doc links |
+
+Two stubs, coverage and identity, stay *unknown* until they can be measured.
+
+How a measurement is kept consistent:
+
+- **Every measured node is bound to `probe` `<id>@<version>`.** To change a
+  method, bump the version and give a `since` reason. The node is redefined,
+  and older readings keep their old yardstick.
+- **One run is one snapshot**, with a single `observedAt` and the source
+  `probe:<env>@<sha>`.
+- **Only committed code is recorded.** On a dirty tree the run measures but
+  writes nothing, unless you pass `--allow-dirty`.
+- **A probe that cannot measure records nothing.** That covers no network for
+  `pnpm audit` and no browser for the smoke test. The node goes stale and reads
+  unknown, never green.
+- **Benchmarks use a fixed workload** (seed 7, fixed date): warm-up runs, then
+  the median. Compare timings within one `RU_PROBE_ENV` only.
+
+**To change the model**, edit `model.ts` and commit. `pnpm dogfood` turns the
+difference into reasoned commands. The reason is `--reason "…"`, or the model's
+last commit subject. Creations and wording changes need no reason.
+
+**`model.ts` wins.** An edit made in the dogfood console is drift, which the
+next run would revert. That run refuses to use an older commit subject to
+explain the revert. Either carry the edit into `model.ts`, or pass `--reason`.
+
+`--dry-run` plans and measures without writing. `--only k-bundle,s-smoke`
+measures a subset.
+
+The two stubs keep the top level from reading green until they are refined.
+The first run (2026-11-04) also found three real problems, recorded in
+[ADR 0003 → Consequences](docs/adr/0003-the-repository-measures-itself.md#consequences):
+- the store loads logs that break the contract;
+- dependencies have critical advisories;
+- one module is over the size target.
 
 ## Feeding it data
 
@@ -137,7 +197,8 @@ the PoC).
 ```
 packages/core   pure domain — schemas, projection, evaluation & rollup, history, read models
 apps/server     Fastify shell, append-only JSONL event store, demo seed, simulator,
-                metric sources and the pull collector (src/sources)
+                metric sources and the pull collector (src/sources),
+                the dogfood model, probes and runner (src/dogfood)
 apps/web        React + TanStack Query UI — outline, focus view, chart, dialogs, time travel
 docs/adr        architecture decisions
 ```
@@ -156,9 +217,10 @@ docs/adr        architecture decisions
 
 ## Next steps
 
-1. **Requirements as code.** Export/import node definitions as YAML living
-   beside the software, so reviews of the model happen in pull requests; keep
-   readings in the platform.
+1. **Requirements as code.** The dogfood universe is the first slice
+   (ADR 0003): definitions in a reviewed file, reconciled through `decide`.
+   Next, make the format a product feature (YAML beside any codebase, imported
+   the same way) and run the probes in CI.
 2. **Integrations.** More source kinds behind the ADR 0002 seam (Datadog, SQL or
    analytics for business KPIs), JUnit/CI results feeding scenarios, and
    authentication on commands so bindings can safely target shared monitoring.

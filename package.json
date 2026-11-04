@@ -13,6 +13,8 @@
     "start": "pnpm --filter @ru/web build && pnpm --filter @ru/server start",
     "simulate": "pnpm --filter @ru/server simulate",
     "reset": "pnpm --filter @ru/server reset",
+    "dogfood": "pnpm --filter @ru/server dogfood",
+    "dogfood:serve": "pnpm --filter @ru/web build && pnpm --filter @ru/server dogfood:serve",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "verify": "pnpm typecheck && pnpm test && pnpm --filter @ru/web build"

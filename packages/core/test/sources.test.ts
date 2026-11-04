@@ -76,6 +76,29 @@ describe('bindings', () => {
   });
 });
 
+describe('probe bindings (ADR 0003)', () => {
+  const probe = (sourceId: string | null, query = 'ui-bundle-gzip@1') => ({ sourceId, language: 'probe' as const, query });
+
+  it('document a repository probe, and no configured source can run one', () => {
+    const log = makeLog();
+    const create = (id: string, sourceId: string | null) =>
+      code(() => log.run({ type: 'node.create', data: { id, kind: 'kpi', title: id, measure: pctHigher(99, 95), binding: probe(sourceId) } }, 'dogfood', { sources: PROM }));
+    expect(create('a', null)).toBe('accepted');
+    expect(create('b', 'prom')).toBe('invalid');
+  });
+
+  it('start a new yardstick when the probe version changes', () => {
+    const log = makeLog();
+    log.run({ type: 'node.create', data: { id: 'k', kind: 'kpi', title: 'K', measure: pctHigher(99, 95), binding: probe(null) } });
+    log.run({ type: 'reading.record', data: { nodeId: 'k', value: 99.5 } });
+    log.advanceHours(1);
+    log.run({ type: 'node.redefine', data: { id: 'k', binding: probe(null, 'ui-bundle-gzip@2'), reason: 'now measured with brotli' } });
+    const after = evaluateUniverse(log.u, log.now()).get('k')!;
+    expect(after.status).toBe('unknown');
+    expect(after.reason).toContain('the query');
+  });
+});
+
 describe('dashboard links', () => {
   it('accept only http(s), in commands and in the stored log alike', () => {
     const log = makeLog();

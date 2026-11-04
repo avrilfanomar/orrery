@@ -78,8 +78,12 @@ export const PASS_FAIL_UNIT = 'pass/fail';
 export const SOURCE_KINDS = ['prometheus'] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
-/** What a binding's query is written in — independent of who runs it, so re-pointing a source can't silently reinterpret logged queries. */
-export const QUERY_LANGUAGES = ['promql'] as const;
+/**
+ * What a binding's query is written in — independent of who runs it, so re-pointing a source can't silently reinterpret logged queries.
+ * `probe` names a repository probe as `<probe-id>@<version>` (ADR 0003). No source kind can run it, so a probe binding is always
+ * provenance only; bumping the version is a new query, hence a new yardstick.
+ */
+export const QUERY_LANGUAGES = ['promql', 'probe'] as const;
 export type QueryLanguage = (typeof QUERY_LANGUAGES)[number];
 
 export const LANGUAGES_BY_KIND: Record<SourceKind, readonly QueryLanguage[]> = { prometheus: ['promql'] };

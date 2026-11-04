@@ -16,6 +16,7 @@ import {
   type NodeKind,
   type NodeView,
   type Priority,
+  type QueryLanguage,
   type RollupRule,
   type RuEvent,
   type ScenarioSpec,
@@ -117,12 +118,15 @@ function MeasureFields({ value, onChange }: { value: MeasureSpec; onChange: (m: 
 
 interface BindingDraft {
   on: boolean;
+  /** Carried through unchanged: re-labelling a probe as PromQL would log a new, wrong yardstick (ADR 0003). */
+  language: QueryLanguage;
   sourceId: string;
   query: string;
 }
 
 /** Where the number comes from (ADR 0002). Part of the definition: a new query is a new yardstick. */
 function BindingFields({ value, onChange, sourceIds }: { value: BindingDraft; onChange: (b: BindingDraft) => void; sourceIds: string[] }) {
+  const probe = value.language === 'probe';
   return (
     <fieldset className="group">
       <legend>Where the number comes from</legend>
@@ -132,17 +136,26 @@ function BindingFields({ value, onChange, sourceIds }: { value: BindingDraft; on
       </label>
       {value.on && (
         <>
-          <Field label="Source" hint={sourceIds.length ? 'Pick a source to have the server pull it; “none” only documents the query.' : 'No sources are configured on this server, so the query is documentation only.'}>
-            <select value={value.sourceId} onChange={(e) => onChange({ ...value, sourceId: e.target.value })}>
-              <option value="">none — documented only</option>
-              {sourceIds.map((id) => (
-                <option key={id} value={id}>
-                  {id} — pull it
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="PromQL query" hint="Must return one series in the measure’s unit — aggregate with sum(…) if needed. Changing it later starts a new version.">
+          {!probe && (
+            <Field label="Source" hint={sourceIds.length ? 'Pick a source to have the server pull it; “none” only documents the query.' : 'No sources are configured on this server, so the query is documentation only.'}>
+              <select value={value.sourceId} onChange={(e) => onChange({ ...value, sourceId: e.target.value })}>
+                <option value="">none — documented only</option>
+                {sourceIds.map((id) => (
+                  <option key={id} value={id}>
+                    {id} — pull it
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <Field
+            label={probe ? 'Probe (id@version)' : 'PromQL query'}
+            hint={
+              probe
+                ? 'Measured by `pnpm dogfood`, never pulled. A new version is a new method, so it starts a new yardstick.'
+                : 'Must return one series in the measure’s unit — aggregate with sum(…) if needed. Changing it later starts a new version.'
+            }
+          >
             <textarea rows={3} className="mono" value={value.query} onChange={(e) => onChange({ ...value, query: e.target.value })} required maxLength={2000} spellCheck={false} />
           </Field>
         </>
@@ -283,7 +296,12 @@ export function ActionDialog({ action, extra, node, view, actor, onClose, onDone
   const [value, setValue] = useState('');
   const [observedAt, setObservedAt] = useState(localInputValue(new Date()));
   const [source, setSource] = useState('manual');
-  const [binding, setBinding] = useState<BindingDraft>({ on: def.binding !== null, sourceId: def.binding?.sourceId ?? '', query: def.binding?.query ?? '' });
+  const [binding, setBinding] = useState<BindingDraft>({
+    on: def.binding !== null,
+    language: def.binding?.language ?? 'promql',
+    sourceId: def.binding?.sourceId ?? '',
+    query: def.binding?.query ?? '',
+  });
   const [dashboardUrl, setDashboardUrl] = useState(action === 'edit' ? (node.dashboardUrl ?? '') : '');
   const sources = useQuery({ queryKey: ['sources'], queryFn: api.sources, enabled: action === 'redefine' });
   const sourceIds = useMemo(() => {
@@ -360,7 +378,7 @@ export function ActionDialog({ action, extra, node, view, actor, onClose, onDone
             rollup,
             ...(node.kind === 'scenario' || def.scenario ? { scenario } : {}),
             // A binding needs a measure, so dropping the measure drops it too.
-            binding: hasMeasure && binding.on ? { sourceId: binding.sourceId || null, language: 'promql', query: binding.query } : null,
+            binding: hasMeasure && binding.on ? { sourceId: binding.language === 'probe' ? null : binding.sourceId || null, language: binding.language, query: binding.query } : null,
             reason,
           },
         };
