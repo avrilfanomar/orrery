@@ -29,7 +29,8 @@ export interface AppOptions {
 }
 
 const HTTP_STATUS = { invalid: 400, not_found: 404, conflict: 409 } as const;
-const MAX_READINGS_PER_REQUEST = 5000;
+/** The most readings one webhook request may carry; the body limit must leave room for a full batch (efficiency.test.ts). */
+export const MAX_READINGS_PER_REQUEST = 5000;
 
 export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: opts.logger ? { level: 'warn' } : false, bodyLimit: 4 * 1024 * 1024 });

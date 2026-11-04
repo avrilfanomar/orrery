@@ -25,10 +25,20 @@ import {
   type TestRun,
   type TypecheckRun,
 } from './collectors.js';
+import { EFFICIENCY_PROBES } from './efficiency.js';
 import { scrub, smoke, withLiveWeek } from './harness.js';
 import type { ProbeSpec } from './sync.js';
 
 export type ProbeOutcome = { value: number; detail?: string } | Skip;
+
+/** The benchmark demo plus a week of live signals, also stored as a JSONL log for the probes that load one. */
+export interface BenchWeek {
+  events: RuEvent[];
+  /** The week's last instant: every view of it is taken here. */
+  now: string;
+  /** Opened, never appended to: a probe that writes works on its own copy. */
+  file: string;
+}
 
 export interface ProbeContext {
   root: string;
@@ -37,18 +47,22 @@ export interface ProbeContext {
   typecheck(): Promise<TypecheckRun | Skip>;
   build(): Promise<BuildRun | Skip>;
   demo(): RuEvent[];
+  week(): BenchWeek;
   tracked(): string[];
 }
 
 export interface Probe extends ProbeSpec {
-  /** Timing benchmarks run last, alone, after every external step has finished. */
+  /** Benchmarks (timings, heap) run last, alone, after every external step has finished. */
   timing?: boolean;
+  /** The fixed workload the number depends on. If that workload changes size, the version must change (efficiency.test.ts). */
+  workload?: 'demo' | 'week';
   measure(ctx: ProbeContext): Promise<ProbeOutcome> | ProbeOutcome;
 }
 
 /** The fixed workload for timings: the demo as seeded at this instant, seed 7 — the same events on every run. */
 export const BENCH_NOW = new Date('2026-11-03T12:00:00.000Z');
 const V1 = 'First version of this method (ADR 0003)';
+const V4 = 'First version of this method (ADR 0004)';
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 export function createContext(root: string, tmp: string): ProbeContext {
@@ -56,13 +70,20 @@ export function createContext(root: string, tmp: string): ProbeContext {
     let cached: { v: T } | null = null;
     return () => (cached ??= { v: f() }).v;
   };
+  const demo = once(() => generateDemo(BENCH_NOW, 7));
   return {
     root,
     tmp,
     tests: once(() => runTests(root, tmp)),
     typecheck: once(() => runTypecheck(root)),
     build: once(() => runBuild(root, tmp)),
-    demo: once(() => generateDemo(BENCH_NOW, 7)),
+    demo,
+    week: once(() => {
+      const events = withLiveWeek(demo(), BENCH_NOW.getTime());
+      const file = join(tmp, 'bench-week.jsonl');
+      writeFileSync(file, events.map((e) => JSON.stringify(e)).join('\n') + '\n');
+      return { events, file, now: new Date(BENCH_NOW.getTime() + 7 * 24 * 3.6e6).toISOString() };
+    }),
     tracked: once(() => trackedFiles(root)),
   };
 }
@@ -89,11 +110,11 @@ export function judgeSuite(run: Pick<TestRun, 'tests' | 'brokenFiles'>, selector
 
 const describeSelectors = (sel: readonly SuiteSelector[]) => sel.map((s) => (s.describe ? `${s.file} › ${s.describe.join(', ')}` : s.file)).join('; ');
 
-function suite(id: string, selectors: SuiteSelector[]): Probe {
+function suite(id: string, selectors: SuiteSelector[], since = V1): Probe {
   return {
     id,
     version: 1,
-    since: V1,
+    since,
     method: `vitest run (JSON reporter) in packages/core and apps/server, selecting ${describeSelectors(selectors)}. Pass when at least one selected test ran and all passed; fail when one failed or a selected file failed to load; no reading when nothing matches.`,
     async measure(ctx) {
       const run = await ctx.tests();
@@ -267,6 +288,7 @@ export const PROBES: readonly Probe[] = [
     version: 1,
     since: V1,
     timing: true,
+    workload: 'demo',
     method: `buildUniverseView over the demo as seeded at ${BENCH_NOW.toISOString()} with seed 7 (~2.9k events): 3 warm-up runs, then the median of 15. Machine-bound: compare readings from one RU_PROBE_ENV only.`,
     measure(ctx) {
       const events = ctx.demo();
@@ -278,14 +300,18 @@ export const PROBES: readonly Probe[] = [
     version: 1,
     since: V1,
     timing: true,
+    workload: 'week',
     method:
       'buildUniverseView over the benchmark demo plus seven days of the six fast simulator signals at the default 30 s tick, each reading recorded through decide (~124k events): 2 warm-up runs, then the median of 7. Machine-bound: compare readings from one RU_PROBE_ENV only.',
     measure(ctx) {
-      const events = withLiveWeek(ctx.demo(), BENCH_NOW.getTime());
-      const now = new Date(BENCH_NOW.getTime() + 7 * 24 * 3.6e6).toISOString();
+      const { events, now } = ctx.week();
       return { value: Math.round(medianMs(() => buildUniverseView(events, { now }), 2, 7)), detail: `${events.length} events` };
     },
   },
+  suite('suite-log-passes', [{ file: `${CORE}/efficiency.test.ts`, describe: ['log passes per request'] }, { file: `${SERVER}/efficiency.test.ts`, describe: ['log passes per request'] }], V4),
+  suite('suite-answer-size', [{ file: `${CORE}/efficiency.test.ts`, describe: ['answer size'] }], V4),
+  suite('suite-capacity', [{ file: `${SERVER}/efficiency.test.ts`, describe: ['capacity'] }], V4),
+  suite('suite-bench-workload', [{ file: `${SERVER}/efficiency.test.ts`, describe: ['benchmark workload'] }], V4),
   {
     id: 'ui-bundle-gzip',
     version: 1,
@@ -300,6 +326,7 @@ export const PROBES: readonly Probe[] = [
       return { value: round(bytes / 1000, 1), detail: `${js.length} file${js.length === 1 ? '' : 's'}` };
     },
   },
+  ...EFFICIENCY_PROBES,
   suite('suite-sources', [{ file: `${CORE}/sources.test.ts` }, { file: `${SERVER}/sources.test.ts` }]),
   {
     id: 'audit-high',

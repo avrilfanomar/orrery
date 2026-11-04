@@ -47,3 +47,9 @@ pnpm dogfood:serve               # that universe in the UI on :4711
     1:1.
 - A new place in `apps/server/src` that writes to an event log must be added
   to `SANCTIONED_WRITES` in `probes.ts`, with a version bump.
+- Probes that declare a `workload` measure the fixed benchmark workload
+  (ADR 0004). If `apps/server/test/efficiency.test.ts` says it changed size
+  (usually an edit to `demo.ts`), bump every such probe, then update
+  `BENCH_SHAPES` in `apps/server/src/dogfood/efficiency.ts`.
+- Efficiency tests count and compare; they never time. Timings belong in a
+  dogfood probe.

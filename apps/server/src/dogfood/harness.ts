@@ -33,14 +33,19 @@ export function scrub(src: string, strings: boolean): string {
   return out;
 }
 
-/** The demo plus a week of the simulator's fast signals, recorded through `decide` like the real webhook would. */
-export function withLiveWeek(demo: readonly RuEvent[], start: number): RuEvent[] {
+/** The signals the simulator keeps moving at its 30 s tick. */
+export const FAST_SIGNALS = PROFILES.filter((p) => p.cadenceHours <= 6 && !p.pass);
+
+/**
+ * The demo plus a week of the simulator's fast signals, recorded through `decide` like the real webhook would.
+ * Shorter spans exist for the tests; the probes always use the week, which is what their versions were defined over.
+ */
+export function withLiveWeek(demo: readonly RuEvent[], start: number, days = 7): RuEvent[] {
   const events = [...demo];
   const u = project(events);
-  const fast = PROFILES.filter((p) => p.cadenceHours <= 6 && !p.pass);
-  for (let t = start + 30_000; t <= start + 7 * 24 * 3.6e6; t += 30_000) {
+  for (let t = start + 30_000; t <= start + days * 24 * 3.6e6; t += 30_000) {
     const at = new Date(t).toISOString();
-    for (const p of fast) {
+    for (const p of FAST_SIGNALS) {
       const cmd = parseCommand({ type: 'reading.record', data: { nodeId: p.id, value: p.base, observedAt: at, source: p.source } });
       for (const e of decide(u, cmd, { now: at, actor: 'ingest', sources: new Map() })) {
         const ev = { ...e, seq: events.length + 1 } as RuEvent;

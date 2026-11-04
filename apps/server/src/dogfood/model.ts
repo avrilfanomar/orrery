@@ -115,10 +115,11 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     description: 'Not yet refined. Candidate measure: statement coverage of packages/core.', reason: 'Left as a stub: coverage needs @vitest/coverage-v8, which the repo does not install yet',
   },
 
-  // --- the console stays fast ---------------------------------------------
+  // --- the console stays fast and frugal ----------------------------------
   {
-    id: 'g-fast', kind: 'goal', parentId: 'ru', title: 'The console stays fast at realistic scale', priority: 'high', dimensions: ['efficient'], owner: OWNER,
-    description: 'ADR 0001 recomputes the projection per request and names reading volume as its revisit trigger; this goal watches that trigger.',
+    id: 'g-fast', kind: 'goal', parentId: 'ru', title: 'The console stays fast and frugal at realistic scale', priority: 'high', dimensions: ['efficient'], owner: OWNER,
+    description:
+      'ADR 0001 recomputes the projection per request and names reading volume as its revisit trigger; this goal watches that trigger. ADR 0004: the suite pins how cost scales (machine-independent), the probes measure how big it is on one machine — time behaviour, resource use and capacity, at demo scale and after a week of live signals.',
   },
   { id: 'r-view', kind: 'requirement', parentId: 'g-fast', title: 'A full view answers within interactive time', priority: 'high', dimensions: ['efficient'] },
   {
@@ -128,6 +129,45 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
     id: 'k-view-week', kind: 'kpi', parentId: 'r-view', title: 'Universe view after a week of live signals (median)', priority: 'medium', dimensions: ['efficient'],
     measure: m('ms', 'lower', 400, 1000), probe: 'view-ms-week', reason: 'The README’s simulator volume for a week (~124k events). Baseline 246 ms; a breach is ADR 0001’s cue for snapshots',
+  },
+  { id: 'r-write', kind: 'requirement', parentId: 'g-fast', title: 'A command or a reading lands within interactive time', priority: 'high', dimensions: ['efficient'] },
+  {
+    id: 'k-write-week', kind: 'kpi', parentId: 'r-write', title: 'Recording one reading after a week of live signals (median)', priority: 'high', dimensions: ['efficient'],
+    measure: m('ms', 'lower', 150, 400), probe: 'write-ms-week', reason: 'Every command and webhook push projects the whole log before `decide` sees it. Baseline 68 ms',
+  },
+  {
+    id: 's-capacity', kind: 'scenario', parentId: 'r-write', title: 'A full ingestion batch is accepted in one request', priority: 'medium', dimensions: ['efficient'], measure: pass, probe: 'suite-capacity',
+    scenario: { stimulus: 'A batch at the documented limit with every field at its longest, then one reading more', environment: 'API tests', response: 'The full batch is accepted whole; one more is refused with 400 and leaves nothing behind — never cut off first by the body limit' },
+  },
+  { id: 'r-start', kind: 'requirement', parentId: 'g-fast', title: 'A restart is back within seconds, even with a week of history', priority: 'medium', dimensions: ['efficient', 'operable'] },
+  {
+    id: 'k-start-week', kind: 'kpi', parentId: 'r-start', title: 'Loading a week of live signals to the first view (median)', priority: 'medium', dimensions: ['efficient'],
+    measure: m('s', 'lower', 3, 6), probe: 'start-s-week', reason: '`pnpm dev` restarts the server on every code change. Baseline 1.6 s, most of it checking each stored line against the schema',
+  },
+  {
+    id: 'r-frugal', kind: 'requirement', parentId: 'g-fast', title: 'Cost grows with the log and the model, and no faster', priority: 'high', dimensions: ['efficient'],
+    description: 'Re-projecting per request is linear in the log by design (ADR 0001). A second fold per node, per day or per reading, or an answer that grows with the readings, would not be.',
+  },
+  {
+    id: 's-log-passes', kind: 'scenario', parentId: 'r-frugal', title: 'Every request reads the log a fixed number of times', priority: 'high', dimensions: ['efficient'], measure: pass, probe: 'suite-log-passes',
+    scenario: { stimulus: 'Ten times the nodes, sixty ribbon days instead of fourteen, a batch of a thousand readings instead of one', environment: 'Unit and API tests that count reads of the event array', response: 'Reads per stored event stay the same, and a batch is decided against one projection' },
+  },
+  {
+    id: 's-answer-size', kind: 'scenario', parentId: 'r-frugal', title: 'Answers grow with the model, not with the readings', priority: 'medium', dimensions: ['efficient'], measure: pass, probe: 'suite-answer-size',
+    scenario: { stimulus: 'Ten times the readings under the same nodes; a month of readings every six minutes', environment: 'Unit tests', response: 'The universe view keeps its size; sparklines, series and the change feed stay within their caps' },
+  },
+  {
+    id: 'k-heap-week', kind: 'kpi', parentId: 'r-frugal', title: 'Heap held after loading a week of live signals', priority: 'medium', dimensions: ['efficient'], measure: m('MB', 'lower', 64, 128),
+    probe: 'heap-mb-week', reason: 'The whole log lives in memory between requests. Baseline 37 MB (~300 bytes per event)',
+  },
+  {
+    id: 'k-payload-week', kind: 'kpi', parentId: 'r-frugal', title: 'Universe response after a week of live signals (gzip)', priority: 'low', dimensions: ['efficient'], measure: m('kB', 'lower', 16, 32),
+    probe: 'universe-gzip-week', reason: 'Every open console fetches it every 5 s. Baseline 6.8 kB',
+  },
+  {
+    id: 's-bench', kind: 'scenario', parentId: 'g-fast', title: 'Timing benchmarks measure the same workload on every run', priority: 'high', dimensions: ['efficient', 'reliable'], measure: pass, probe: 'suite-bench-workload',
+    scenario: { stimulus: 'The benchmark workloads are generated twice; the demo or the simulator’s fast signals change', environment: 'Unit tests over the workloads exactly as the probes get them', response: 'Both runs give identical events, and a change in their size fails until every workload probe moves to a new version' },
+    reason: 'Without it, an edit to demo.ts would silently change what every timing means (ADR 0004)',
   },
   { id: 'r-light', kind: 'requirement', parentId: 'g-fast', title: 'The console loads light', priority: 'medium', dimensions: ['efficient', 'usable'] },
   {

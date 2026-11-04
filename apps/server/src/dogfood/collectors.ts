@@ -187,6 +187,12 @@ export function gitSnapshot(root: string): GitSnapshot {
 /** Tracked files only: the measurement describes committed code, not stray local files. */
 export const trackedFiles = (root: string): string[] => git(root, ['ls-files']).split('\n').filter(Boolean);
 
+const median = (t: number[]) => {
+  t.sort((a, b) => a - b);
+  const mid = t.length >> 1;
+  return t.length % 2 ? t[mid]! : (t[mid - 1]! + t[mid]!) / 2;
+};
+
 /** Median wall time of `fn` after warm-up runs, so one GC pause or JIT tier-up does not decide the number. */
 export function medianMs(fn: () => unknown, warmup: number, runs: number): number {
   for (let i = 0; i < warmup; i++) fn();
@@ -196,7 +202,17 @@ export function medianMs(fn: () => unknown, warmup: number, runs: number): numbe
     fn();
     t.push(performance.now() - s);
   }
-  t.sort((a, b) => a - b);
-  const mid = t.length >> 1;
-  return t.length % 2 ? t[mid]! : (t[mid - 1]! + t[mid]!) / 2;
+  return median(t);
+}
+
+/** The same for work that crosses an `await`, such as a request through `inject`. */
+export async function medianMsAsync(fn: () => Promise<unknown>, warmup: number, runs: number): Promise<number> {
+  for (let i = 0; i < warmup; i++) await fn();
+  const t: number[] = [];
+  for (let i = 0; i < runs; i++) {
+    const s = performance.now();
+    await fn();
+    t.push(performance.now() - s);
+  }
+  return median(t);
 }

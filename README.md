@@ -28,7 +28,8 @@ allowed to evolve without rewriting its past.
 The four design decisions behind this are in
 [ADR 0001](docs/adr/0001-one-graph-append-only-evolution.md). How metrics bind to
 Prometheus and Grafana is in [ADR 0002](docs/adr/0002-metrics-bind-to-configured-sources.md).
-How the repository measures itself is in [ADR 0003](docs/adr/0003-the-repository-measures-itself.md).
+How the repository measures itself is in [ADR 0003](docs/adr/0003-the-repository-measures-itself.md),
+and how its efficiency is tested is in [ADR 0004](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md).
 
 ## Run it
 
@@ -83,7 +84,7 @@ readings come from versioned probes in
 [`probes.ts`](apps/server/src/dogfood/probes.ts).
 
 ```bash
-pnpm dogfood          # sync the model, measure, record, print the tree (~30 s)
+pnpm dogfood          # sync the model, measure, record, print the tree (~50 s)
 pnpm dogfood:serve    # the dogfood universe in the console on :4711
 ```
 
@@ -93,7 +94,7 @@ The five goals:
 |---|---|
 | *The model tells the truth* | the CLAUDE.md invariants: the log contract on load, writes only through `decide`, unknown never green, readings judged by the definition in force |
 | *Changing it stays safe and cheap* | core purity, type errors, module size, verification time |
-| *The console stays fast at realistic scale* | view time at demo scale and after a week of live signals, UI bundle size |
+| *The console stays fast and frugal at realistic scale* | after a week of live signals: view, write and restart time, heap and response size; the UI bundle; and, pinned by the suite, how cost scales, the batch limit and a fixed benchmark workload |
 | *Running it exposes nothing it shouldn't* | source and pull guards, dependency advisories |
 | *People can follow it end to end* | the demo story, the browser smoke test against the real server, doc links |
 
@@ -112,7 +113,12 @@ How a measurement is kept consistent:
   `pnpm audit` and no browser for the smoke test. The node goes stale and reads
   unknown, never green.
 - **Benchmarks use a fixed workload** (seed 7, fixed date): warm-up runs, then
-  the median. Compare timings within one `RU_PROBE_ENV` only.
+  the median. Compare timings within one `RU_PROBE_ENV` only. The workload's
+  size is pinned. If an edit to the demo changes it, the tests ask for a new
+  version of every probe that uses it.
+- **Efficiency is tested twice** (ADR 0004). The suite pins how cost scales
+  (reads of the log per request, answer size, the batch limit) without a clock.
+  The probes measure how big each cost is on this machine.
 
 **To change the model**, edit `model.ts` and commit. `pnpm dogfood` turns the
 difference into reasoned commands. The reason is `--reason "…"`, or the model's
