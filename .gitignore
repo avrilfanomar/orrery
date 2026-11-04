@@ -6,3 +6,4 @@ data/*.jsonl
 .DS_Store
 .vite/
 smoke-failure.png
+.idea/
