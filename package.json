@@ -1,0 +1,24 @@
+{
+  "name": "requirement-universe",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Requirements, constraints and quality KPIs as one living, observable graph — a proof of concept",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web,sim -c blue,green,yellow \"pnpm --filter @ru/server dev\" \"pnpm --filter @ru/web dev\" \"pnpm --filter @ru/server simulate\"",
+    "start": "pnpm --filter @ru/web build && pnpm --filter @ru/server start",
+    "simulate": "pnpm --filter @ru/server simulate",
+    "reset": "pnpm --filter @ru/server reset",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "verify": "pnpm typecheck && pnpm test && pnpm --filter @ru/web build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.9",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}
