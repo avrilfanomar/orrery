@@ -1,6 +1,7 @@
 {
   "name": "requirement-universe",
   "private": true,
+  "license": "Apache-2.0",
   "version": "0.1.0",
   "description": "Requirements, constraints and quality KPIs as one living, observable graph — a proof of concept",
   "type": "module",

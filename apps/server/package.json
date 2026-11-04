@@ -2,6 +2,7 @@
   "name": "@ru/server",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "description": "HTTP API, append-only event store, demo seed and live signal simulator",
   "scripts": {

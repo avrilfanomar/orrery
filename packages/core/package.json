@@ -2,6 +2,7 @@
   "name": "@ru/core",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "description": "The pure domain: node graph, append-only events, projection, evaluation and rollup",
   "exports": {

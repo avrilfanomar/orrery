@@ -2,6 +2,7 @@
   "name": "@ru/web",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "description": "The progressive-disclosure UI: outline, focus view, drill-down, time travel",
   "scripts": {
