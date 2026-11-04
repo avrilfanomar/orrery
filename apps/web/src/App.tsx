@@ -56,9 +56,17 @@ export function App() {
     <div className={`app${view.live ? '' : ' is-past'}${universe.isPlaceholderData ? ' is-refetching' : ''}`}>
       <header className="topbar">
         <button type="button" className="brand" onClick={() => rootId && focus(rootId)}>
-          <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-            <circle cx="16" cy="16" r="12.5" fill="none" stroke="var(--accent)" strokeWidth="3" />
-            <circle cx="16" cy="16" r="5" fill="var(--accent)" />
+          <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+            {/* docs/brand/logo-small.svg: the apex is the worst of its children, and the amber edge is the signal behind it */}
+            <g fill="none" stroke="var(--muted)" strokeWidth="2.8" strokeLinecap="round">
+              <line x1="13.66" y1="11.61" x2="7.62" y2="21.59" />
+              <line x1="17.74" y1="11.61" x2="23.47" y2="21.07" />
+            </g>
+            <line x1="15.7" y1="13.65" x2="15.7" y2="20.35" stroke="var(--st-warn)" strokeWidth="2.8" strokeLinecap="round" />
+            <polygon points="15.7,2.85 21.1,8.25 15.7,13.65 10.3,8.25" fill="var(--st-warn)" />
+            <circle cx="5.7" cy="24.75" r="3.7" fill="var(--st-ok)" />
+            <polygon points="15.7,20.35 20.1,24.75 15.7,29.15 11.3,24.75" fill="var(--st-warn)" />
+            <circle cx="25.7" cy="24.75" r="3.15" fill="none" stroke="var(--st-unknown)" strokeWidth="2.3" strokeDasharray="3.2 2.2" />
           </svg>
           <span>Requirement Universe</span>
         </button>

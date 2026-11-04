@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.svg">
+    <img src="docs/brand/logo.svg" alt="Requirement Universe" width="380">
+  </picture>
+</p>
+
 # Requirement Universe
 
 **Requirements, constraints and business + quality KPIs as one living,
