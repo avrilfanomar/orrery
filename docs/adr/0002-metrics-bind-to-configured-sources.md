@@ -43,7 +43,7 @@ Five facts constrain the shape:
 ### 1. Three pieces, kept apart: source, binding, dashboard link
 
 **A source** is a connection that the operator configures in a JSON file named
-by `RU_SOURCES_FILE`. It holds an id, a kind, the URL the server fetches from,
+by `ORRERY_SOURCES_FILE`. It holds an id, a kind, the URL the server fetches from,
 an optional `publicUrl` that people may be sent to, an optional token
 (referenced by the *name* of an environment variable), and the pull cadence.
 None of it ever enters the log.
@@ -53,7 +53,7 @@ None of it ever enters the log.
   { "id": "prometheus", "kind": "prometheus", "url": "http://prometheus:9090",
     "publicUrl": "https://prometheus.example.com", "stepSeconds": 300 },
   { "id": "grafana-prod", "kind": "prometheus", "url": "https://grafana.example.com",
-    "grafana": { "datasourceUid": "P1809F7CD0C75ACF3" }, "tokenEnv": "RU_GRAFANA_TOKEN",
+    "grafana": { "datasourceUid": "P1809F7CD0C75ACF3" }, "tokenEnv": "ORRERY_GRAFANA_TOKEN",
     "publicUrl": "https://grafana.example.com" }
 ]
 ```
@@ -203,7 +203,7 @@ appear.
 
 ### 5. Configuration fails fast; a missing token fails closed
 
-- Unset `RU_SOURCES_FILE`, or a file containing `[]`: no collector starts, and
+- Unset `ORRERY_SOURCES_FILE`, or a file containing `[]`: no collector starts, and
   `pnpm dev`, the simulator and the tests need no Prometheus.
 - The server **refuses to start** if the file is missing, is not JSON, or has
   any of these: a duplicate id, an unknown kind, a URL with credentials or a
@@ -213,7 +213,7 @@ appear.
   never queried. That satisfies operable's "degrade, don't crash" and secure's
   "never send an unauthenticated request" together.
 - With sources configured, the server **refuses to listen on a non-loopback
-  `HOST`** unless `RU_ALLOW_REMOTE=1` is set. Commands are unauthenticated, and
+  `HOST`** unless `ORRERY_ALLOW_REMOTE=1` is set. Commands are unauthenticated, and
   anyone who can bind a query can turn the server's token into a PromQL oracle
   whose answers land permanently in the log. This keeps "only while local"
   backed by a mechanism instead of a sentence.

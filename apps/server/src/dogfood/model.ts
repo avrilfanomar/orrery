@@ -310,7 +310,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
     id: 's-documented-ops', kind: 'scenario', parentId: 'r-installable', title: 'The commands and the Node floor the docs state are the real ones', priority: 'low', dimensions: ['operable', 'usable'], measure: pass, probe: 'suite-documented-operations',
     scenario: { stimulus: 'Every pnpm command in README.md and CLAUDE.md, the Node floor, and a relative path in a setting', environment: 'Tests reading the docs and the manifests', response: 'Each command names a script that exists; engines, .nvmrc, the README and @types/node agree on the floor; a relative path is read from where the command was typed' },
-    reason: 'The README’s `RU_SOURCES_FILE=sources.json pnpm dev` looked for the file in apps/server until ADR 0007',
+    reason: 'The README’s `ORRERY_SOURCES_FILE=sources.json pnpm dev` looked for the file in apps/server until ADR 0007',
   },
   {
     id: 'r-start-checked', kind: 'requirement', parentId: 'g-operate', title: 'A bad setting or a damaged log stops it at start, naming what to fix', priority: 'high', dimensions: ['operable', 'reliable'],
@@ -319,7 +319,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
     id: 's-startup-refusals', kind: 'scenario', parentId: 'r-start-checked', title: 'Every setting is taken or refused by name, and a damaged log names its line', priority: 'high', dimensions: ['operable', 'reliable'], measure: pass, probe: 'suite-startup-refusals',
     scenario: { stimulus: 'Malformed, empty and valid settings, a log cut off mid-write, a line that is not an event, a missing or broken sources file', environment: 'API tests, and the real server and simulator entry points', response: 'Each fault is refused before anything is opened or served, naming the variable and value or the file and line; an empty setting takes its default, and a valid one takes effect' },
-    reason: 'Until ADR 0007 an empty HOST bound every interface, an empty PORT a random one, an empty RU_DATA_FILE kept the log in memory, and a malformed RU_SIM_TICK_MS pushed readings every millisecond',
+    reason: 'Until ADR 0007 an empty HOST bound every interface, an empty PORT a random one, an empty ORRERY_DATA_FILE kept the log in memory, and a malformed ORRERY_SIM_TICK_MS pushed readings every millisecond',
   },
   {
     id: 'k-settings-unchecked', kind: 'kpi', parentId: 'r-start-checked', title: 'Settings read outside settings.ts', priority: 'medium', dimensions: ['operable'], measure: zero('reads'), probe: 'settings-unchecked',

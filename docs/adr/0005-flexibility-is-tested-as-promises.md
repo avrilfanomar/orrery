@@ -90,7 +90,7 @@ out because the platform defines it. A dynamic read such as
 
 **`seam-crossings`** resolves every source import against four boundaries:
 
-- core is used only through its entry, `@ru/core`;
+- core is used only through its entry, `@orrery/core`;
 - core depends on no app;
 - the UI and the server share only core and HTTP;
 - only the collector talks to a source adapter (ADR 0002, decision 4).
@@ -194,8 +194,8 @@ Each test and probe was shown to fail by breaking the code on purpose:
 | the health row removed from the README | the route test |
 | `unlink` removed from the README's command list | the command test |
 | the webhook example pointing at an unknown node | the example test |
-| a new `process.env.RU_BIND` read | `config-undocumented` = 1 |
-| an import of `@ru/core/src/log.js` in the UI | `seam-crossings` = 1 |
+| a new `process.env.ORRERY_BIND` read | `config-undocumented` = 1 |
+| an import of `@orrery/core/src/log.js` in the UI | `seam-crossings` = 1 |
 | a `fetch` in `route.ts` | `seam-crossings` = 1 |
 | `app.ts` importing the Prometheus adapter | `seam-crossings` = 1 |
 | an `rgb()` colour in a CSS rule | `theme-literals` = 8 |

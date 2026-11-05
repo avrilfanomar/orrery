@@ -178,4 +178,4 @@ Left out on purpose:
 - **Snapshots or incremental projection land** (ADR 0001's revisit). The
   pass-count tests then pin a different shape.
 - **The dogfood runs in CI.** Heap and timings there need their own
-  `RU_PROBE_ENV`.
+  `ORRERY_PROBE_ENV`.

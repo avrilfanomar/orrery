@@ -32,14 +32,14 @@ files, and each file parsed its own.
   invalid, so it read "not running" and would have deleted a live log.
 - An empty `PORT` meant port 0, so the server listened on a random port. A
   malformed `PORT` failed with Fastify's message, which never names `PORT`.
-- An empty `RU_DATA_FILE` kept the log in memory. Every write was lost on
+- An empty `ORRERY_DATA_FILE` kept the log in memory. Every write was lost on
   restart, and nothing said so.
-- An empty `RU_WEB_DIST` served no UI.
-- A malformed, zero or too-large `RU_SIM_TICK_MS` made `setInterval` fire every
+- An empty `ORRERY_WEB_DIST` served no UI.
+- A malformed, zero or too-large `ORRERY_SIM_TICK_MS` made `setInterval` fire every
   millisecond: 74 ticks in 100 ms, each a webhook request.
-- An `RU_API` without `http://` left the simulator waiting forever, catching
+- An `ORRERY_API` without `http://` left the simulator waiting forever, catching
   each failed fetch as "not up yet".
-- The README's own `RU_SOURCES_FILE=sources.json pnpm dev` looked for the file
+- The README's own `ORRERY_SOURCES_FILE=sources.json pnpm dev` looked for the file
   in `apps/server`, because pnpm runs a package's scripts in that package's
   directory.
 
@@ -71,7 +71,7 @@ works, and takes under a second.
 setting of the server, the simulator, `reset` and the dogfood. The rule:
 
 - **An empty value means unset**, as `${VAR:-default}` does in a shell. The
-  smoke harness already cleared `RU_SOURCES_FILE` this way.
+  smoke harness already cleared `ORRERY_SOURCES_FILE` this way.
 - **Anything else must parse.** Otherwise the process stops before it opens or
   serves anything, naming the variable and the value.
 - **A relative path is read from where the command was typed.** pnpm passes
@@ -84,9 +84,9 @@ The checks:
 | Setting | Must be |
 |---|---|
 | ports | 1–65535 |
-| `RU_SIM_TICK_MS` | 1 s to 1 day. `setInterval` turns anything outside 1 ms–24.8 days into 1 ms |
+| `ORRERY_SIM_TICK_MS` | 1 s to 1 day. `setInterval` turns anything outside 1 ms–24.8 days into 1 ms |
 | URLs | http(s) |
-| `RU_ALLOW_REMOTE` | `1` or `0` |
+| `ORRERY_ALLOW_REMOTE` | `1` or `0` |
 | `NO_COLOR` | any value turns colour off, per no-color.org |
 
 The web dev server and the smoke script cannot import the server's module,
@@ -115,7 +115,7 @@ has one outermost `describe` per contract:
 
 | `describe` | What it pins | Scenario |
 |---|---|---|
-| startup refusals explain themselves | 14 malformed values, each refused with the variable and the value. Every setting left empty or blank equals its default. A valid value for every setting takes effect, and the real server starts on its log, seed and ingest token. It refuses a non-loopback host with sources configured while `RU_ALLOW_REMOTE` is `0`. A torn last line, a non-JSON line and a non-event line are refused naming the file and line. A missing or broken sources file is refused naming it. The real `main.ts` and `simulate.ts` exit non-zero, and the log file is never created. A completeness check: every `env.<NAME>` that `settings.ts` reads has a row | `s-startup-refusals` |
+| startup refusals explain themselves | 14 malformed values, each refused with the variable and the value. Every setting left empty or blank equals its default. A valid value for every setting takes effect, and the real server starts on its log, seed and ingest token. It refuses a non-loopback host with sources configured while `ORRERY_ALLOW_REMOTE` is `0`. A torn last line, a non-JSON line and a non-event line are refused naming the file and line. A missing or broken sources file is refused naming it. The real `main.ts` and `simulate.ts` exit non-zero, and the log file is never created. A completeness check: every `env.<NAME>` that `settings.ts` reads has a row | `s-startup-refusals` |
 | failures are visible | Health reports the events held and when the last landed, and both move after a write. A request that fails inside the server gets 500 with an id and no internal text. The log holds the error and its stack under that id | `s-visible` |
 | recovery | Four answers are byte-identical after a restart on the same log. A source goes down for two hours: nothing is recorded, `/api/sources` says `failing`, the node reads unknown, and the collector logs the change once. When it is back, every missed minute is recorded once, with no gap, and the recovery is logged | `s-recovery` |
 | on the record | Both seeded universes, and every evolution command sent under a named author. Every event has an author and an exact instant. Every change of meaning, place or lifecycle has a reason, and the feed reports each change faithfully. A past day's universe, feed and node answers are identical after later writes, including a reading backdated before that day | `s-audit` |
@@ -150,7 +150,7 @@ Its scope is `apps/server/src`, since the web code cannot use the module. It
 needs no allowlist: the only place allowed is `settings.ts`.
 
 **`licences-unapproved`** counts what is shipped (`pnpm licenses list --prod`):
-the server's runtime, and the UI bundle's dependencies, which `@ru/web` lists
+the server's runtime, and the UI bundle's dependencies, which `@orrery/web` lists
 under `dependencies`.
 - **Build and test tools are left out.** They are not redistributed. One of
   them, a platform binary rollup pulls in, declares no licence, so the full
@@ -225,12 +225,12 @@ Left out on purpose:
 ## Consequences
 
 - **Operators see different behaviour.**
-  - An empty `HOST`, `PORT`, `RU_DATA_FILE` or `RU_WEB_DIST` now takes its
+  - An empty `HOST`, `PORT`, `ORRERY_DATA_FILE` or `ORRERY_WEB_DIST` now takes its
     default instead of being misread.
   - Values that used to start now stop the process, naming the variable.
-    Examples: `RU_ALLOW_REMOTE=true`, which was silently ignored;
-    `RU_SIM_TICK_MS=500`; a schemeless `RU_API`.
-  - `RU_DATA_FILE=x.jsonl pnpm dev` used to write `apps/server/x.jsonl`. It now
+    Examples: `ORRERY_ALLOW_REMOTE=true`, which was silently ignored;
+    `ORRERY_SIM_TICK_MS=500`; a schemeless `ORRERY_API`.
+  - `ORRERY_DATA_FILE=x.jsonl pnpm dev` used to write `apps/server/x.jsonl`. It now
     writes `x.jsonl` in the directory the command was typed in.
 - **The API gains two fields:** `lastEventAt` on `/api/health`, and
   `requestId` on a 500.
@@ -249,7 +249,7 @@ Left out on purpose:
   - `dogfood:serve` seeded its own log and answered.
 - **The fresh-clone probe caught the committed code.** In the dry run before
   this commit, it cloned HEAD, which predates the settings module. The clone's
-  server read the cleared `RU_WEB_DIST=''` as "no UI", and the probe failed
+  server read the cleared `ORRERY_WEB_DIST=''` as "no UI", and the probe failed
   with "the server answers, but does not serve the built UI". That is one of
   the bugs in Context.
 - **Findings, not fixed here:**
@@ -272,10 +272,10 @@ Each test and probe was shown to fail by breaking the code on purpose:
 |---|---|
 | an empty setting read as given | the empty-setting test |
 | `JSON.parse` in the store without the wrapper | the damaged-log test |
-| `RU_SIM_TICK_MS` read with `Number()` | its three refusal cases, the empty-setting test and the entry-point test |
+| `ORRERY_SIM_TICK_MS` read with `Number()` | its three refusal cases, the empty-setting test and the entry-point test |
 | `main.ts` reading `PORT` itself | the entry-point test |
-| `RU_ALLOW_REMOTE=0` read as allowed | the valid-values test and the server test |
-| `RU_INGEST_TOKEN` dropped by the settings | the valid-values test and the server test |
+| `ORRERY_ALLOW_REMOTE=0` read as allowed | the valid-values test and the server test |
+| `ORRERY_INGEST_TOKEN` dropped by the settings | the valid-values test and the server test |
 | the token not passed from `startServer` to the app | the server test |
 | the error logged on the app logger | the internal-error test |
 | the 500 without `requestId` | the internal-error test |
@@ -286,7 +286,7 @@ Each test and probe was shown to fail by breaking the code on purpose:
 | a script renamed in `package.json` | the commands test |
 | `.nvmrc` moved to 22 | the Node-floor test |
 | relative paths read from the working directory | the relative-path test |
-| `server.ts` reading `RU_SOURCES_FILE` itself | `settings-unchecked` = 1 |
+| `server.ts` reading `ORRERY_SOURCES_FILE` itself | `settings-unchecked` = 1 |
 | `BlueOak-1.0.0` dropped from the allowlist | `licences-unapproved` = 8 |
 | HEAD before this commit, cloned | `fresh-clone` = 0 |
 

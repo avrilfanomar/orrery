@@ -152,7 +152,7 @@ Left out on purpose:
   relative import lacks `.js` (checked: 0). There is no lint configuration
   whose drift a probe could count.
 - **Unused exports.** The baseline was 45 of 257. Nearly all were types used
-  in signatures or the public surface of `@ru/core`, so the count would mostly
+  in signatures or the public surface of `@orrery/core`, so the count would mostly
   measure style.
 
 ## Consequences

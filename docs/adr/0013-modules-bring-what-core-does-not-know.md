@@ -47,7 +47,7 @@ the server's config and the console, in step.
 
 ### 2. A module implements the kit
 
-`@ru/module-kit` (`packages/module-kit`) is the contract. It is types plus one
+`@orrery/module-kit` (`packages/module-kit`) is the contract. It is types plus one
 helper, `defineSourceKind`. A module may bring:
 
 - **Query languages:** an id, a label, a hint saying what a query must return,
@@ -65,7 +65,7 @@ credential it was never given.
 
 ### 3. Prometheus is a module; the dogfood brings `probe`
 
-- `@ru/prometheus` (`packages/prometheus`) brings PromQL and the `prometheus`
+- `@orrery/prometheus` (`packages/prometheus`) brings PromQL and the `prometheus`
   kind. Grafana stays what ADR 0002 made it: a route to Prometheus, now a
   setting of this kind rather than of every source.
 - The dogfood brings the `probe` language from
@@ -133,7 +133,7 @@ Both new packages live under `packages/`, so every probe that scans
 | Pinned by | What it holds |
 |---|---|
 | `seam-crossings` v2 | Its rules now say which package may load which: <ul><li>a package is used through its entry;</li><li>core depends on no other package or app;</li><li>a module depends only on core and the kit;</li><li>the UI and the server share only core and HTTP;</li><li>only the registry installs a module.</li></ul> A call of `.queryRange(` outside the collector counts as well. The v1 rule was keyed to the adapter's old path and could no longer fire. |
-| `import-cycles` v2 | Resolves every `@ru/<name>` to its entry, so a cycle through a module counts. |
+| `import-cycles` v2 | Resolves every `@orrery/<name>` to its entry, so a cycle through a module counts. |
 | `type-errors` v2 | Checks every workspace package with a tsconfig, so a new module is checked without anyone listing it. |
 | `dogfood.test.ts` | Each seam, crossed once, is counted, and each import the layout allows is not. |
 | `sources.test.ts` (server) | The registry is sound; Prometheus is reached directly and through Grafana; the Explore link carries the query. |

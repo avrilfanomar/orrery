@@ -52,7 +52,7 @@ and H8 is hardening.
 | H1 | **Any Host was answered.** A page on a rebound name reads and writes as if it were the console | `GET /api/universe` with `Host: attacker.example` returned 200; a `node.create` with it returned 201. With sources configured, the page can bind a query and read its answer back from the log: the oracle ADR 0002 meant to close |
 | H2 | **Cross-site writes were refused by accident.** A page may send `text/plain`, form or multipart bodies to another origin without asking. Fastify parses `text/plain` into a string, and the command schema then refuses it with 400 | Nothing checked where a write came from. A body parser added later (form, or `text/plain` read as JSON) would have opened every command to every page |
 | H3 | **No security headers.** Nothing forbade framing the console, loading code from elsewhere into it, or sniffing a type | A page could frame the console and trick a click on *Publish* or *Record*. No policy stood behind React's escaping |
-| H4 | **The ingest token guarded a route, not readings.** `RU_INGEST_TOKEN` was checked only on `POST /api/readings` | A `reading.record` command with no token and `"source": "prometheus"` returned 201. Any caller could also sign as `ingest`, the webhook's actor, in `x-actor` |
+| H4 | **The ingest token guarded a route, not readings.** `ORRERY_INGEST_TOKEN` was checked only on `POST /api/readings` | A `reading.record` command with no token and `"source": "prometheus"` returned 201. Any caller could also sign as `ingest`, the webhook's actor, in `x-actor` |
 | H5 | **One request could stall the server.** zod 3 reads every element of an array before it checks the array's length limit | One 3.8 MB command holding 1.9 million links blocked the event loop for 12.7 s and grew the process to about 1.9 GB. Two at once could exhaust the heap. This is GHSA-mrhx-c7xc-m3w5. The new test, run under zod 3, crashed vitest with "JavaScript heap out of memory" |
 | H6 | **Known advisories in what it runs** (`k-vulns` = 4): @fastify/static, path traversal past route guards (high, GHSA-83w8-p2f5-377r); zod (high, H5); tinypool, prototype-pollution gadgets to code execution (2 critical, dev only through vitest) | The server serves its UI through the first and parses every request with the second |
 | H7 | **A refusal left no trace.** A 401 was a normal reply, so nothing reached the server's log | An operator could not tell that someone was guessing tokens |
@@ -81,7 +81,7 @@ hook, before its body is read.
   - `localhost` and the names under it, which browsers resolve to loopback
     themselves;
   - the name in `HOST`, when it is a name;
-  - the names in the new setting `RU_ALLOWED_HOSTS` (`.example.org` covers
+  - the names in the new setting `ORRERY_ALLOWED_HOSTS` (`.example.org` covers
     every name under it).
 
   Any other `Host` gets a 403 naming the setting. Rebinding needs a name the
@@ -117,7 +117,7 @@ hook, before its body is read.
 
 ### 2. A reading needs the ingest token, by any route (H4, H8)
 
-With `RU_INGEST_TOKEN` set, a `reading.record` command needs the same bearer
+With `ORRERY_INGEST_TOKEN` set, a `reading.record` command needs the same bearer
 token as the webhook. Without it, the command gets the webhook's 401, "A valid
 ingest token is required".
 - **The token guards readings, not the model.** Other commands stay as open as
@@ -182,7 +182,7 @@ holds the `Authorization` header.
 
 | `describe` | File | What it pins | Scenario |
 |---|---|---|---|
-| a web page the operator visits cannot act through the API | `apps/server/test/security.test.ts` | Allowed names, from IP addresses to listed domains, are answered; rebound, look-alike and malformed names get 403 on reads and writes. Writes from other origins and the null origin are refused, and the console's own writes and clients with no Origin go through. `text/plain`, form and multipart bodies never become a change, even with no Origin. The headers are on pages, deep links, API answers and refusals. The real server takes `RU_ALLOWED_HOSTS` | `s-browser-boundary` |
+| a web page the operator visits cannot act through the API | `apps/server/test/security.test.ts` | Allowed names, from IP addresses to listed domains, are answered; rebound, look-alike and malformed names get 403 on reads and writes. Writes from other origins and the null origin are refused, and the console's own writes and clients with no Origin go through. `text/plain`, form and multipart bodies never become a change, even with no Origin. The headers are on pages, deep links, API answers and refusals. The real server takes `ORRERY_ALLOWED_HOSTS` | `s-browser-boundary` |
 | readings need the ingest token by any route | same | No token, a wrong one, a prefix, a bare token or another scheme gets 401 by either route and writes nothing. The right token works by both. Other commands stay open. Without a token both routes take readings. The reserved actors are refused | `s-ingest-token` |
 | a refusal leaves a trace | same | Host, Origin and token refusals are each a warning with the request id, the remote address and what was named; neither the guess nor the token appears | `s-refusals-traced` |
 | no secret leaves the server | same | The canary above | `s-no-secret-out` |
@@ -232,7 +232,7 @@ worst-of. The identity stub keeps it unknown until commands know who is asking.
 | Data protection, privacy, data minimization | The log holds what people type and the names they sign with, and nothing else about them. Nothing is sent to anyone: no telemetry, outbound requests only to sources the operator configured, and a console that loads nothing from elsewhere (the CSP enforces it). The append-only log can never forget a name or a typed value: erasure is impossible by design. The dogfood log holds the maintainer's git user name 50 times; it is gitignored, and `git log --all -- data/` shows it was never committed |
 | Data localization, data sovereignty | Everything stays in one local file, on the operator's machine; no third party holds any of it |
 | Consent management | Not applicable: nothing tracks people, and nothing is collected beyond what an author types |
-| Governability, securability | Exposure is an operator's explicit choice, checked at start (`HOST`, `RU_ALLOWED_HOSTS`, `RU_ALLOW_REMOTE`, `RU_INGEST_TOKEN`; ADR 0007). One choke point, `guard`, holds every check, and CLAUDE.md names it |
+| Governability, securability | Exposure is an operator's explicit choice, checked at start (`HOST`, `ORRERY_ALLOWED_HOSTS`, `ORRERY_ALLOW_REMOTE`, `ORRERY_INGEST_TOKEN`; ADR 0007). One choke point, `guard`, holds every check, and CLAUDE.md names it |
 | Compliance | The licences of what it ships (ADR 0007). No regulated data, and no compliance is claimed |
 | Safety | ADR 0009 (`g-harmless`) |
 | Patient safety | Not applicable |
@@ -242,9 +242,9 @@ worst-of. The identity stub keeps it unknown until commands know who is asking.
 
 - **Behaviour changes:**
   - A request naming a host the server does not answer to gets 403. If you
-    reach it by a name other than `HOST`, set `RU_ALLOWED_HOSTS`.
+    reach it by a name other than `HOST`, set `ORRERY_ALLOWED_HOSTS`.
   - A write whose `Origin` is not the server's own gets 403.
-  - With `RU_INGEST_TOKEN` set, a reading recorded through commands needs the
+  - With `ORRERY_INGEST_TOKEN` set, a reading recorded through commands needs the
     token. The console cannot record one by hand.
   - `x-actor: ingest` and `x-actor: collector` get 400.
   - Every answer carries the security headers.
@@ -273,7 +273,7 @@ worst-of. The identity stub keeps it unknown until commands know who is asking.
 - **Findings, not fixed here:**
   - **Reads need no credentials.** Anyone who can reach the server reads the
     whole universe, binding queries included, which name internal metrics.
-  - **With `RU_ALLOW_REMOTE=1` the oracle is back** for everyone on that
+  - **With `ORRERY_ALLOW_REMOTE=1` the oracle is back** for everyone on that
     network, by design: the setting says the network is trusted.
   - **The server speaks plain HTTP.** Off loopback, put TLS in front of it.
   - **One token, no rotation.** It is changed by restarting with a new value,
@@ -292,7 +292,7 @@ Each test and probe was shown to fail by breaking the code on purpose:
 | a prefix of the token accepted | the token test |
 | the reserved actors emptied | the actor test |
 | refusals not logged | the trace test |
-| `RU_ALLOWED_HOSTS` not passed to the app by `server.ts` | the real-server test |
+| `ORRERY_ALLOWED_HOSTS` not passed to the app by `server.ts` | the real-server test |
 | a source's error body passed on as the failure's detail | the canary test |
 | zod 3 under the oversized test | vitest ran out of heap |
 | zod 4 without `jitless` in the console | the smoke test's console-error step |

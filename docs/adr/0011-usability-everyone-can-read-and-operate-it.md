@@ -57,7 +57,7 @@ Already in place, and not news here:
 ### 1. A browser scan the dogfood runs (U1–U5)
 
 `apps/web/e2e/a11y.mjs` runs against a running app, like the smoke test:
-`pnpm --filter @ru/web a11y`.
+`pnpm --filter @orrery/web a11y`.
 - **What it scans.** It runs axe-core (WCAG 2.2 A and AA, and best practices) on
   eight views, in both schemes:
   - the top level;

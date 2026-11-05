@@ -116,7 +116,7 @@ first time someone tightened a dogfood target by hand.
 - **One instant per run.** Every reading of a run shares one `observedAt`, so
   a run is a coherent snapshot.
 - **Provenance in the source**: `probe:<env>@<sha>`, plus `+dirty` when the
-  tree had uncommitted changes. `env` comes from `RU_PROBE_ENV` (default
+  tree had uncommitted changes. `env` comes from `ORRERY_PROBE_ENV` (default
   `local`). The `pull:` namespace stays the collector's (ADR 0002).
 
 **When it writes**
@@ -144,7 +144,7 @@ first time someone tightened a dogfood target by hand.
   sequentially, and the benchmarks run last.
 - **The UI is built fresh** into a temporary directory, never taken from
   `apps/web/dist`.
-- **Timings belong to a machine.** Compare them within one `RU_PROBE_ENV`.
+- **Timings belong to a machine.** Compare them within one `ORRERY_PROBE_ENV`.
 
 **Staleness and failures**
 - **Staleness is 192 h**: the intended cadence (after each merge to main, and
@@ -163,8 +163,8 @@ it. For example, `log-load-refuses` opens contract-breaking logs through
 - The dogfood universe lives in `data/dogfood.jsonl`, which is gitignored.
 - `pnpm dogfood:serve` serves it on :4711 with the built UI, and no simulator
   runs.
-- An empty log is seeded by an explicit choice: `RU_SEED=demo|dogfood`, used by
-  both `main.ts` and `reset.ts`. Pointing `RU_DATA_FILE` at the dogfood log
+- An empty log is seeded by an explicit choice: `ORRERY_SEED=demo|dogfood`, used by
+  both `main.ts` and `reset.ts`. Pointing `ORRERY_DATA_FILE` at the dogfood log
   therefore never plants the demo.
 - `pnpm dogfood` talks HTTP to a running dogfood server. Otherwise it opens
   the log in-process through `buildApp` and `inject`. Either way there is one
