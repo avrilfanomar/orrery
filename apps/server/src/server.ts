@@ -37,7 +37,7 @@ export async function startServer(cfg: ServerSettings, env: Env = process.env): 
     await app.close();
     throw err;
   }
-  console.log(`Requirement Universe API on http://${cfg.host}:${cfg.port} — ${store.all().length} events in ${cfg.dataFile}`);
+  console.log(`Orrery API on http://${cfg.host}:${cfg.port} — ${store.all().length} events in ${cfg.dataFile}`);
   if (sources.length) {
     collector.start();
     console.log(`Pulling bound metrics from ${sources.map((s) => `${s.id} (every ${s.stepSeconds}s)`).join(', ')}`);

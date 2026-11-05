@@ -1,4 +1,4 @@
-# Requirement Universe — agent guide
+# Orrery — agent guide
 
 A PoC platform: requirements, constraints and business/quality KPIs as one
 contribution graph with rolled-up status, progressive disclosure and

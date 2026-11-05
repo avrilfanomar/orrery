@@ -25,7 +25,7 @@ const OWNER = 'Maintainer';
 
 export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
-    id: 'ru', kind: 'product', title: 'Requirement Universe', priority: 'critical', owner: OWNER,
+    id: 'ru', kind: 'product', title: 'Orrery', priority: 'critical', owner: OWNER,
     description: 'This repository, measured by itself. Definitions live in apps/server/src/dogfood/model.ts; readings come from `pnpm dogfood` (ADR 0003).',
   },
 

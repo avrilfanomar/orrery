@@ -127,7 +127,7 @@ export function App() {
             <polygon points="15.7,20.35 20.1,24.75 15.7,29.15 11.3,24.75" fill="var(--st-warn)" />
             <circle cx="25.7" cy="24.75" r="3.15" fill="none" stroke="var(--st-unknown)" strokeWidth="2.3" strokeDasharray="3.2 2.2" />
           </svg>
-          <span>Requirement Universe</span>
+          <span>Orrery</span>
         </button>
         {root && (
           <div className="overall">

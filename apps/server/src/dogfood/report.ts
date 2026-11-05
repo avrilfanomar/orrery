@@ -13,7 +13,7 @@ export function renderReport(r: RunResult, colour: boolean): string {
   const results = new Map(r.results.map((x) => [x.node.id, x]));
   const out: string[] = [];
 
-  out.push('', `Requirement Universe — dogfood · ${r.source} · ${r.observedAt}`);
+  out.push('', `Orrery — dogfood · ${r.source} · ${r.observedAt}`);
   const pending = r.plan.length;
   if (pending === 0) out.push(dim('Model: in sync with model.ts'));
   else {

@@ -1,11 +1,11 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.svg">
-    <img src="docs/brand/logo.svg" alt="Requirement Universe" width="380">
+    <img src="docs/brand/logo.svg" alt="Orrery" width="174">
   </picture>
 </p>
 
-# Requirement Universe
+# Orrery
 
 **Requirements, constraints and business + quality KPIs as one living,
 observable graph** — seen whole from the top, explored one level at a time, and
