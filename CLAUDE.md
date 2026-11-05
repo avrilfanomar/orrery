@@ -40,6 +40,13 @@ pnpm dogfood [--dry-run]         # measure this repo against its own model (ADR 
 pnpm dogfood:serve               # that universe in the UI on :4711
 ```
 
+## Branches
+
+Work on `main`. Never create a feature branch (or a worktree on a new branch)
+unless the user explicitly asks for one in that conversation. An earlier
+request for a branch does not carry over. If a task seems to call for a branch,
+ask first.
+
 ## Conventions
 
 - TypeScript strict ESM; relative imports carry `.js`.
