@@ -1,5 +1,5 @@
 {
-  "name": "@ru/web",
+  "name": "@orrery/web",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
@@ -16,7 +16,7 @@
     "readme-gif": "node e2e/readme-gif.mjs"
   },
   "dependencies": {
-    "@ru/core": "workspace:*",
+    "@orrery/core": "workspace:*",
     "@tanstack/react-query": "^5.64.2",
     "react": "18.3.1",
     "react-dom": "18.3.1",

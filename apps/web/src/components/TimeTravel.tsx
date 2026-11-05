@@ -2,7 +2,7 @@
 // changed (targets, priorities, structure), so you can scrub to "just before
 // the target was tightened" and see the universe as it was judged then.
 import { useEffect, useRef, useState } from 'react';
-import type { TimelineEntry } from '@ru/core';
+import type { TimelineEntry } from '@orrery/core';
 import { fmtDateTime } from './bits.js';
 
 interface Props {

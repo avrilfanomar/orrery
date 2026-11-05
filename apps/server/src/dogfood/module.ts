@@ -2,7 +2,7 @@
 // binding names a repository probe as `<probe-id>@<version>` (ADR 0003). No
 // source kind runs it, so a probe binding is always provenance only; bumping
 // the version is a new query, hence a new yardstick.
-import type { OrreryModule } from '@ru/module-kit';
+import type { OrreryModule } from '@orrery/module-kit';
 
 export const DOGFOOD_MODULE: OrreryModule = {
   id: 'dogfood',

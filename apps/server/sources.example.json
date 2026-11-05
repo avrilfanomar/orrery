@@ -11,7 +11,7 @@
     "kind": "prometheus",
     "url": "http://127.0.0.1:3000",
     "grafana": { "datasourceUid": "replace-with-your-prometheus-datasource-uid" },
-    "tokenEnv": "RU_GRAFANA_TOKEN",
+    "tokenEnv": "ORRERY_GRAFANA_TOKEN",
     "publicUrl": "http://localhost:3000",
     "stepSeconds": 300
   }

@@ -50,8 +50,8 @@ async function build(dir: string): Promise<Step> {
 /** Starts the clone's server with every setting cleared but its log and port, and waits for the UI, the API and the seeded demo. */
 async function serve(ctx: ProbeContext, dir: string): Promise<Step> {
   const port = await freePort();
-  const cleared = { RU_WEB_DIST: '', RU_SOURCES_FILE: '', RU_INGEST_TOKEN: '', RU_ALLOW_REMOTE: '', INIT_CWD: '' };
-  const env = { ...process.env, ...cleared, RU_DATA_FILE: join(ctx.tmp, 'fresh-clone.jsonl'), PORT: String(port), HOST: '127.0.0.1', RU_SEED: 'demo' };
+  const cleared = { ORRERY_WEB_DIST: '', ORRERY_SOURCES_FILE: '', ORRERY_INGEST_TOKEN: '', ORRERY_ALLOW_REMOTE: '', INIT_CWD: '' };
+  const env = { ...process.env, ...cleared, ORRERY_DATA_FILE: join(ctx.tmp, 'fresh-clone.jsonl'), PORT: String(port), HOST: '127.0.0.1', ORRERY_SEED: 'demo' };
   const server = join(dir, 'apps/server');
   const started = performance.now();
   const child = spawn(join(server, 'node_modules/.bin/tsx'), ['src/main.ts'], { cwd: server, env, stdio: ['ignore', 'ignore', 'pipe'] });

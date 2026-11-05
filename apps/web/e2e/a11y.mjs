@@ -10,13 +10,13 @@
 // page at one width. The value is the number of checks that fail, not of
 // elements, so it does not grow with the demo data (ADR 0004).
 //
-//   pnpm --filter @ru/web a11y
-//   RU_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @ru/web a11y
+//   pnpm --filter @orrery/web a11y
+//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @orrery/web a11y
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright-core';
 
-const BASE = process.env.RU_URL?.trim() || 'http://127.0.0.1:4710';
+const BASE = process.env.ORRERY_URL?.trim() || 'http://127.0.0.1:4710';
 const AXE = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 const PAST = new Date(Date.now() - 5 * 864e5).toISOString();

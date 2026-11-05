@@ -269,15 +269,15 @@ export const MAINTAINABILITY_PROBES: readonly Probe[] = [
   {
     id: 'import-cycles',
     version: 2,
-    since: 'ADR 0013: code now crosses packages — the server loads the module packages, which load the kit — so every `@ru/<name>` resolves to packages/<name>/src/index.ts, not only `@ru/core`, and a cycle through a module counts',
+    since: 'ADR 0013: code now crosses packages — the server loads the module packages, which load the kit — so every `@orrery/<name>` resolves to packages/<name>/src/index.ts, not only `@orrery/core`, and a cycle through a module counts',
     method:
-      'Parses tracked packages/*/src and apps/*/src (*.ts, *.tsx) with the TypeScript compiler API and links each file to the source files it loads at run time: relative imports and re-exports, and each workspace package `@ru/<name>` as packages/<name>/src/index.ts when that file is tracked. `import type` and `export type` are erased and left out; dynamic import() is left out. The value is the number of cycles — groups of modules that reach each other — plus modules importing themselves. No reading when the compiler API cannot be loaded.',
+      'Parses tracked packages/*/src and apps/*/src (*.ts, *.tsx) with the TypeScript compiler API and links each file to the source files it loads at run time: relative imports and re-exports, and each workspace package `@orrery/<name>` as packages/<name>/src/index.ts when that file is tracked. `import type` and `export type` are erased and left out; dynamic import() is left out. The value is the number of cycles — groups of modules that reach each other — plus modules importing themselves. No reading when the compiler API cannot be loaded.',
     async measure(ctx) {
       const ts = await loadTypescript();
       if (isSkip(ts)) return ts;
       const files = new Set(sources(ctx));
       const target = (from: string, spec: string) => {
-        const entry = /^@ru\/([\w-]+)$/.exec(spec);
+        const entry = /^@orrery\/([\w-]+)$/.exec(spec);
         if (entry) return files.has(`packages/${entry[1]}/src/index.ts`) ? `packages/${entry[1]}/src/index.ts` : null;
         if (!spec.startsWith('.')) return null;
         const base = resolveImport(from, spec);

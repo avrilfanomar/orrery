@@ -10,7 +10,7 @@ import type { Probe, ProbeContext } from './probes.js';
 
 const V1 = 'First version of this method (ADR 0005)';
 const V2_SEAMS =
-  'ADR 0013: the Prometheus adapter left apps/server for the @ru/prometheus module, so the rule keyed to its old path could never fire. The seams now say which package may load which — the UI no package but core, a module only core and the kit, the server a module only through its registry — and a source adapter is reached by calling it, so that rule counts calls';
+  'ADR 0013: the Prometheus adapter left apps/server for the @orrery/prometheus module, so the rule keyed to its old path could never fire. The seams now say which package may load which — the UI no package but core, a module only core and the kit, the server a module only through its registry — and a source adapter is reached by calling it, so that rule counts calls';
 const read = (ctx: ProbeContext, f: string) => readFileSync(join(ctx.root, f), 'utf8');
 const sources = (ctx: ProbeContext, pattern: RegExp) => ctx.tracked().filter((f) => pattern.test(f));
 const tally = (hits: readonly string[]) => {
@@ -30,20 +30,20 @@ export function resolveImport(from: string, spec: string): string {
   return spec.startsWith('.') ? posix.normalize(posix.join(posix.dirname(from), spec)).replace(/\.(?:[cm]?js|tsx?|jsx)$/, '') : spec;
 }
 
-/** The package a repository path or an `@ru/` specifier belongs to (`packages/core`, `@ru/core` → `core`), or null. */
+/** The package a repository path or an `@orrery/` specifier belongs to (`packages/core`, `@orrery/core` → `core`), or null. */
 const packageOf = (t: string) => {
   const [root, name] = t.split('/');
-  return root === 'packages' || root === 'apps' || root === '@ru' ? (name ?? null) : null;
+  return root === 'packages' || root === 'apps' || root === '@orrery' ? (name ?? null) : null;
 };
 /** A module (ADR 0013): any workspace package that is not core, the kit or an app. */
-const isModule = (t: string) => /^@ru\/(?!core$|module-kit$|server$|web$)[^/]+$/.test(t);
+const isModule = (t: string) => /^@orrery\/(?!core$|module-kit$|server$|web$)[^/]+$/.test(t);
 
 /** Component boundaries no source import may cross, each kept for a reason ADR 0005 or ADR 0013 gives. */
 export const SEAMS: readonly { rule: string; crosses(from: string, to: string): boolean }[] = [
-  { rule: 'a package is used through its entry', crosses: (f, t) => (t.startsWith('@ru/') && t.split('/').length > 2) || (t.startsWith('packages/') && packageOf(t) !== packageOf(f)) },
-  { rule: 'core depends on no other package or app', crosses: (f, t) => f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@ru\/(?!core$)/.test(t)) },
-  { rule: 'a module depends only on core and the kit', crosses: (f, t) => f.startsWith('packages/') && !f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@ru\/(?!core$|module-kit$)/.test(t)) },
-  { rule: 'the UI and the server share only core and HTTP', crosses: (f, t) => (f.startsWith('apps/web/') && (t.startsWith('apps/server/') || /^@ru\/(?!core$)/.test(t))) || (f.startsWith('apps/server/') && /^(?:apps\/web\/|@ru\/web)/.test(t)) },
+  { rule: 'a package is used through its entry', crosses: (f, t) => (t.startsWith('@orrery/') && t.split('/').length > 2) || (t.startsWith('packages/') && packageOf(t) !== packageOf(f)) },
+  { rule: 'core depends on no other package or app', crosses: (f, t) => f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@orrery\/(?!core$)/.test(t)) },
+  { rule: 'a module depends only on core and the kit', crosses: (f, t) => f.startsWith('packages/') && !f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@orrery\/(?!core$|module-kit$)/.test(t)) },
+  { rule: 'the UI and the server share only core and HTTP', crosses: (f, t) => (f.startsWith('apps/web/') && (t.startsWith('apps/server/') || /^@orrery\/(?!core$)/.test(t))) || (f.startsWith('apps/server/') && /^(?:apps\/web\/|@orrery\/web)/.test(t)) },
   { rule: 'only the registry installs a module', crosses: (f, t) => f.startsWith('apps/') && f !== 'apps/server/src/modules.ts' && isModule(t) },
 ];
 /** A source adapter is reached through its kind (`kindOf(src).queryRange(…)`); only the collector, which schedules pulls and records their answers, may call one. */

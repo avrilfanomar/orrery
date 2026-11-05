@@ -4,7 +4,7 @@ import type { KnownStatus, Status } from './constants.js';
 import { evaluateUniverse, judge, yardstickAt } from './evaluate.js';
 import type { NodeState, Universe } from './model.js';
 import { applyEvent, emptyUniverse } from './project.js';
-import type { RuEvent } from './schema.js';
+import type { OrreryEvent } from './schema.js';
 
 export interface SeriesPoint {
   t: string;
@@ -52,7 +52,7 @@ function worse(a: SeriesPoint, b: SeriesPoint, n: NodeState): boolean {
  * The status of every node at each of `times` (ascending), folding the log
  * once. `null` marks a moment before the node existed.
  */
-export function statusHistory(events: readonly RuEvent[], times: readonly string[]): Map<string, (Status | null)[]> {
+export function statusHistory(events: readonly OrreryEvent[], times: readonly string[]): Map<string, (Status | null)[]> {
   const u = emptyUniverse();
   const out = new Map<string, (Status | null)[]>();
   let i = 0;

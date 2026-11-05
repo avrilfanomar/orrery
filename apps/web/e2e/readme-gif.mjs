@@ -7,8 +7,8 @@
 // the screenshots, so the console in the picture is exactly the console.
 // Needs ffmpeg on PATH.
 //
-//   pnpm --filter @ru/web readme-gif
-//   RU_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @ru/web readme-gif
+//   pnpm --filter @orrery/web readme-gif
+//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @orrery/web readme-gif
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,14 +16,14 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
-const BASE = process.env.RU_URL?.trim() || 'http://127.0.0.1:4710';
+const BASE = process.env.ORRERY_URL?.trim() || 'http://127.0.0.1:4710';
 const OUT = fileURLToPath(new URL('../../../docs/tour.gif', import.meta.url));
 const STILL = fileURLToPath(new URL('../../../docs/tour-still.png', import.meta.url));
 const VIEW = { width: 1280, height: 820 }; // the narrowest the header keeps to one line
 const HOUR = 36e5;
 const DAY = 24 * HOUR;
 
-const dir = mkdtempSync(join(tmpdir(), 'ru-gif-'));
+const dir = mkdtempSync(join(tmpdir(), 'orrery-gif-'));
 const frames = [];
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const page = await browser.newPage({ viewport: VIEW, colorScheme: 'light' });

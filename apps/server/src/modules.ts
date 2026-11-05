@@ -1,8 +1,8 @@
 // The installed modules (ADR 0013). Core knows no query language and no source
 // kind; the server learns them here and nowhere else, so installing a module is
 // one line below and a dependency in package.json.
-import type { OrreryModule, QueryLanguage, SourceKind } from '@ru/module-kit';
-import { prometheus } from '@ru/prometheus';
+import type { OrreryModule, QueryLanguage, SourceKind } from '@orrery/module-kit';
+import { prometheus } from '@orrery/prometheus';
 import { DOGFOOD_MODULE } from './dogfood/module.js';
 
 export const MODULES: readonly OrreryModule[] = [prometheus, DOGFOOD_MODULE];

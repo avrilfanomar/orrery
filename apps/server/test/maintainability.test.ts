@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildUniverseView, signalPath, type RuEvent, type UniverseView } from '@ru/core';
+import { buildUniverseView, signalPath, type OrreryEvent, type UniverseView } from '@orrery/core';
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
@@ -17,7 +17,7 @@ import { EventStore } from '../src/store.js';
 const NOW = new Date('2026-11-03T12:00:00.000Z');
 const DAY = 24 * 3.6e6;
 const post = (url: string, payload: object): InjectOptions => ({ method: 'POST', url, payload });
-const storeOf = (events: readonly RuEvent[]) => {
+const storeOf = (events: readonly OrreryEvent[]) => {
   const store = EventStore.open(null);
   store.replaceAll(events);
   return store;
@@ -63,7 +63,7 @@ describe('statuses explain themselves', () => {
 
   it('explains a model nothing has measured yet: every why-path ends at an unmeasured node or a stub', () => {
     const view = buildUniverseView(generateDogfood(NOW), { now: NOW.toISOString() });
-    expect(view.nodes.ru!.evaluation.status).toBe('unknown');
+    expect(view.nodes.orrery!.evaluation.status).toBe('unknown');
     expect(unexplained(view)).toEqual([]);
   });
 });
@@ -184,7 +184,7 @@ describe('declared dependencies', () => {
     }
     expect(undeclared).toEqual([]);
     // The scan sees static, type-only, dynamic and .mjs imports alike, or it would pass by seeing nothing.
-    for (const used of ['packages/core zod', 'packages/prometheus @ru/module-kit', 'apps/server fastify', 'apps/server typescript', 'apps/web react', 'apps/web playwright-core', 'apps/web vite']) expect(seen).toContain(used);
+    for (const used of ['packages/core zod', 'packages/prometheus @orrery/module-kit', 'apps/server fastify', 'apps/server typescript', 'apps/web react', 'apps/web playwright-core', 'apps/web vite']) expect(seen).toContain(used);
   });
 
   it('records in the lockfile exactly the ranges the manifests ask for', () => {

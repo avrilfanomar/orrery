@@ -23,13 +23,13 @@ importers:
       '@fastify/static':
         specifier: ^10.1.8
         version: 10.1.8
-      '@ru/core':
+      '@orrery/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@ru/module-kit':
+      '@orrery/module-kit':
         specifier: workspace:*
         version: link:../../packages/module-kit
-      '@ru/prometheus':
+      '@orrery/prometheus':
         specifier: workspace:*
         version: link:../../packages/prometheus
       fastify:
@@ -51,7 +51,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@ru/core':
+      '@orrery/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@tanstack/react-query':
@@ -107,7 +107,7 @@ importers:
 
   packages/prometheus:
     dependencies:
-      '@ru/module-kit':
+      '@orrery/module-kit':
         specifier: workspace:*
         version: link:../module-kit
       zod:

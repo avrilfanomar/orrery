@@ -4,8 +4,8 @@
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { evaluateUniverse, LanguageIdSchema, project, type RuEvent } from '@ru/core';
-import { endpoint } from '@ru/prometheus';
+import { evaluateUniverse, LanguageIdSchema, project, type OrreryEvent } from '@orrery/core';
+import { endpoint } from '@orrery/prometheus';
 import { buildApp } from '../src/app.js';
 import { MODULES, registryProblems, SOURCE_KINDS } from '../src/modules.js';
 import { Collector } from '../src/sources/collector.js';
@@ -92,7 +92,7 @@ async function setup(src: ResolvedSource = source()) {
     advance: (ms: number) => {
       now += ms;
     },
-    pulled: () => store.all().filter((e): e is Extract<RuEvent, { type: 'reading.recorded' }> => e.type === 'reading.recorded'),
+    pulled: () => store.all().filter((e): e is Extract<OrreryEvent, { type: 'reading.recorded' }> => e.type === 'reading.recorded'),
     status: () => evaluateUniverse(project(store.all()), clock().toISOString()).get('k-5xx')!,
   };
 }
@@ -110,9 +110,9 @@ describe('source configuration', () => {
   });
 
   it('keeps a source whose token is missing, but marks it so it is never queried', () => {
-    const [s] = parseSources([{ id: 'g', kind: 'prometheus', url: 'http://g', tokenEnv: 'RU_TEST_TOKEN' }], {});
+    const [s] = parseSources([{ id: 'g', kind: 'prometheus', url: 'http://g', tokenEnv: 'ORRERY_TEST_TOKEN' }], {});
     expect(s!.tokenMissing).toBe(true);
-    const [t] = parseSources([{ id: 'g', kind: 'prometheus', url: 'http://g', tokenEnv: 'RU_TEST_TOKEN' }], { RU_TEST_TOKEN: TOKEN });
+    const [t] = parseSources([{ id: 'g', kind: 'prometheus', url: 'http://g', tokenEnv: 'ORRERY_TEST_TOKEN' }], { ORRERY_TEST_TOKEN: TOKEN });
     expect(t!.token).toBe(TOKEN);
   });
 
@@ -225,7 +225,7 @@ describe('the collector', () => {
   });
 
   it('reaches Prometheus through Grafana with the token, which never leaves the server', async () => {
-    const src = source({ url: `${base}/grafana`, grafana: { datasourceUid: 'P18' }, tokenEnv: 'RU_TEST_TOKEN', publicUrl: 'https://grafana.example.com' }, { RU_TEST_TOKEN: TOKEN });
+    const src = source({ url: `${base}/grafana`, grafana: { datasourceUid: 'P18' }, tokenEnv: 'ORRERY_TEST_TOKEN', publicUrl: 'https://grafana.example.com' }, { ORRERY_TEST_TOKEN: TOKEN });
     const t = await setup(src);
     t.advance(5 * 60_000);
     await t.collector.tickSource('prom');
@@ -249,7 +249,7 @@ describe('the collector', () => {
     const { drillOut } = res.json().bindings[0];
     expect(drillOut.label).toBe('Open in Grafana Explore');
     expect(drillOut.href.startsWith('https://grafana.example.com/explore?')).toBe(true);
-    expect(JSON.parse(new URL(drillOut.href).searchParams.get('panes')!).ru.queries[0]).toMatchObject({ expr: QUERY, datasource: { uid: 'P18' } });
+    expect(JSON.parse(new URL(drillOut.href).searchParams.get('panes')!).orrery.queries[0]).toMatchObject({ expr: QUERY, datasource: { uid: 'P18' } });
   });
 
   it('realigns to the new grid when stepSeconds changes', async () => {
@@ -268,7 +268,7 @@ describe('the collector', () => {
   });
 
   it('does not query a source whose token is missing', async () => {
-    const t = await setup(source({ tokenEnv: 'RU_TEST_TOKEN' }));
+    const t = await setup(source({ tokenEnv: 'ORRERY_TEST_TOKEN' }));
     t.advance(5 * 60_000);
     await t.collector.tickSource('prom');
     expect(seen).toHaveLength(0);

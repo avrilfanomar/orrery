@@ -1,4 +1,4 @@
-import { PASS_FAIL_UNIT, formatThreshold } from '@ru/core';
+import { PASS_FAIL_UNIT, formatThreshold } from '@orrery/core';
 import { useState } from 'react';
 import { Field } from './fields.js';
 import { Frame, type FormProps } from './frame.js';

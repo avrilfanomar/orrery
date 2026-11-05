@@ -1,5 +1,5 @@
 // Small, stateless form controls shared by every action form.
-import { DIMENSIONS, KIND_LABELS, PRIORITIES, type Dimension, type Priority, type UniverseView } from '@ru/core';
+import { DIMENSIONS, KIND_LABELS, PRIORITIES, type Dimension, type Priority, type UniverseView } from '@orrery/core';
 import type { ReactNode } from 'react';
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {

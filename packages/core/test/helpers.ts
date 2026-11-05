@@ -6,7 +6,7 @@ import {
   parseCommand,
   type CommandInput,
   type DecideContext,
-  type RuEvent,
+  type OrreryEvent,
   type Universe,
 } from '../src/index.js';
 
@@ -15,7 +15,7 @@ import {
  * `decide` and held to the same storage contract as the server's store.
  */
 export function makeLog(start = '2026-01-01T00:00:00.000Z') {
-  const events: RuEvent[] = [];
+  const events: OrreryEvent[] = [];
   const u: Universe = emptyUniverse();
   let t = Date.parse(start);
   return {

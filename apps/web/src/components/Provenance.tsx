@@ -2,7 +2,7 @@
 // that runs it, how the last pull went, and the way out to the dashboards
 // people already use. What is said about a language or a source comes from the
 // server's modules (ADR 0013); nothing here names one.
-import type { Binding } from '@ru/core';
+import type { Binding } from '@orrery/core';
 import type { ReactNode } from 'react';
 import type { BindingStatus, PublicLanguage, PublicSource } from '../api.js';
 import { ago } from './bits.js';

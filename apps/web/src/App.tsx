@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { UniverseView } from '@ru/core';
+import type { UniverseView } from '@orrery/core';
 import { api } from './api.js';
 import { ActionDialog, type Action } from './components/ActionDialog.js';
 import { ChangeFeed } from './components/ChangeFeed.js';
@@ -71,7 +71,7 @@ function Banners({ view, stalledSince, error, missing, onLive }: BannersProps) {
 
 export function App() {
   const [route, navigate] = useRoute();
-  const [actor, setActor] = useStoredState('ru.actor', 'you');
+  const [actor, setActor] = useStoredState('orrery.actor', 'you');
   const [changesOpen, setChangesOpen] = useState(false);
   const [dialog, setDialog] = useState<{ action: Action; extra?: string } | null>(null);
 

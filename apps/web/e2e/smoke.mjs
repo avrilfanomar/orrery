@@ -5,12 +5,12 @@
 // it stops the API's answers and checks the console stops calling itself live.
 // It writes to the event log — run `pnpm reset` afterwards for a clean demo.
 //
-//   pnpm --filter @ru/web e2e
-//   RU_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @ru/web e2e
+//   pnpm --filter @orrery/web e2e
+//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @orrery/web e2e
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 
-const BASE = process.env.RU_URL?.trim() || 'http://127.0.0.1:4710';
+const BASE = process.env.ORRERY_URL?.trim() || 'http://127.0.0.1:4710';
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors = [];

@@ -5,7 +5,7 @@
 // This file is only the shell: the <dialog>, the mutation and the dispatch.
 // Each action's fields and its command live in ./action-dialog/.
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { CommandInput, NodeView, RuEvent, UniverseView } from '@ru/core';
+import type { CommandInput, NodeView, OrreryEvent, UniverseView } from '@orrery/core';
 import { useEffect, useRef, type ComponentType } from 'react';
 import { api } from '../api.js';
 import type { FormProps, Session } from './action-dialog/frame.js';
@@ -22,7 +22,7 @@ interface Props {
   view: UniverseView;
   actor: string;
   onClose: () => void;
-  onDone: (events: RuEvent[]) => void;
+  onDone: (events: OrreryEvent[]) => void;
 }
 
 const FORMS: Record<Action, ComponentType<FormProps>> = {

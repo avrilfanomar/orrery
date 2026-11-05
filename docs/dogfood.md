@@ -46,7 +46,7 @@ keeps the top level from reading green until it is refined.
   `pnpm audit` and no browser for the smoke test or the accessibility scan.
   The node goes stale and reads unknown, never green.
 - **Benchmarks use a fixed workload** (seed 7, fixed date): warm-up runs, then
-  the median. Compare timings within one `RU_PROBE_ENV` only. The workload's
+  the median. Compare timings within one `ORRERY_PROBE_ENV` only. The workload's
   size is pinned. If an edit to the demo changes it, the tests ask for a new
   version of every probe that uses it.
 

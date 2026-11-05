@@ -7,7 +7,7 @@
 // The binding only supplies the query text. Path, method and host are fixed
 // here, so a binding can't reach admin endpoints through the Grafana proxy or
 // point the server anywhere new.
-import { defineSourceKind, type OrreryModule, type PullResult, type RangeQuery, type Sample, type SourceBasics } from '@ru/module-kit';
+import { defineSourceKind, type OrreryModule, type PullResult, type RangeQuery, type Sample, type SourceBasics } from '@orrery/module-kit';
 import { z } from 'zod';
 
 /** Reach Prometheus through Grafana's datasource proxy instead of directly. Grafana is a route, not a kind. */
@@ -87,7 +87,7 @@ export function drillOut(publicUrl: string, source: Pick<Source, 'grafana'>, que
   const base = new URL(publicUrl).href.replace(/\/+$/, '');
   if (source.grafana) {
     const uid = source.grafana.datasourceUid;
-    const panes = { ru: { datasource: uid, queries: [{ refId: 'A', expr: query, datasource: { type: 'prometheus', uid } }], range: { from: 'now-24h', to: 'now' } } };
+    const panes = { orrery: { datasource: uid, queries: [{ refId: 'A', expr: query, datasource: { type: 'prometheus', uid } }], range: { from: 'now-24h', to: 'now' } } };
     return { href: `${base}/explore?schemaVersion=1&panes=${encodeURIComponent(JSON.stringify(panes))}`, label: 'Open in Grafana Explore' };
   }
   return { href: `${base}/graph?g0.expr=${encodeURIComponent(query)}&g0.tab=0&g0.range_input=1d`, label: 'Open in Prometheus' };

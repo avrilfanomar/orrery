@@ -1,4 +1,4 @@
-import type { CommandInput, NodeDetailView, RuEvent, TimelineEntry, UniverseView } from '@ru/core';
+import type { CommandInput, NodeDetailView, OrreryEvent, TimelineEntry, UniverseView } from '@orrery/core';
 
 export class ApiError extends Error {
   constructor(
@@ -73,7 +73,7 @@ export const api = {
   changes: (asOf: string | null, limit = 300) => request<TimelineEntry[]>(withAsOf('/api/changes', asOf, `limit=${limit}`)),
   sources: () => request<SourcesView>('/api/sources'),
   command: (cmd: CommandInput, actor: string) =>
-    request<{ events: RuEvent[] }>('/api/commands', {
+    request<{ events: OrreryEvent[] }>('/api/commands', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-actor': actor },
       body: JSON.stringify(cmd),

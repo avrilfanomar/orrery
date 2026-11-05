@@ -10,7 +10,7 @@ import {
 import { readingSeries, statusHistory, timelineFor, type SeriesPoint } from './history.js';
 import type { Definition, NodeState, TimelineEntry } from './model.js';
 import { project } from './project.js';
-import type { RuEvent } from './schema.js';
+import type { OrreryEvent } from './schema.js';
 
 const DAY = 24 * 3.6e6;
 
@@ -95,7 +95,7 @@ function resolveAsOf(opts: ViewOptions): { asOf: string; live: boolean } {
 }
 
 export function buildUniverseView(
-  events: readonly RuEvent[],
+  events: readonly OrreryEvent[],
   opts: ViewOptions & { ribbonDays?: number; sparkDays?: number },
 ): UniverseView {
   const { asOf, live } = resolveAsOf(opts);
@@ -139,7 +139,7 @@ export function buildUniverseView(
 }
 
 export function buildNodeDetail(
-  events: readonly RuEvent[],
+  events: readonly OrreryEvent[],
   id: string,
   opts: ViewOptions & { seriesDays?: number },
 ): NodeDetailView | null {
@@ -158,7 +158,7 @@ export function buildNodeDetail(
   };
 }
 
-export function buildChangeFeed(events: readonly RuEvent[], opts: ViewOptions & { limit?: number }): TimelineEntry[] {
+export function buildChangeFeed(events: readonly OrreryEvent[], opts: ViewOptions & { limit?: number }): TimelineEntry[] {
   const { asOf } = resolveAsOf(opts);
   const u = project(events, asOf);
   return u.timeline.slice(-(opts.limit ?? 60)).reverse();

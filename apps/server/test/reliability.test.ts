@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { decide, parseCommand, project, type NewEvent, type RuEvent } from '@ru/core';
+import { decide, parseCommand, project, type NewEvent, type OrreryEvent } from '@orrery/core';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
@@ -20,10 +20,10 @@ import { parseSources } from '../src/sources/config.js';
 import { EventStore } from '../src/store.js';
 
 const NOW = new Date('2026-11-03T12:00:00.000Z');
-const tmp = mkdtempSync(join(tmpdir(), 'ru-reliability-'));
+const tmp = mkdtempSync(join(tmpdir(), 'orrery-reliability-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 const DEMO = generateDemo(NOW);
-const text = (events: readonly RuEvent[]) => events.map((e) => `${JSON.stringify(e)}\n`).join('');
+const text = (events: readonly OrreryEvent[]) => events.map((e) => `${JSON.stringify(e)}\n`).join('');
 const fresh = (name: string) => {
   const file = join(tmp, name);
   rmSync(file, { force: true });
@@ -31,13 +31,13 @@ const fresh = (name: string) => {
   return file;
 };
 /** A log on disk holding `events`, written the way the store writes one. */
-const logOf = (name: string, events: readonly RuEvent[]) => {
+const logOf = (name: string, events: readonly OrreryEvent[]) => {
   const file = fresh(name);
   writeFileSync(file, text(events));
   return file;
 };
 const reading = (nodeId: string, value: number, observedAt: string) => ({ nodeId, value, observedAt });
-const create = (events: readonly RuEvent[], id: string): NewEvent[] =>
+const create = (events: readonly OrreryEvent[], id: string): NewEvent[] =>
   decide(project(events), parseCommand({ type: 'node.create', data: { id, kind: 'product', title: id } }), { now: NOW.toISOString(), actor: 'test', sources: new Map() });
 
 // ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ const SPAWNS = { timeout: 30_000 };
 
 /** The real server on `file`, as its own process (see spawnServer). */
 async function serve(file: string, limitKiB?: number): Promise<ServerProcess> {
-  const server = await spawnServer(SERVER_DIR, { PATH: process.env.PATH, RU_DATA_FILE: file, RU_WEB_DIST: join(tmp, 'no-ui') }, limitKiB);
+  const server = await spawnServer(SERVER_DIR, { PATH: process.env.PATH, ORRERY_DATA_FILE: file, ORRERY_WEB_DIST: join(tmp, 'no-ui') }, limitKiB);
   if ('failed' in server) throw new Error(`the server did not start:\n${server.failed}`);
   return server;
 }
@@ -64,7 +64,7 @@ const minutes = (count: number, from: number) => Array.from({ length: count }, (
 
 /** Runs reset the way `pnpm reset` does, on `file`, with no server at the address it checks. */
 async function reset(file: string): Promise<{ code: number | null; output: string }> {
-  const env = { PATH: process.env.PATH, RU_DATA_FILE: file, PORT: String(await freePort()), HOST: '127.0.0.1' };
+  const env = { PATH: process.env.PATH, ORRERY_DATA_FILE: file, PORT: String(await freePort()), HOST: '127.0.0.1' };
   const child = spawn(process.execPath, ['--import', 'tsx', 'src/reset.ts'], { cwd: SERVER_DIR, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
   child.stdout.on('data', (d: Buffer) => (output += d));
@@ -200,7 +200,7 @@ describe('one writer per log', () => {
 
   it('lets go of the log when the server closes', SPAWNS, async () => {
     const file = logOf('closed-server.jsonl', DEMO.slice(0, 5));
-    const app = await startServer(serverSettings({ RU_DATA_FILE: file, PORT: String(await freePort()), RU_WEB_DIST: join(tmp, 'no-ui') }), {});
+    const app = await startServer(serverSettings({ ORRERY_DATA_FILE: file, PORT: String(await freePort()), ORRERY_WEB_DIST: join(tmp, 'no-ui') }), {});
     expect(() => EventStore.open(file)).toThrow(/is already open for writing in this process/);
     await app.close();
     EventStore.open(file).close();

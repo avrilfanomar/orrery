@@ -1,7 +1,7 @@
 // The whole universe as a tree, for orientation. It always shows where the
 // focus sits; "Issues only" prunes it to the paths that are not green.
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { KIND_LABELS, type UniverseView } from '@ru/core';
+import { KIND_LABELS, type UniverseView } from '@orrery/core';
 import { StatusDot } from './bits.js';
 
 interface Props {

@@ -19,9 +19,9 @@ import {
   parseCommand,
   PASS_FAIL_UNIT,
   type CommandInput,
-  type RuEvent,
+  type OrreryEvent,
   type SourceCatalog,
-} from '@ru/core';
+} from '@orrery/core';
 
 const H = 3.6e6;
 // The seed's bindings document provenance only; it pulls from nothing.
@@ -198,7 +198,7 @@ const ONE_OFF_READINGS: { id: string; daysAgo: number; value: number; source: st
   { id: 's-db-failover', daysAgo: 20, value: 1, source: 'game-day' },
 ];
 
-export function generateDemo(now: Date, seed = 7): RuEvent[] {
+export function generateDemo(now: Date, seed = 7): OrreryEvent[] {
   const nowMs = now.getTime();
   const rnd = mulberry32(seed);
   const items: { at: number; order: number; actor: string; cmd: CommandInput }[] = [];
@@ -226,10 +226,10 @@ export function generateDemo(now: Date, seed = 7): RuEvent[] {
   items.sort((a, b) => a.at - b.at || a.order - b.order);
 
   const u = emptyUniverse();
-  const events: RuEvent[] = [];
+  const events: OrreryEvent[] = [];
   for (const it of items) {
     for (const e of decide(u, parseCommand(it.cmd), { now: new Date(it.at).toISOString(), actor: it.actor, sources: NO_SOURCES })) {
-      const ev = { ...e, seq: events.length + 1 } as RuEvent;
+      const ev = { ...e, seq: events.length + 1 } as OrreryEvent;
       events.push(ev);
       applyEvent(u, ev);
     }

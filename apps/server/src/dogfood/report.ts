@@ -1,6 +1,6 @@
 // The terminal report: the model's tree with each node's rolled-up status,
 // this run's value beside every measured node, and what was (not) recorded.
-import { formatValue, judge, STATUS_LABELS, type Status } from '@ru/core';
+import { formatValue, judge, STATUS_LABELS, type Status } from '@orrery/core';
 import type { ModelNode } from './model.js';
 import type { RunResult } from './runner.js';
 

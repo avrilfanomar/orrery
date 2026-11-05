@@ -2,7 +2,7 @@
 // ingestion webhook, exactly as Prometheus alert hooks, CI jobs or analytics
 // exports would. It first backfills any gap since the last reading (so a
 // restarted demo is not stale), then keeps the fast signals moving.
-import type { UniverseView } from '@ru/core';
+import type { UniverseView } from '@orrery/core';
 import { clampRound, jitter, mulberry32, PROFILES, simulatorRefusal, type Profile } from './demo.js';
 import { simulatorSettings } from './settings.js';
 

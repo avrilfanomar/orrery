@@ -35,8 +35,8 @@ if (args.help) {
   --allow-dirty  record from a tree with uncommitted changes (the source gets a +dirty suffix)
   --only         measure only these node or probe ids
 
-  RU_PROBE_ENV   label for the machine (default local); timings compare only within one label
-  RU_DOGFOOD_URL a running dogfood server (default http://127.0.0.1:RU_DOGFOOD_PORT)`);
+  ORRERY_PROBE_ENV   label for the machine (default local); timings compare only within one label
+  ORRERY_DOGFOOD_URL a running dogfood server (default http://127.0.0.1:ORRERY_DOGFOOD_PORT)`);
   process.exit(0);
 }
 
@@ -61,7 +61,7 @@ async function open(): Promise<{ transport: Transport; where: string; close: () 
   };
 }
 
-const tmp = mkdtempSync(join(tmpdir(), 'ru-dogfood-'));
+const tmp = mkdtempSync(join(tmpdir(), 'orrery-dogfood-'));
 const conn = await open();
 try {
   const git = gitSnapshot(repoRoot);

@@ -1,6 +1,6 @@
 // The pieces of a node's definition: how it is measured, where the number
 // comes from, how contributors roll up, and its quality scenario.
-import { bindingLanguage, languageChoices, PASS_FAIL_UNIT, type MeasureSpec, type RollupRule, type ScenarioSpec } from '@ru/core';
+import { bindingLanguage, languageChoices, PASS_FAIL_UNIT, type MeasureSpec, type RollupRule, type ScenarioSpec } from '@orrery/core';
 import type { ChangeEvent } from 'react';
 import type { PublicLanguage } from '../../api.js';
 import { Field } from './fields.js';

@@ -1,7 +1,7 @@
 // One dogfood run (ADR 0003): sync the model, measure, record, report. Every
 // write goes through the public API — in-process or to a running dogfood
 // server — so `decide` judges the dogfood exactly as it judges anyone else.
-import { PASS_FAIL_UNIT, type CommandInput, type TimelineEntry, type UniverseView } from '@ru/core';
+import { PASS_FAIL_UNIT, type CommandInput, type TimelineEntry, type UniverseView } from '@orrery/core';
 import type { FastifyInstance } from 'fastify';
 import type { GitSnapshot } from './collectors.js';
 import { DOGFOOD_MODEL, type ModelNode } from './model.js';
@@ -86,7 +86,7 @@ export async function runDogfood(opts: RunOptions, deps: RunDeps): Promise<RunRe
   const probes = deps.probes ?? PROBES;
   const model = deps.model ?? DOGFOOD_MODEL;
   const env = deps.env ?? 'local';
-  if (!ENV_LABEL.test(env)) throw new Error(`RU_PROBE_ENV must be 1–16 lowercase letters, digits or dashes (got “${env}”)`);
+  if (!ENV_LABEL.test(env)) throw new Error(`ORRERY_PROBE_ENV must be 1–16 lowercase letters, digits or dashes (got “${env}”)`);
   const clock = deps.clock ?? (() => new Date());
   const progress = deps.progress ?? (() => {});
   const source = `probe:${env}@${git.sha}${git.dirty ? '+dirty' : ''}`;

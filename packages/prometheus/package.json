@@ -1,5 +1,5 @@
 {
-  "name": "@ru/prometheus",
+  "name": "@orrery/prometheus",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@ru/module-kit": "workspace:*",
+    "@orrery/module-kit": "workspace:*",
     "zod": "^4.6.7"
   }
 }

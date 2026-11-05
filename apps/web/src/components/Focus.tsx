@@ -16,7 +16,7 @@ import {
   type Binding,
   type Evaluation,
   type UniverseView,
-} from '@ru/core';
+} from '@orrery/core';
 import { useMemo } from 'react';
 import { api } from '../api.js';
 import type { Action } from './ActionDialog.js';

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { setFlagsFromString } from 'node:v8';
 import { runInNewContext } from 'node:vm';
 import { gzipSync } from 'node:zlib';
-import type { RuEvent } from '@ru/core';
+import type { OrreryEvent } from '@orrery/core';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../app.js';
 import { EventStore } from '../store.js';
@@ -17,11 +17,11 @@ import { FAST_SIGNALS } from './harness.js';
 import type { BenchWeek, Probe } from './probes.js';
 
 const V1 = 'First version of this method (ADR 0004)';
-const MACHINE = 'Machine-bound: compare readings from one RU_PROBE_ENV only.';
+const MACHINE = 'Machine-bound: compare readings from one ORRERY_PROBE_ENV only.';
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 /** How many events of each type a workload holds, and in all. Wording edits keep it; a new node, signal or cadence changes it. */
-export function workloadShape(events: readonly RuEvent[]): Record<string, number> {
+export function workloadShape(events: readonly OrreryEvent[]): Record<string, number> {
   const shape: Record<string, number> = { total: events.length };
   for (const e of events) shape[e.type] = (shape[e.type] ?? 0) + 1;
   return shape;

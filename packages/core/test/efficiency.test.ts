@@ -3,7 +3,7 @@
 // Each request re-projects the whole log by design (ADR 0001); what must not
 // happen is a second fold per node, per ribbon day or per reading.
 import { describe, expect, it } from 'vitest';
-import { buildChangeFeed, buildNodeDetail, buildUniverseView, type RuEvent } from '../src/index.js';
+import { buildChangeFeed, buildNodeDetail, buildUniverseView, type OrreryEvent } from '../src/index.js';
 import { makeLog, msLower } from './helpers.js';
 
 const START = '2026-01-01T00:00:00.000Z';
@@ -27,9 +27,9 @@ function history({ kpis, days, stepMinutes }: { kpis: number; days: number; step
 }
 
 /** Reads of the log's elements per stored event: how many times `use` folds the log, whatever it does with each event. */
-function foldsOf(events: readonly RuEvent[], use: (events: readonly RuEvent[]) => unknown): number {
+function foldsOf(events: readonly OrreryEvent[], use: (events: readonly OrreryEvent[]) => unknown): number {
   let reads = 0;
-  const counted = new Proxy(events as RuEvent[], {
+  const counted = new Proxy(events as OrreryEvent[], {
     get(target, key, receiver) {
       if (typeof key === 'string' && /^\d+$/.test(key)) reads++;
       return Reflect.get(target, key, receiver);

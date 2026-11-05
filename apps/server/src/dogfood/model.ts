@@ -6,7 +6,7 @@
 //
 // Anchors: the invariants in CLAUDE.md, ADR 0001, ADR 0002 and the README.
 // Thresholds cite the baseline measured on 2026-11-04 when they were set.
-import { PASS_FAIL_UNIT, type CommandInput } from '@ru/core';
+import { PASS_FAIL_UNIT, type CommandInput } from '@orrery/core';
 
 type CreateData = Extract<CommandInput, { type: 'node.create' }>['data'];
 export type ModelNode = Omit<CreateData, 'id' | 'binding' | 'description'> & {
@@ -25,13 +25,13 @@ const OWNER = 'Maintainer';
 
 export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
-    id: 'ru', kind: 'product', title: 'Orrery', priority: 'critical', owner: OWNER,
+    id: 'orrery', kind: 'product', title: 'Orrery', priority: 'critical', owner: OWNER,
     description: 'This repository, measured by itself. Definitions live in apps/server/src/dogfood/model.ts; readings come from `pnpm dogfood` (ADR 0003).',
   },
 
   // --- the model tells the truth ------------------------------------------
   {
-    id: 'g-truth', kind: 'goal', parentId: 'ru', title: 'The model tells the truth', priority: 'critical', dimensions: ['reliable', 'suitable'], owner: OWNER,
+    id: 'g-truth', kind: 'goal', parentId: 'orrery', title: 'The model tells the truth', priority: 'critical', dimensions: ['reliable', 'suitable'], owner: OWNER,
     description: 'The four invariants every view rests on (CLAUDE.md 1–4, ADR 0001). If one breaks, every status above it is suspect.',
   },
   {
@@ -90,7 +90,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- changing it stays safe and cheap ------------------------------------
   {
-    id: 'g-change', kind: 'goal', parentId: 'ru', title: 'Changing it stays safe and cheap', priority: 'high', dimensions: ['maintainable', 'flexible'], owner: OWNER,
+    id: 'g-change', kind: 'goal', parentId: 'orrery', title: 'Changing it stays safe and cheap', priority: 'high', dimensions: ['maintainable', 'flexible'], owner: OWNER,
     rollup: { strategy: 'quorum', okShare: 0.75, warnShare: 0.5 }, description: 'Rolled up by quorum: healthy when three in four of its inputs are.',
   },
   {
@@ -127,7 +127,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- it stays easy to read, test and update ------------------------------
   {
-    id: 'g-clear', kind: 'goal', parentId: 'ru', title: 'Its code stays easy to read, test and update', priority: 'medium', dimensions: ['maintainable'], owner: OWNER,
+    id: 'g-clear', kind: 'goal', parentId: 'orrery', title: 'Its code stays easy to read, test and update', priority: 'medium', dimensions: ['maintainable'], owner: OWNER,
     description:
       'ADR 0006: analysability, testability, modularity and updateability. The suite pins what must always hold — every status and refusal explains itself, nothing reads a hidden clock, every dependency is declared and locked. Static probes count what makes the code harder to follow: tangled functions, import cycles, copied blocks. A sibling of the quorum goal on change, so its warnings are not outvoted.',
   },
@@ -185,7 +185,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- the console stays fast and frugal ----------------------------------
   {
-    id: 'g-fast', kind: 'goal', parentId: 'ru', title: 'The console stays fast and frugal at realistic scale', priority: 'high', dimensions: ['efficient'], owner: OWNER,
+    id: 'g-fast', kind: 'goal', parentId: 'orrery', title: 'The console stays fast and frugal at realistic scale', priority: 'high', dimensions: ['efficient'], owner: OWNER,
     description:
       'ADR 0001 recomputes the projection per request and names reading volume as its revisit trigger; this goal watches that trigger. ADR 0004: the suite pins how cost scales (machine-independent), the probes measure how big it is on one machine — time behaviour, resource use and capacity, at demo scale and after a week of live signals.',
   },
@@ -245,7 +245,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- it bends without breaking ------------------------------------------
   {
-    id: 'g-flex', kind: 'goal', parentId: 'ru', title: 'It adapts, connects and outlasts its own versions', priority: 'medium', dimensions: ['flexible'], owner: OWNER,
+    id: 'g-flex', kind: 'goal', parentId: 'orrery', title: 'It adapts, connects and outlasts its own versions', priority: 'medium', dimensions: ['flexible'], owner: OWNER,
     description:
       'ADR 0005: flexibility is a set of promises — old logs keep loading, answers do not depend on where the server runs, the documented API is the API, settings are documented, components meet at fixed seams, and the look changes in one place. The suite pins the promises as contracts; static probes count what breaks them.',
   },
@@ -295,7 +295,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- whoever runs it can install, watch and recover it --------------------
   {
-    id: 'g-operate', kind: 'goal', parentId: 'ru', title: 'Whoever runs it can install, start, watch and recover it', priority: 'medium', dimensions: ['operable'], owner: OWNER,
+    id: 'g-operate', kind: 'goal', parentId: 'orrery', title: 'Whoever runs it can install, start, watch and recover it', priority: 'medium', dimensions: ['operable'], owner: OWNER,
     description:
       'ADR 0007: installability, diagnosability, observability, recovery, auditability and licensing, from the point of view of whoever runs the server. The suite pins the promises — a bad setting or a damaged log stops it at start and says what to fix, a failure leaves a trail, a restart or a source outage heals by itself, every change says who, when and why, and the docs name commands that exist. Probes check a fresh clone, settings read past their checks, and dependency licences.',
   },
@@ -362,7 +362,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   // --- running it exposes nothing it shouldn't -----------------------------
   // --- what it acknowledged survives ---------------------------------------
   {
-    id: 'g-rely', kind: 'goal', parentId: 'ru', title: 'What it acknowledges survives, and a fault stays where it happens', priority: 'high', dimensions: ['reliable'], owner: OWNER,
+    id: 'g-rely', kind: 'goal', parentId: 'orrery', title: 'What it acknowledges survives, and a fault stays where it happens', priority: 'high', dimensions: ['reliable'], owner: OWNER,
     description:
       'ADR 0008: durability, fault tolerance, fault isolation and recoverability. The suite pins what must always hold: a failed write changes nothing, one process writes a log, a fault fails one request or one binding, and a stop or a kill is followed by a clean start. The dogfood kills a real server mid-write and runs the suite in an order nobody chose. The log contract itself stays under the model telling the truth. Worst-of, so one broken promise shows.',
   },
@@ -408,7 +408,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- no one acts on a green it hasn't earned (ADR 0009) -------------------
   {
-    id: 'g-harmless', kind: 'goal', parentId: 'ru', title: 'No one acts on a green it hasn’t earned, and nothing it does destroys the record', priority: 'high', dimensions: ['safe'], owner: OWNER,
+    id: 'g-harmless', kind: 'goal', parentId: 'orrery', title: 'No one acts on a green it hasn’t earned, and nothing it does destroys the record', priority: 'high', dimensions: ['safe'], owner: OWNER,
     description:
       'ADR 0009: fail safe, hazard warning, safe integration and provability. People decide on what the console shows, so the harm is a green nobody earned, a picture that stopped updating, a made-up reading taken for a real one, or a log a reset wiped. The suite proves the rollup rules over every input and pins the reset and the simulator; the browser smoke test stops the API; the dogfood breaks the core on purpose and counts what no test catches. Worst-of, so one hazard shows.',
   },
@@ -441,7 +441,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- running it exposes nothing it shouldn't (ADR 0002, ADR 0010) ----------
   {
-    id: 'g-safe', kind: 'goal', parentId: 'ru', title: 'Running it exposes nothing it shouldn’t', priority: 'high', dimensions: ['secure'], owner: OWNER,
+    id: 'g-safe', kind: 'goal', parentId: 'orrery', title: 'Running it exposes nothing it shouldn’t', priority: 'high', dimensions: ['secure'], owner: OWNER,
     description:
       'ADR 0002 and ADR 0010. Commands carry no credentials, so what is left to guard is this: no web page can act through the operator’s browser; a reading needs the ingest token when one is set; no secret leaves the server or enters the history; a request sized to the body limit costs no more to refuse than a small one; every refusal leaves a trace; and no dependency carries a known high advisory. Identity stays a stub, so this reads unknown until commands know who is asking.',
   },
@@ -468,12 +468,12 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   },
   {
     id: 's-browser-boundary', kind: 'scenario', parentId: 'r-browser', title: 'Rebound names, other origins and bodies a page sends without asking change nothing', priority: 'critical', dimensions: ['secure'], measure: pass, probe: 'suite-browser-boundary',
-    scenario: { stimulus: 'A request naming a host the server does not answer to; a write from another origin or the null origin; a text/plain, form or multipart body; a page that frames the console', environment: 'The API in process, and the real server with RU_ALLOWED_HOSTS', response: 'Each is refused before anything is read or written, every answer forbids framing and foreign code, and the console’s own writes and clients with no Origin go through' },
+    scenario: { stimulus: 'A request naming a host the server does not answer to; a write from another origin or the null origin; a text/plain, form or multipart body; a page that frames the console', environment: 'The API in process, and the real server with ORRERY_ALLOWED_HOSTS', response: 'Each is refused before anything is read or written, every answer forbids framing and foreign code, and the console’s own writes and clients with no Origin go through' },
   },
   { id: 'r-ingest', kind: 'requirement', parentId: 'g-safe', title: 'A reading needs the ingest token, by any route, when one is set', priority: 'high', dimensions: ['secure'] },
   {
     id: 's-ingest-token', kind: 'scenario', parentId: 'r-ingest', title: 'A reading without the token is refused by the webhook and by commands alike', priority: 'high', dimensions: ['secure'], measure: pass, probe: 'suite-ingest-token',
-    scenario: { stimulus: 'Readings with no token, a wrong one, a prefix of the right one or another scheme; a caller signing as `ingest` or `collector`', environment: 'The API in process with RU_INGEST_TOKEN set', response: 'Each reading is refused with 401 and nothing is written, whichever route it takes; the reserved names are refused; other commands stay open, as the README says' },
+    scenario: { stimulus: 'Readings with no token, a wrong one, a prefix of the right one or another scheme; a caller signing as `ingest` or `collector`', environment: 'The API in process with ORRERY_INGEST_TOKEN set', response: 'Each reading is refused with 401 and nothing is written, whichever route it takes; the reserved names are refused; other commands stay open, as the README says' },
   },
   { id: 'r-traced', kind: 'requirement', parentId: 'g-safe', title: 'A refused request leaves a trace for the operator', priority: 'medium', dimensions: ['secure', 'operable'] },
   {
@@ -498,7 +498,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- everyone can read, operate and follow it (ADR 0011) -------------------
   {
-    id: 'g-usable', kind: 'goal', parentId: 'ru', title: 'Everyone can read, operate and follow it end to end', priority: 'medium', dimensions: ['usable'], owner: OWNER,
+    id: 'g-usable', kind: 'goal', parentId: 'orrery', title: 'Everyone can read, operate and follow it end to end', priority: 'medium', dimensions: ['usable'], owner: OWNER,
     rollup: { strategy: 'weighted', okAt: 0.9, warnAt: 0.6 },
     description: 'ADR 0011. Rolled up by priority-weighted score: the console meets WCAG 2.2 AA wherever a scan can tell, in both schemes; the evolution loop works in a real browser; and the docs lead somewhere.',
   },
@@ -525,7 +525,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
 
   // --- it does what the README says it does (ADR 0012) -----------------------
   {
-    id: 'g-fit', kind: 'goal', parentId: 'ru', title: 'It does what the README says it does', priority: 'high', dimensions: ['suitable'], owner: OWNER,
+    id: 'g-fit', kind: 'goal', parentId: 'orrery', title: 'It does what the README says it does', priority: 'high', dimensions: ['suitable'], owner: OWNER,
     description: 'ADR 0012. Each need in the README’s “The idea” table is met, and breaking the code that meets it turns a test red. The tour tells the story the demo shows.',
   },
   {

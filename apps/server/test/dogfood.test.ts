@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildUniverseView, evaluateUniverse, PASS_FAIL_UNIT, project, type RuEvent } from '@ru/core';
+import { buildUniverseView, evaluateUniverse, PASS_FAIL_UNIT, project, type OrreryEvent } from '@orrery/core';
 import { buildApp } from '../src/app.js';
 import { parseVitestJson, type GitSnapshot } from '../src/dogfood/collectors.js';
 import { crossingsIn } from '../src/dogfood/flexibility.js';
@@ -24,7 +24,7 @@ import { EventStore } from '../src/store.js';
 
 const NOW = new Date('2026-11-04T12:00:00.000Z');
 const measured = DOGFOOD_MODEL.filter((n) => n.measure);
-const stateOf = (events: readonly RuEvent[], now = NOW) => currentFromView(buildUniverseView(events, { now: now.toISOString() }));
+const stateOf = (events: readonly OrreryEvent[], now = NOW) => currentFromView(buildUniverseView(events, { now: now.toISOString() }));
 const edit = (id: string, patch: Partial<ModelNode>) => DOGFOOD_MODEL.map((n) => (n.id === id ? { ...n, ...patch } : n));
 const withVersion = (id: string, version: number, since = 'measured differently now'): Map<string, ProbeSpec> =>
   new Map([...PROBE_SPECS].map(([k, p]) => [k, k === id ? { ...p, version, since } : p]));
@@ -61,7 +61,7 @@ describe('the dogfood model and its probes', () => {
 
   it('seeds through decide as its own universe, with each probe as a provenance-only binding', () => {
     const u = project(generateDogfood(NOW));
-    expect([...u.nodes.values()].filter((n) => n.parentId === null).map((n) => n.id)).toEqual(['ru']);
+    expect([...u.nodes.values()].filter((n) => n.parentId === null).map((n) => n.id)).toEqual(['orrery']);
     expect(u.nodes.has('larch-store')).toBe(false);
     for (const n of measured) {
       const def = u.nodes.get(n.id)!.definitions.at(-1)!;
@@ -71,7 +71,7 @@ describe('the dogfood model and its probes', () => {
     const ev = evaluateUniverse(u, NOW.toISOString());
     expect(ev.get('r-identity')!.status).toBe('unknown'); // an honest stub
     expect(ev.get('k-core-coverage')!.status).toBe('unknown'); // defined, not yet measured
-    expect(ev.get('ru')!.status).toBe('unknown'); // nothing measured yet is never green
+    expect(ev.get('orrery')!.status).toBe('unknown'); // nothing measured yet is never green
     expect(u.nodes.get('k-start-week')!.links).toEqual(['r-recovers']); // restart time evidences recovery too
   });
 
@@ -97,7 +97,7 @@ describe('the dogfood model and its probes', () => {
   it('chooses the seed explicitly, so the dogfood log never gets the demo', () => {
     expect(seedKindFrom(undefined)).toBe('demo');
     expect(seedKindFrom('dogfood')).toBe('dogfood');
-    expect(() => seedKindFrom('larch')).toThrow(/RU_SEED/);
+    expect(() => seedKindFrom('larch')).toThrow(/ORRERY_SEED/);
   });
 });
 
@@ -204,20 +204,20 @@ describe('measurement helpers', () => {
     const crossings = (f: string, src: string) => crossingsIn(f, scrub(src, false)).length;
     const imports = (f: string, ...specs: string[]) => crossings(f, specs.map((s) => `import { x } from '${s}';`).join('\n'));
     // What the layout allows.
-    expect(imports('apps/server/src/modules.ts', '@ru/prometheus', '@ru/module-kit', './dogfood/module.js')).toBe(0);
-    expect(imports('packages/prometheus/src/index.ts', '@ru/module-kit', '@ru/core', 'zod')).toBe(0);
-    expect(imports('apps/web/src/api.ts', '@ru/core')).toBe(0);
+    expect(imports('apps/server/src/modules.ts', '@orrery/prometheus', '@orrery/module-kit', './dogfood/module.js')).toBe(0);
+    expect(imports('packages/prometheus/src/index.ts', '@orrery/module-kit', '@orrery/core', 'zod')).toBe(0);
+    expect(imports('apps/web/src/api.ts', '@orrery/core')).toBe(0);
     expect(imports('packages/core/src/decide.ts', './constants.js', 'zod')).toBe(0);
     expect(crossings('apps/server/src/sources/collector.ts', 'await kindOf(src).queryRange(src, q, f);')).toBe(0);
     // Each seam, crossed once.
-    expect(imports('apps/server/src/app.ts', '@ru/core/src/decide.js')).toBe(1); // around a package's entry
+    expect(imports('apps/server/src/app.ts', '@orrery/core/src/decide.js')).toBe(1); // around a package's entry
     expect(imports('apps/server/src/app.ts', '../../../packages/module-kit/src/index.js')).toBe(1);
-    expect(imports('packages/core/src/decide.ts', '@ru/module-kit')).toBe(1); // core reaching out
-    expect(imports('packages/prometheus/src/index.ts', '@ru/server')).toBe(1); // a module reaching past the kit
-    expect(imports('packages/module-kit/src/index.ts', '@ru/prometheus')).toBe(1);
-    expect(imports('apps/web/src/components/Provenance.tsx', '@ru/prometheus')).toBe(1); // the UI loading a module
-    expect(imports('apps/web/src/components/Provenance.tsx', '@ru/module-kit')).toBe(1);
-    expect(imports('apps/server/src/sources/config.ts', '@ru/prometheus')).toBe(1); // installed past the registry
+    expect(imports('packages/core/src/decide.ts', '@orrery/module-kit')).toBe(1); // core reaching out
+    expect(imports('packages/prometheus/src/index.ts', '@orrery/server')).toBe(1); // a module reaching past the kit
+    expect(imports('packages/module-kit/src/index.ts', '@orrery/prometheus')).toBe(1);
+    expect(imports('apps/web/src/components/Provenance.tsx', '@orrery/prometheus')).toBe(1); // the UI loading a module
+    expect(imports('apps/web/src/components/Provenance.tsx', '@orrery/module-kit')).toBe(1);
+    expect(imports('apps/server/src/sources/config.ts', '@orrery/prometheus')).toBe(1); // installed past the registry
     expect(crossings('apps/server/src/app.ts', 'const r = await kind.queryRange(src, q, fetch); // not in a comment: .queryRange(')).toBe(1);
   });
 
@@ -303,7 +303,7 @@ describe('a dogfood run', () => {
     const readings = store.all().filter((e) => e.type === 'reading.recorded');
     expect(new Set(readings.map((e) => e.data.observedAt)).size).toBe(1);
     expect(new Set(readings.map((e) => e.data.source))).toEqual(new Set(['probe:test@abc1234']));
-    expect(first.view.nodes['ru']!.evaluation.status).toBe('unknown'); // the two stubs keep it honest
+    expect(first.view.nodes['orrery']!.evaluation.status).toBe('unknown'); // the two stubs keep it honest
     expect(first.view.nodes['k-bundle']!.evaluation.status).toBe('ok');
 
     advance(60);

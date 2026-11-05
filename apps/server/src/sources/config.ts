@@ -5,8 +5,8 @@
 // and their checks, live here; a kind's module adds only its own fields
 // (ADR 0013), so no kind can loosen them.
 import { existsSync, readFileSync } from 'node:fs';
-import { HttpUrlSchema, SourceIdSchema, type SourceCatalog } from '@ru/core';
-import type { DrillOut, PublicSettings, PublicValue, SourceBasics, SourceKind } from '@ru/module-kit';
+import { HttpUrlSchema, SourceIdSchema, type SourceCatalog } from '@orrery/core';
+import type { DrillOut, PublicSettings, PublicValue, SourceBasics, SourceKind } from '@orrery/module-kit';
 import { z } from 'zod';
 import { SOURCE_KINDS } from '../modules.js';
 
@@ -20,7 +20,7 @@ const SHARED = {
   /** Where a person may be sent to look. Without it there is no drill-out link. */
   publicUrl: HttpUrlSchema.optional(),
   /** The *name* of the environment variable holding a bearer token — never the token itself. */
-  tokenEnv: z.string().regex(ENV_NAME, 'tokenEnv names an environment variable, e.g. RU_GRAFANA_TOKEN').optional(),
+  tokenEnv: z.string().regex(ENV_NAME, 'tokenEnv names an environment variable, e.g. ORRERY_GRAFANA_TOKEN').optional(),
   stepSeconds: z.number().int().min(10).max(86_400).default(300),
   settleSeconds: z.number().int().min(0).max(3_600).default(60),
   timeoutSeconds: z.number().positive().max(120).default(10),
@@ -124,15 +124,15 @@ export function parseSources(raw: unknown, env: Record<string, string | undefine
   });
 }
 
-/** Loads the file `RU_SOURCES_FILE` names (settings.ts). None means no sources — the same as `[]`. */
+/** Loads the file `ORRERY_SOURCES_FILE` names (settings.ts). None means no sources — the same as `[]`. */
 export function loadSources(file: string | null, env: Record<string, string | undefined>): ResolvedSource[] {
   if (!file) return [];
-  if (!existsSync(file)) throw new Error(`RU_SOURCES_FILE: ${file} does not exist`);
+  if (!existsSync(file)) throw new Error(`ORRERY_SOURCES_FILE: ${file} does not exist`);
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(file, 'utf8'));
   } catch (err) {
-    throw new Error(`RU_SOURCES_FILE: ${file} is not valid JSON — ${(err as Error).message}`);
+    throw new Error(`ORRERY_SOURCES_FILE: ${file} is not valid JSON — ${(err as Error).message}`);
   }
   return parseSources(raw, env, file);
 }
@@ -152,6 +152,6 @@ export function assertSafeToServe(sources: readonly ResolvedSource[], host: stri
   if (sources.length === 0 || LOOPBACK.test(host) || allowRemote) return;
   throw new Error(
     `Refusing to listen on ${host} with metric sources configured: commands are unauthenticated, so anyone who can reach the API ` +
-      'could run queries with the server’s credentials. Listen on 127.0.0.1, or set RU_ALLOW_REMOTE=1 if the network is trusted.',
+      'could run queries with the server’s credentials. Listen on 127.0.0.1, or set ORRERY_ALLOW_REMOTE=1 if the network is trusted.',
   );
 }

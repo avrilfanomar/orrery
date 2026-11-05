@@ -5,7 +5,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildNodeDetail, buildUniverseView, checkLogEntry, CommandSchema, EventSchema, type RuEvent, type UniverseView } from '@ru/core';
+import { buildNodeDetail, buildUniverseView, checkLogEntry, CommandSchema, EventSchema, type OrreryEvent, type UniverseView } from '@orrery/core';
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
@@ -17,7 +17,7 @@ import { EventStore } from '../src/store.js';
 
 const NOW = new Date('2026-11-03T12:00:00.000Z');
 const post = (url: string, payload: object): InjectOptions => ({ method: 'POST', url, payload });
-const storeOf = (events: readonly RuEvent[]) => {
+const storeOf = (events: readonly OrreryEvent[]) => {
   const store = EventStore.open(null);
   store.replaceAll(events);
   return store;
@@ -48,7 +48,7 @@ describe('frozen history', () => {
   it('loads each through the store and holds it to the log contract', async () => {
     for (const f of Object.keys(FROZEN)) {
       const raw = lines(f);
-      let prev: RuEvent | undefined;
+      let prev: OrreryEvent | undefined;
       for (const [i, e] of raw.entries()) {
         const check = checkLogEntry(e, prev);
         expect(check.ok ? null : `line ${i + 1} ${check.problem}`, f).toBeNull();

@@ -1,5 +1,5 @@
 // What every action form shares: heading, submit-to-command wiring, error and footer.
-import type { CommandInput, NodeView, UniverseView } from '@ru/core';
+import type { CommandInput, NodeView, UniverseView } from '@orrery/core';
 import type { ReactNode } from 'react';
 
 /** What the dialog shell lends each form: who is acting and how to send a command. */

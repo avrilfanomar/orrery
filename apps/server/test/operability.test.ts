@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { buildChangeFeed, evaluateUniverse, project, type RuEvent, type TimelineEntry, type UniverseView } from '@ru/core';
+import { buildChangeFeed, evaluateUniverse, project, type OrreryEvent, type TimelineEntry, type UniverseView } from '@orrery/core';
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
@@ -24,12 +24,12 @@ const NOW = new Date('2026-11-03T12:00:00.000Z');
 const H = 3.6e6;
 const DAY = 24 * H;
 const post = (url: string, payload: object, headers: Record<string, string> = {}): InjectOptions => ({ method: 'POST', url, payload, headers });
-const storeOf = (events: readonly RuEvent[]) => {
+const storeOf = (events: readonly OrreryEvent[]) => {
   const store = EventStore.open(null);
   store.replaceAll(events);
   return store;
 };
-const tmp = mkdtempSync(join(tmpdir(), 'ru-operability-'));
+const tmp = mkdtempSync(join(tmpdir(), 'orrery-operability-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 const read = (f: string) => readFileSync(join(repoRoot, f), 'utf8');
 
@@ -45,27 +45,27 @@ describe('startup refusals explain themselves', () => {
   const READERS = { serverSettings, simulatorSettings, dogfoodSettings } as const;
   /** Every setting each reader takes. A setting read without a row here fails the completeness test below. */
   const SETTINGS: Record<keyof typeof READERS, string[]> = {
-    serverSettings: ['RU_DATA_FILE', 'RU_WEB_DIST', 'HOST', 'PORT', 'RU_SEED', 'RU_INGEST_TOKEN', 'RU_SOURCES_FILE', 'RU_ALLOW_REMOTE', 'RU_ALLOWED_HOSTS'],
-    simulatorSettings: ['HOST', 'PORT', 'RU_API', 'RU_SIM_TICK_MS', 'RU_INGEST_TOKEN'],
-    dogfoodSettings: ['RU_DOGFOOD_FILE', 'RU_DOGFOOD_PORT', 'RU_DOGFOOD_URL', 'RU_PROBE_ENV', 'NO_COLOR'],
+    serverSettings: ['ORRERY_DATA_FILE', 'ORRERY_WEB_DIST', 'HOST', 'PORT', 'ORRERY_SEED', 'ORRERY_INGEST_TOKEN', 'ORRERY_SOURCES_FILE', 'ORRERY_ALLOW_REMOTE', 'ORRERY_ALLOWED_HOSTS'],
+    simulatorSettings: ['HOST', 'PORT', 'ORRERY_API', 'ORRERY_SIM_TICK_MS', 'ORRERY_INGEST_TOKEN'],
+    dogfoodSettings: ['ORRERY_DOGFOOD_FILE', 'ORRERY_DOGFOOD_PORT', 'ORRERY_DOGFOOD_URL', 'ORRERY_PROBE_ENV', 'NO_COLOR'],
   };
   const BAD: [keyof typeof READERS, string, string][] = [
     ['serverSettings', 'PORT', 'abc'],
     ['serverSettings', 'PORT', '0'],
     ['serverSettings', 'PORT', '70000'],
     ['serverSettings', 'PORT', '4710.5'],
-    ['serverSettings', 'RU_SEED', 'production'],
-    ['serverSettings', 'RU_ALLOW_REMOTE', 'yes'],
-    ['serverSettings', 'RU_ALLOWED_HOSTS', 'https://ru.example.org'],
-    ['serverSettings', 'RU_ALLOWED_HOSTS', 'ru.example.org,,'],
+    ['serverSettings', 'ORRERY_SEED', 'production'],
+    ['serverSettings', 'ORRERY_ALLOW_REMOTE', 'yes'],
+    ['serverSettings', 'ORRERY_ALLOWED_HOSTS', 'https://orrery.example.org'],
+    ['serverSettings', 'ORRERY_ALLOWED_HOSTS', 'orrery.example.org,,'],
     ['simulatorSettings', 'PORT', '-1'],
-    ['simulatorSettings', 'RU_SIM_TICK_MS', 'abc'],
-    ['simulatorSettings', 'RU_SIM_TICK_MS', '0'],
-    ['simulatorSettings', 'RU_SIM_TICK_MS', '3000000000'],
-    ['simulatorSettings', 'RU_API', 'localhost:4710'],
-    ['simulatorSettings', 'RU_API', 'ftp://example.org'],
-    ['dogfoodSettings', 'RU_DOGFOOD_PORT', 'eleven'],
-    ['dogfoodSettings', 'RU_DOGFOOD_URL', 'not a url'],
+    ['simulatorSettings', 'ORRERY_SIM_TICK_MS', 'abc'],
+    ['simulatorSettings', 'ORRERY_SIM_TICK_MS', '0'],
+    ['simulatorSettings', 'ORRERY_SIM_TICK_MS', '3000000000'],
+    ['simulatorSettings', 'ORRERY_API', 'localhost:4710'],
+    ['simulatorSettings', 'ORRERY_API', 'ftp://example.org'],
+    ['dogfoodSettings', 'ORRERY_DOGFOOD_PORT', 'eleven'],
+    ['dogfoodSettings', 'ORRERY_DOGFOOD_URL', 'not a url'],
   ];
 
   it('covers every setting the settings module reads', () => {
@@ -77,25 +77,25 @@ describe('startup refusals explain themselves', () => {
 
   /** One non-default value for every setting, and what it must become: a setting read but ignored fails here. */
   const GOOD: [keyof typeof READERS, string, string, string, unknown][] = [
-    ['serverSettings', 'RU_DATA_FILE', '/srv/ru/events.jsonl', 'dataFile', '/srv/ru/events.jsonl'],
-    ['serverSettings', 'RU_WEB_DIST', '/srv/ru/web', 'webDist', '/srv/ru/web'],
+    ['serverSettings', 'ORRERY_DATA_FILE', '/srv/orrery/events.jsonl', 'dataFile', '/srv/orrery/events.jsonl'],
+    ['serverSettings', 'ORRERY_WEB_DIST', '/srv/orrery/web', 'webDist', '/srv/orrery/web'],
     ['serverSettings', 'HOST', '0.0.0.0', 'host', '0.0.0.0'],
     ['serverSettings', 'PORT', '8080', 'port', 8080],
-    ['serverSettings', 'RU_SEED', 'dogfood', 'seed', 'dogfood'],
-    ['serverSettings', 'RU_INGEST_TOKEN', 's3cret', 'ingestToken', 's3cret'],
-    ['serverSettings', 'RU_SOURCES_FILE', '/etc/ru/sources.json', 'sourcesFile', '/etc/ru/sources.json'],
-    ['serverSettings', 'RU_ALLOW_REMOTE', '1', 'allowRemote', true],
-    ['serverSettings', 'RU_ALLOW_REMOTE', '0', 'allowRemote', false],
-    ['serverSettings', 'RU_ALLOWED_HOSTS', 'RU.example.org, .internal', 'allowedHosts', ['ru.example.org', '.internal']],
+    ['serverSettings', 'ORRERY_SEED', 'dogfood', 'seed', 'dogfood'],
+    ['serverSettings', 'ORRERY_INGEST_TOKEN', 's3cret', 'ingestToken', 's3cret'],
+    ['serverSettings', 'ORRERY_SOURCES_FILE', '/etc/orrery/sources.json', 'sourcesFile', '/etc/orrery/sources.json'],
+    ['serverSettings', 'ORRERY_ALLOW_REMOTE', '1', 'allowRemote', true],
+    ['serverSettings', 'ORRERY_ALLOW_REMOTE', '0', 'allowRemote', false],
+    ['serverSettings', 'ORRERY_ALLOWED_HOSTS', 'Orrery.example.org, .internal', 'allowedHosts', ['orrery.example.org', '.internal']],
     ['simulatorSettings', 'HOST', '::1', 'api', 'http://[::1]:4710'],
     ['simulatorSettings', 'PORT', '8080', 'api', 'http://127.0.0.1:8080'],
-    ['simulatorSettings', 'RU_API', 'https://ru.example.org/', 'api', 'https://ru.example.org'],
-    ['simulatorSettings', 'RU_SIM_TICK_MS', '5000', 'tickMs', 5000],
-    ['simulatorSettings', 'RU_INGEST_TOKEN', 's3cret', 'ingestToken', 's3cret'],
-    ['dogfoodSettings', 'RU_DOGFOOD_FILE', '/srv/ru/dogfood.jsonl', 'file', '/srv/ru/dogfood.jsonl'],
-    ['dogfoodSettings', 'RU_DOGFOOD_PORT', '9000', 'port', 9000],
-    ['dogfoodSettings', 'RU_DOGFOOD_URL', 'http://ru.internal:4711', 'url', 'http://ru.internal:4711'],
-    ['dogfoodSettings', 'RU_PROBE_ENV', 'ci', 'probeEnv', 'ci'],
+    ['simulatorSettings', 'ORRERY_API', 'https://orrery.example.org/', 'api', 'https://orrery.example.org'],
+    ['simulatorSettings', 'ORRERY_SIM_TICK_MS', '5000', 'tickMs', 5000],
+    ['simulatorSettings', 'ORRERY_INGEST_TOKEN', 's3cret', 'ingestToken', 's3cret'],
+    ['dogfoodSettings', 'ORRERY_DOGFOOD_FILE', '/srv/orrery/dogfood.jsonl', 'file', '/srv/orrery/dogfood.jsonl'],
+    ['dogfoodSettings', 'ORRERY_DOGFOOD_PORT', '9000', 'port', 9000],
+    ['dogfoodSettings', 'ORRERY_DOGFOOD_URL', 'http://orrery.internal:4711', 'url', 'http://orrery.internal:4711'],
+    ['dogfoodSettings', 'ORRERY_PROBE_ENV', 'ci', 'probeEnv', 'ci'],
     ['dogfoodSettings', 'NO_COLOR', '1', 'colour', false],
   ];
 
@@ -112,7 +112,7 @@ describe('startup refusals explain themselves', () => {
   it('starts the server with the settings it was given: its log, its seed and its ingest token', { timeout: 30_000 }, async () => {
     const dataFile = join(tmp, 'started.jsonl');
     const port = await freePort();
-    const app = await startServer(serverSettings({ RU_DATA_FILE: dataFile, PORT: String(port), RU_SEED: 'dogfood', RU_INGEST_TOKEN: 's3cret', RU_WEB_DIST: join(tmp, 'no-ui') }), {});
+    const app = await startServer(serverSettings({ ORRERY_DATA_FILE: dataFile, PORT: String(port), ORRERY_SEED: 'dogfood', ORRERY_INGEST_TOKEN: 's3cret', ORRERY_WEB_DIST: join(tmp, 'no-ui') }), {});
     try {
       const reading = { nodeId: 'k-links', value: 0 };
       const at = `http://127.0.0.1:${port}/api/readings`;
@@ -127,7 +127,7 @@ describe('startup refusals explain themselves', () => {
     }
     const sources = join(tmp, 'one-source.json');
     writeFileSync(sources, JSON.stringify([{ id: 'prom', kind: 'prometheus', url: 'http://prometheus.invalid:9090' }]));
-    await expect(startServer(serverSettings({ RU_DATA_FILE: dataFile, HOST: '0.0.0.0', RU_SOURCES_FILE: sources, RU_ALLOW_REMOTE: '0' }), {})).rejects.toThrow(/RU_ALLOW_REMOTE=1/);
+    await expect(startServer(serverSettings({ ORRERY_DATA_FILE: dataFile, HOST: '0.0.0.0', ORRERY_SOURCES_FILE: sources, ORRERY_ALLOW_REMOTE: '0' }), {})).rejects.toThrow(/ORRERY_ALLOW_REMOTE=1/);
   });
 
   it.each(BAD)('%s refuses %s=%j, naming the variable and the value', (reader, name, value) => {
@@ -138,9 +138,9 @@ describe('startup refusals explain themselves', () => {
     for (const [reader, names] of Object.entries(SETTINGS) as [keyof typeof READERS, string[]][]) {
       for (const name of names) for (const blank of ['', '   ']) expect(READERS[reader]({ [name]: blank }), `${reader} ${name}=${JSON.stringify(blank)}`).toEqual(READERS[reader]({}));
     }
-    const defaults = serverSettings({ HOST: '', PORT: '', RU_DATA_FILE: '' });
+    const defaults = serverSettings({ HOST: '', PORT: '', ORRERY_DATA_FILE: '' });
     expect(defaults).toMatchObject({ host: '127.0.0.1', port: 4710, dataFile: join(repoRoot, 'data/events.jsonl') });
-    expect(simulatorSettings({ RU_SIM_TICK_MS: '' }).tickMs).toBe(30_000);
+    expect(simulatorSettings({ ORRERY_SIM_TICK_MS: '' }).tickMs).toBe(30_000);
   });
 
   it('refuses a damaged log, naming the file and the line, and says what to do with a cut-off last write', () => {
@@ -161,20 +161,20 @@ describe('startup refusals explain themselves', () => {
   it('refuses a missing or malformed sources file, naming it', () => {
     const broken = join(tmp, 'sources.json');
     writeFileSync(broken, '[{ "id": ');
-    expect(() => loadSources(join(tmp, 'nope.json'), {})).toThrow(/^RU_SOURCES_FILE: .*nope\.json does not exist/);
-    expect(() => loadSources(broken, {})).toThrow(/^RU_SOURCES_FILE: .*sources\.json is not valid JSON/);
+    expect(() => loadSources(join(tmp, 'nope.json'), {})).toThrow(/^ORRERY_SOURCES_FILE: .*nope\.json does not exist/);
+    expect(() => loadSources(broken, {})).toThrow(/^ORRERY_SOURCES_FILE: .*sources\.json is not valid JSON/);
   });
 
   // Real processes and sockets: the 5 s default is too tight on a busy machine (ADR 0008).
   it('stops the real entry points before they open or serve anything', { timeout: 30_000 }, async () => {
     const dataFile = join(tmp, 'never-created.jsonl');
-    const server = await runEntry('src/main.ts', { PORT: 'abc', RU_DATA_FILE: dataFile });
+    const server = await runEntry('src/main.ts', { PORT: 'abc', ORRERY_DATA_FILE: dataFile });
     expect(server.code, server.stderr).not.toBe(0);
     expect(server.stderr).toContain('PORT must be a whole number from 1 to 65535 (got “abc”)');
     expect(existsSync(dataFile)).toBe(false);
-    const sim = await runEntry('src/simulate.ts', { RU_SIM_TICK_MS: 'fast', RU_API: 'http://127.0.0.1:9' });
+    const sim = await runEntry('src/simulate.ts', { ORRERY_SIM_TICK_MS: 'fast', ORRERY_API: 'http://127.0.0.1:9' });
     expect(sim.code, sim.stderr).not.toBe(0);
-    expect(sim.stderr).toContain('RU_SIM_TICK_MS must be a whole number');
+    expect(sim.stderr).toContain('ORRERY_SIM_TICK_MS must be a whole number');
   });
 });
 
@@ -195,7 +195,7 @@ describe('failures are visible', () => {
     let broken = false;
     const store = Object.assign(Object.create(real) as EventStore, {
       all: () => {
-        if (broken) throw new Error('disk on fire at /var/lib/ru/events.jsonl');
+        if (broken) throw new Error('disk on fire at /var/lib/orrery/events.jsonl');
         return real.all();
       },
     });
@@ -293,7 +293,7 @@ describe('on the record', () => {
   const NEEDS_REASON = new Set(['node.redefined', 'node.reprioritized', 'node.moved', 'node.linked', 'node.unlinked', 'node.deprecated', 'node.reactivated']);
 
   /** Every way a log fails to say who changed what, when and why, as readable problems. */
-  function untraced(events: readonly RuEvent[], feed: readonly TimelineEntry[]): string[] {
+  function untraced(events: readonly OrreryEvent[], feed: readonly TimelineEntry[]): string[] {
     const problems: string[] = [];
     for (const e of events) {
       if (!e.actor.trim()) problems.push(`#${e.seq} names no author`);
@@ -402,7 +402,7 @@ describe('documented operations', () => {
       }
     }
     expect(missing).toEqual([]);
-    for (const known of ['pnpm dev', 'pnpm start', 'pnpm reset', 'pnpm verify', 'pnpm dogfood', 'pnpm dogfood:serve', 'pnpm --filter @ru/web e2e', 'pnpm --filter @ru/server test']) expect(seen).toContain(known);
+    for (const known of ['pnpm dev', 'pnpm start', 'pnpm reset', 'pnpm verify', 'pnpm dogfood', 'pnpm dogfood:serve', 'pnpm --filter @orrery/web e2e', 'pnpm --filter @orrery/server test']) expect(seen).toContain(known);
   });
 
   it('states one Node floor: in engines, .nvmrc, the README and the Node types the code is checked against', () => {
@@ -416,10 +416,10 @@ describe('documented operations', () => {
   });
 
   it('reads a relative path from the directory the command was typed in, as the README’s examples assume', () => {
-    const fromRoot = serverSettings({ RU_SOURCES_FILE: 'sources.json', RU_DATA_FILE: 'data/mine.jsonl', INIT_CWD: repoRoot });
+    const fromRoot = serverSettings({ ORRERY_SOURCES_FILE: 'sources.json', ORRERY_DATA_FILE: 'data/mine.jsonl', INIT_CWD: repoRoot });
     expect(fromRoot.sourcesFile).toBe(join(repoRoot, 'sources.json'));
     expect(fromRoot.dataFile).toBe(join(repoRoot, 'data/mine.jsonl'));
-    expect(serverSettings({ RU_SOURCES_FILE: '/etc/ru/sources.json', INIT_CWD: repoRoot }).sourcesFile).toBe('/etc/ru/sources.json');
-    expect(serverSettings({ RU_SOURCES_FILE: 'sources.json' }).sourcesFile).toBe(join(process.cwd(), 'sources.json'));
+    expect(serverSettings({ ORRERY_SOURCES_FILE: '/etc/orrery/sources.json', INIT_CWD: repoRoot }).sourcesFile).toBe('/etc/orrery/sources.json');
+    expect(serverSettings({ ORRERY_SOURCES_FILE: 'sources.json' }).sourcesFile).toBe(join(process.cwd(), 'sources.json'));
   });
 });

@@ -4,7 +4,7 @@
 import { KIND_LABELS } from './constants.js';
 import { formatThreshold, formatValue, shortRollup } from './format.js';
 import type { Definition, NodeState, Reading, Universe } from './model.js';
-import type { RuEvent } from './schema.js';
+import type { OrreryEvent } from './schema.js';
 
 export function emptyUniverse(): Universe {
   return {
@@ -24,7 +24,7 @@ export function emptyUniverse(): Universe {
  * ordered by `at` (it never stamps an event earlier than its predecessor), so
  * the fold can stop at the first event past the horizon.
  */
-export function project(events: readonly RuEvent[], asOf?: string | null): Universe {
+export function project(events: readonly OrreryEvent[], asOf?: string | null): Universe {
   const u = emptyUniverse();
   u.asOf = asOf ?? null;
   for (const e of events) {
@@ -89,7 +89,7 @@ export function diffDefinitions(prev: Definition, next: Definition): string[] {
   return parts;
 }
 
-export function applyEvent(u: Universe, e: RuEvent): void {
+export function applyEvent(u: Universe, e: OrreryEvent): void {
   u.lastSeq = e.seq;
   u.firstAt ??= e.at;
   u.lastAt = e.at;

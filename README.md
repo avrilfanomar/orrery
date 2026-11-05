@@ -37,9 +37,9 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 | `pnpm start` | Build the UI and serve everything from :4710 |
 | `pnpm reset` | Re-seed the demo relative to now. Stop the server first; the old log is kept as `<log>.<instant>.bak` |
 | `pnpm verify` | Typecheck, unit and API tests, UI build |
-| `pnpm --filter @ru/web e2e` | Browser smoke test against a running app (writes to the log) |
-| `pnpm --filter @ru/web a11y` | Accessibility scan against a running app (reads only) |
-| `pnpm --filter @ru/web readme-gif` | Re-record the picture above against a freshly reset, running app (reads only; needs ffmpeg) |
+| `pnpm --filter @orrery/web e2e` | Browser smoke test against a running app (writes to the log) |
+| `pnpm --filter @orrery/web a11y` | Accessibility scan against a running app (reads only) |
+| `pnpm --filter @orrery/web readme-gif` | Re-record the picture above against a freshly reset, running app (reads only; needs ffmpeg) |
 | `pnpm dogfood` | Measure this repository against its own requirements ([below](#the-repository-measures-itself)) |
 
 ## The idea
@@ -119,7 +119,7 @@ curl -X POST localhost:4710/api/readings -H 'content-type: application/json' \
 - The simulator feeds only the demo. In a universe whose top level is not
   Larch Store, it says why and writes nothing, because its made-up readings
   would pass for real ones there.
-- Set `RU_INGEST_TOKEN` to require `Authorization: Bearer …` on every reading,
+- Set `ORRERY_INGEST_TOKEN` to require `Authorization: Bearer …` on every reading,
   by either route: the webhook and a `reading.record` command alike. While it
   is set, the console cannot record a reading by hand, because it has no way
   to hold the token. Without it, readings can also be recorded by hand from
@@ -140,7 +140,7 @@ To have the server pull, configure sources and bind a node to one:
 ```bash
 docker run -d -p 9090:9090 prom/prometheus      # or use your own
 cp apps/server/sources.example.json sources.json # edit ids, URLs, steps
-RU_SOURCES_FILE=sources.json pnpm dev
+ORRERY_SOURCES_FILE=sources.json pnpm dev
 ```
 
 - Each source is pulled every `stepSeconds` (default 300). Instants are on a
@@ -155,7 +155,7 @@ RU_SOURCES_FILE=sources.json pnpm dev
   datasource proxy, and "Open in Grafana Explore" uses `publicUrl`.
 - Tokens are never stored in the log or returned by the API. With sources
   configured, the server refuses a non-loopback `HOST` unless
-  `RU_ALLOW_REMOTE=1`, because commands are unauthenticated.
+  `ORRERY_ALLOW_REMOTE=1`, because commands are unauthenticated.
 
 </details>
 
@@ -166,7 +166,7 @@ Commands carry no credentials, so the operator's own browser is the way in for
 anyone else ([ADR 0010](docs/adr/0010-security-the-browser-is-the-way-in.md)).
 
 - **Names.** The server answers only to IP addresses, `localhost`, the name in
-  `HOST` and the names in `RU_ALLOWED_HOSTS`. Any other `Host` gets a 403, so a
+  `HOST` and the names in `ORRERY_ALLOWED_HOSTS`. Any other `Host` gets a 403, so a
   page whose DNS name has been rebound to the server reads and writes nothing.
   If you reach the server by a name, list it.
 - **Writes.** A write that carries an `Origin` other than the server's own is
@@ -215,23 +215,23 @@ directory is used.
 
 | Variable | Default | Used by | What it does |
 |---|---|---|---|
-| `RU_DATA_FILE` | `data/events.jsonl` | server, `reset` | The event log |
-| `RU_SEED` | `demo` | server, `reset` | What an empty log starts as: `demo` or `dogfood` |
+| `ORRERY_DATA_FILE` | `data/events.jsonl` | server, `reset` | The event log |
+| `ORRERY_SEED` | `demo` | server, `reset` | What an empty log starts as: `demo` or `dogfood` |
 | `PORT` | `4710` | server, `reset`, simulator | The API port |
 | `HOST` | `127.0.0.1` | server, `reset`, simulator | The address the API binds to |
-| `RU_WEB_DIST` | `apps/web/dist` | server | The built UI to serve, if present |
-| `RU_INGEST_TOKEN` | unset | server, simulator | Requires `Authorization: Bearer …` on every reading, through `POST /api/readings` or a `reading.record` command |
-| `RU_SOURCES_FILE` | unset | server | Metric sources to pull from (see above). Their tokens are named by `tokenEnv` |
-| `RU_ALLOW_REMOTE` | unset | server | `1` allows a non-loopback `HOST` with sources configured |
-| `RU_ALLOWED_HOSTS` | unset | server | Host names, comma-separated, a request may name besides IP addresses, `localhost` and `HOST`; `.example.org` covers every name under it |
-| `RU_API` | `http://HOST:PORT` (simulator), `http://127.0.0.1:4710` (Vite) | simulator, Vite dev server | Where the API is |
-| `RU_SIM_TICK_MS` | `30000` | simulator | How often the fast signals move |
-| `RU_DOGFOOD_FILE` | `data/dogfood.jsonl` | `dogfood`, `dogfood:serve` | The repository's own log |
-| `RU_DOGFOOD_PORT` | `4711` | `dogfood`, `dogfood:serve` | Its port |
-| `RU_DOGFOOD_URL` | `http://127.0.0.1:RU_DOGFOOD_PORT` | `dogfood` | A running dogfood server to record into; without one, the run writes the log directly |
-| `RU_PROBE_ENV` | `local` | `dogfood` | Labels the machine; compare timings within one label |
+| `ORRERY_WEB_DIST` | `apps/web/dist` | server | The built UI to serve, if present |
+| `ORRERY_INGEST_TOKEN` | unset | server, simulator | Requires `Authorization: Bearer …` on every reading, through `POST /api/readings` or a `reading.record` command |
+| `ORRERY_SOURCES_FILE` | unset | server | Metric sources to pull from (see above). Their tokens are named by `tokenEnv` |
+| `ORRERY_ALLOW_REMOTE` | unset | server | `1` allows a non-loopback `HOST` with sources configured |
+| `ORRERY_ALLOWED_HOSTS` | unset | server | Host names, comma-separated, a request may name besides IP addresses, `localhost` and `HOST`; `.example.org` covers every name under it |
+| `ORRERY_API` | `http://HOST:PORT` (simulator), `http://127.0.0.1:4710` (Vite) | simulator, Vite dev server | Where the API is |
+| `ORRERY_SIM_TICK_MS` | `30000` | simulator | How often the fast signals move |
+| `ORRERY_DOGFOOD_FILE` | `data/dogfood.jsonl` | `dogfood`, `dogfood:serve` | The repository's own log |
+| `ORRERY_DOGFOOD_PORT` | `4711` | `dogfood`, `dogfood:serve` | Its port |
+| `ORRERY_DOGFOOD_URL` | `http://127.0.0.1:ORRERY_DOGFOOD_PORT` | `dogfood` | A running dogfood server to record into; without one, the run writes the log directly |
+| `ORRERY_PROBE_ENV` | `local` | `dogfood` | Labels the machine; compare timings within one label |
 | `NO_COLOR` | unset | `dogfood` | Prints the report without colour |
-| `RU_URL` | `http://127.0.0.1:4710` | `e2e`, `a11y`, `readme-gif` | The app the browser scripts drive |
+| `ORRERY_URL` | `http://127.0.0.1:4710` | `e2e`, `a11y`, `readme-gif` | The app the browser scripts drive |
 | `PW_CHROMIUM` | unset | `e2e`, `a11y`, `readme-gif`, `dogfood` | A Chromium binary for the browser scripts |
 
 </details>
@@ -259,7 +259,7 @@ docs/adr              architecture decisions
 ```
 
 A system to pull from, or a language a binding is written in, is a module: a
-package implementing `@ru/module-kit`, added to `apps/server/src/modules.ts`
+package implementing `@orrery/module-kit`, added to `apps/server/src/modules.ts`
 and to the server's dependencies. Core, the log's shape and the console stay as
 they are. The console learns what to say about a language, and where a query
 opens, from `GET /api/sources`.
@@ -272,7 +272,7 @@ opens, from `GET /api/sources`.
 - **Scale.** The view is re-projected from the full log on each request.
   That's fine for thousands of events, not for millions of readings. The
   simulator adds ~17k readings a day while `pnpm dev` runs (6 fast signals
-  every 30 s; `RU_SIM_TICK_MS` changes it), so `pnpm reset` now and then on a
+  every 30 s; `ORRERY_SIM_TICK_MS` changes it), so `pnpm reset` now and then on a
   long-running demo. Each reset keeps the log it replaced as a `.bak` file
   beside it (ADR 0009), and nothing prunes them: delete the ones you no longer
   need.

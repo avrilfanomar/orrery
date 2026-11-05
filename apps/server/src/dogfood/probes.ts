@@ -8,7 +8,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { buildUniverseView, EventSchema, type RuEvent } from '@ru/core';
+import { buildUniverseView, EventSchema, type OrreryEvent } from '@orrery/core';
 import { generateDemo } from '../demo.js';
 import { EventStore } from '../store.js';
 import {
@@ -41,7 +41,7 @@ export type ProbeOutcome = { value: number; detail?: string } | Skip;
 
 /** The benchmark demo plus a week of live signals, also stored as a JSONL log for the probes that load one. */
 export interface BenchWeek {
-  events: RuEvent[];
+  events: OrreryEvent[];
   /** The week's last instant: every view of it is taken here. */
   now: string;
   /** Opened, never appended to: a probe that writes works on its own copy. */
@@ -54,7 +54,7 @@ export interface ProbeContext {
   tests(): Promise<TestRun | Skip>;
   typecheck(): Promise<TypecheckRun | Skip>;
   build(): Promise<BuildRun | Skip>;
-  demo(): RuEvent[];
+  demo(): OrreryEvent[];
   week(): BenchWeek;
   tracked(): string[];
 }
@@ -293,7 +293,7 @@ export const PROBES: readonly Probe[] = [
     version: 1,
     since: V1,
     method:
-      'The summed wall time of this run’s three verification steps — the typecheck of all packages, the core and server test runs, and the production UI build — each run sequentially. Machine-bound: compare readings from one RU_PROBE_ENV only.',
+      'The summed wall time of this run’s three verification steps — the typecheck of all packages, the core and server test runs, and the production UI build — each run sequentially. Machine-bound: compare readings from one ORRERY_PROBE_ENV only.',
     async measure(ctx) {
       const steps = [await ctx.typecheck(), await ctx.tests(), await ctx.build()];
       const skip = steps.find(isSkip);
@@ -308,7 +308,7 @@ export const PROBES: readonly Probe[] = [
     since: V1,
     timing: true,
     workload: 'demo',
-    method: `buildUniverseView over the demo as seeded at ${BENCH_NOW.toISOString()} with seed 7 (~2.9k events): 3 warm-up runs, then the median of 15. Machine-bound: compare readings from one RU_PROBE_ENV only.`,
+    method: `buildUniverseView over the demo as seeded at ${BENCH_NOW.toISOString()} with seed 7 (~2.9k events): 3 warm-up runs, then the median of 15. Machine-bound: compare readings from one ORRERY_PROBE_ENV only.`,
     measure(ctx) {
       const events = ctx.demo();
       return { value: round(medianMs(() => buildUniverseView(events, { now: BENCH_NOW.toISOString() }), 3, 15), 1), detail: `${events.length} events` };
@@ -321,7 +321,7 @@ export const PROBES: readonly Probe[] = [
     timing: true,
     workload: 'week',
     method:
-      'buildUniverseView over the benchmark demo plus seven days of the six fast simulator signals at the default 30 s tick, each reading recorded through decide (~124k events): 2 warm-up runs, then the median of 7. Machine-bound: compare readings from one RU_PROBE_ENV only.',
+      'buildUniverseView over the benchmark demo plus seven days of the six fast simulator signals at the default 30 s tick, each reading recorded through decide (~124k events): 2 warm-up runs, then the median of 7. Machine-bound: compare readings from one ORRERY_PROBE_ENV only.',
     measure(ctx) {
       const { events, now } = ctx.week();
       return { value: Math.round(medianMs(() => buildUniverseView(events, { now }), 2, 7)), detail: `${events.length} events` };

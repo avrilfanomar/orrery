@@ -1,4 +1,4 @@
-import { PASS_FAIL_UNIT, formatThreshold, formatValue, type NodeView } from '@ru/core';
+import { PASS_FAIL_UNIT, formatThreshold, formatValue, type NodeView } from '@orrery/core';
 import { Counts, Coverage, KindTag, PriorityTag, Ribbon, Sparkline, StatusBadge } from './bits.js';
 
 interface Props {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateUniverse, project, signalPath, type UniverseView } from '@ru/core';
+import { evaluateUniverse, project, signalPath, type UniverseView } from '@orrery/core';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
 import { EventStore } from '../src/store.js';

@@ -12,7 +12,7 @@ import {
   parseCommand,
   project,
   type NewEvent,
-} from '@ru/core';
+} from '@orrery/core';
 import { z } from 'zod';
 import { bearerMatches, guard, refuse, RESERVED_ACTORS } from './guard.js';
 import { publicLanguages } from './modules.js';

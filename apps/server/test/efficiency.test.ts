@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { buildUniverseView, type RuEvent } from '@ru/core';
+import { buildUniverseView, type OrreryEvent } from '@orrery/core';
 import type { InjectOptions } from 'fastify';
 import { buildApp, MAX_READINGS_PER_REQUEST } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
@@ -24,7 +24,7 @@ describe('log passes per request', () => {
   async function counted() {
     const store = EventStore.open(null);
     store.replaceAll(generateDemo(NOW));
-    const log = store.all() as RuEvent[];
+    const log = store.all() as OrreryEvent[];
     let reads = 0;
     const proxy = new Proxy(log, {
       get(target, key, receiver) {
@@ -93,10 +93,10 @@ describe('capacity', () => {
 describe('benchmark workload', () => {
   // The workloads exactly as the probes get them.
   let tmp: string;
-  let demo: RuEvent[];
-  let week: RuEvent[];
+  let demo: OrreryEvent[];
+  let week: OrreryEvent[];
   beforeAll(() => {
-    tmp = mkdtempSync(join(tmpdir(), 'ru-efficiency-'));
+    tmp = mkdtempSync(join(tmpdir(), 'orrery-efficiency-'));
     const ctx = createContext(repoRoot, tmp);
     demo = ctx.demo();
     week = ctx.week().events;
@@ -105,7 +105,7 @@ describe('benchmark workload', () => {
 
   it('generates the same events on every run', () => {
     expect(JSON.stringify(generateDemo(BENCH_NOW, 7))).toBe(JSON.stringify(demo));
-    const day = (d: readonly RuEvent[]) => JSON.stringify(withLiveWeek(d, BENCH_NOW.getTime(), 1));
+    const day = (d: readonly OrreryEvent[]) => JSON.stringify(withLiveWeek(d, BENCH_NOW.getTime(), 1));
     expect(day(generateDemo(BENCH_NOW, 7))).toBe(day(demo));
     expect(week.slice(0, demo.length)).toEqual(demo);
   });

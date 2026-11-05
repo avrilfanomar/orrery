@@ -1,5 +1,5 @@
 // The forms that change what a node says or how it is judged.
-import { bindingLanguage, KIND_LABELS, NODE_KINDS, SUGGESTED_CHILD_KINDS, type Dimension, type MeasureSpec, type NodeKind, type Priority, type RollupRule, type ScenarioSpec } from '@ru/core';
+import { bindingLanguage, KIND_LABELS, NODE_KINDS, SUGGESTED_CHILD_KINDS, type Dimension, type MeasureSpec, type NodeKind, type Priority, type RollupRule, type ScenarioSpec } from '@orrery/core';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api.js';

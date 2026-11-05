@@ -60,7 +60,7 @@ async function killRecovery(ctx: ProbeContext): Promise<ProbeOutcome> {
   const dir = join(ctx.root, 'apps/server');
   const file = join(ctx.tmp, 'kill-recovery.jsonl');
   writeFileSync(file, ctx.demo().map((e) => `${JSON.stringify(e)}\n`).join(''));
-  const env = { PATH: process.env.PATH, RU_DATA_FILE: file, RU_WEB_DIST: join(ctx.tmp, 'no-ui') };
+  const env = { PATH: process.env.PATH, ORRERY_DATA_FILE: file, ORRERY_WEB_DIST: join(ctx.tmp, 'no-ui') };
   const first = await spawnServer(dir, env);
   if ('failed' in first) return { skipped: `the server did not start: ${lastLine(first.failed)}` };
   const load = writeLoad(first.url);

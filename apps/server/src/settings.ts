@@ -1,6 +1,6 @@
 // Every setting the server package reads, checked in one place (ADR 0007).
 // An empty value means unset, as `${VAR:-default}` does in a shell: the smoke
-// harness clears RU_SOURCES_FILE that way, and an empty HOST must never mean
+// harness clears ORRERY_SOURCES_FILE that way, and an empty HOST must never mean
 // "every interface". Anything else must parse, or the process stops before it
 // serves and names the variable. Entry points call these; nothing reads the
 // environment at import time, so a test passes in the environment it means.
@@ -51,7 +51,7 @@ function hostNamesOf(name: string, raw: string | undefined): string[] {
   if (v === undefined) return [];
   return v.split(',').map((part) => {
     const h = part.trim().toLowerCase();
-    if (!HOST_NAME.test(h)) throw new SettingError(`${name} must be host names separated by commas, e.g. ru.example.org,.internal (got “${v}”)`);
+    if (!HOST_NAME.test(h)) throw new SettingError(`${name} must be host names separated by commas, e.g. orrery.example.org,.internal (got “${v}”)`);
     return h;
   });
 }
@@ -65,7 +65,7 @@ function flagOf(name: string, raw: string | undefined): boolean {
 
 export function seedKindFrom(raw: string | undefined): SeedKind {
   const v = given(raw) ?? 'demo';
-  if (!(SEED_KINDS as readonly string[]).includes(v)) throw new SettingError(`RU_SEED must be one of ${SEED_KINDS.join(', ')} (got “${v}”)`);
+  if (!(SEED_KINDS as readonly string[]).includes(v)) throw new SettingError(`ORRERY_SEED must be one of ${SEED_KINDS.join(', ')} (got “${v}”)`);
   return v as SeedKind;
 }
 
@@ -92,13 +92,13 @@ export interface ServerSettings {
 export function serverSettings(env: Env): ServerSettings {
   return {
     ...listenOn(env),
-    dataFile: pathOf(env.RU_DATA_FILE, env) ?? resolve(repoRoot, 'data/events.jsonl'),
-    webDist: pathOf(env.RU_WEB_DIST, env) ?? resolve(repoRoot, 'apps/web/dist'),
-    seed: seedKindFrom(env.RU_SEED),
-    ingestToken: given(env.RU_INGEST_TOKEN) ?? null,
-    sourcesFile: pathOf(env.RU_SOURCES_FILE, env),
-    allowRemote: flagOf('RU_ALLOW_REMOTE', env.RU_ALLOW_REMOTE),
-    allowedHosts: hostNamesOf('RU_ALLOWED_HOSTS', env.RU_ALLOWED_HOSTS),
+    dataFile: pathOf(env.ORRERY_DATA_FILE, env) ?? resolve(repoRoot, 'data/events.jsonl'),
+    webDist: pathOf(env.ORRERY_WEB_DIST, env) ?? resolve(repoRoot, 'apps/web/dist'),
+    seed: seedKindFrom(env.ORRERY_SEED),
+    ingestToken: given(env.ORRERY_INGEST_TOKEN) ?? null,
+    sourcesFile: pathOf(env.ORRERY_SOURCES_FILE, env),
+    allowRemote: flagOf('ORRERY_ALLOW_REMOTE', env.ORRERY_ALLOW_REMOTE),
+    allowedHosts: hostNamesOf('ORRERY_ALLOWED_HOSTS', env.ORRERY_ALLOWED_HOSTS),
   };
 }
 
@@ -112,9 +112,9 @@ export interface SimulatorSettings {
 export function simulatorSettings(env: Env): SimulatorSettings {
   const { host, port } = listenOn(env);
   return {
-    api: urlOf('RU_API', env.RU_API, baseUrl(host, port)),
-    tickMs: whole('RU_SIM_TICK_MS', env.RU_SIM_TICK_MS, 30_000, 1_000, 86_400_000),
-    ingestToken: given(env.RU_INGEST_TOKEN) ?? null,
+    api: urlOf('ORRERY_API', env.ORRERY_API, baseUrl(host, port)),
+    tickMs: whole('ORRERY_SIM_TICK_MS', env.ORRERY_SIM_TICK_MS, 30_000, 1_000, 86_400_000),
+    ingestToken: given(env.ORRERY_INGEST_TOKEN) ?? null,
   };
 }
 
@@ -129,12 +129,12 @@ export interface DogfoodSettings {
 
 /** `pnpm dogfood` and `pnpm dogfood:serve` (ADR 0003): their own log and port, so they never mix with the demo. */
 export function dogfoodSettings(env: Env): DogfoodSettings {
-  const port = portOf('RU_DOGFOOD_PORT', env.RU_DOGFOOD_PORT, 4711);
+  const port = portOf('ORRERY_DOGFOOD_PORT', env.ORRERY_DOGFOOD_PORT, 4711);
   return {
-    file: pathOf(env.RU_DOGFOOD_FILE, env) ?? resolve(repoRoot, 'data/dogfood.jsonl'),
+    file: pathOf(env.ORRERY_DOGFOOD_FILE, env) ?? resolve(repoRoot, 'data/dogfood.jsonl'),
     port,
-    url: urlOf('RU_DOGFOOD_URL', env.RU_DOGFOOD_URL, `http://127.0.0.1:${port}`),
-    probeEnv: given(env.RU_PROBE_ENV) ?? 'local',
+    url: urlOf('ORRERY_DOGFOOD_URL', env.ORRERY_DOGFOOD_URL, `http://127.0.0.1:${port}`),
+    probeEnv: given(env.ORRERY_PROBE_ENV) ?? 'local',
     // no-color.org: any non-empty value turns colour off.
     colour: given(env.NO_COLOR) === undefined,
   };

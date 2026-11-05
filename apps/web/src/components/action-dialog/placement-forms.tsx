@@ -1,6 +1,6 @@
 // The forms that change where a node sits or whether it counts. All of them
 // change how something is judged, so all of them ask for a reason.
-import type { UniverseView } from '@ru/core';
+import type { UniverseView } from '@orrery/core';
 import { useMemo, useState } from 'react';
 import { Field, NodePicker, ReasonField } from './fields.js';
 import { Frame, type FormProps } from './frame.js';

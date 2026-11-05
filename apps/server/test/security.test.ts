@@ -20,7 +20,7 @@ import { EventStore } from '../src/store.js';
 
 const T0 = Date.parse('2026-11-03T10:00:00.000Z');
 const TOKEN = 's3cret-ingest-token';
-const tmp = mkdtempSync(join(tmpdir(), 'ru-security-'));
+const tmp = mkdtempSync(join(tmpdir(), 'orrery-security-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 /** These tests start real servers (reliability.test.ts says why the timeout is explicit). */
 const SPAWNS = { timeout: 30_000 };
@@ -39,16 +39,16 @@ async function universe(opts: Partial<AppOptions> = {}) {
 
 describe('a web page the operator visits cannot act through the API', () => {
   it('answers only to names nobody else’s DNS can point at it, so a rebound page reads and writes nothing', async () => {
-    const { app, store } = await universe({ allowedHosts: ['ru.example.org', '.internal'] });
+    const { app, store } = await universe({ allowedHosts: ['orrery.example.org', '.internal'] });
     const at = (host: string, method: 'GET' | 'POST' = 'GET') => app.inject({ method, url: method === 'GET' ? '/api/universe' : '/api/commands', headers: { host }, ...(method === 'POST' ? { payload: GOAL } : {}) });
-    for (const host of ['localhost:4710', '127.0.0.1:4710', '[::1]:4710', '10.0.0.7', 'app.localhost', 'ru.example.org', 'RU.Example.org.', 'ru.internal', 'internal', 'a.b.internal:8443']) {
+    for (const host of ['localhost:4710', '127.0.0.1:4710', '[::1]:4710', '10.0.0.7', 'app.localhost', 'orrery.example.org', 'Orrery.Example.org.', 'orrery.internal', 'internal', 'a.b.internal:8443']) {
       expect((await at(host)).statusCode, host).toBe(200);
     }
     const before = store.all().length;
-    for (const host of ['attacker.example:4710', 'ru.example.org.attacker.example', 'localhost.attacker.example', 'xinternal', 'internal.attacker.example', '127.0.0.1.nip.io', 'evil@localhost', 'localhost/x']) {
+    for (const host of ['attacker.example:4710', 'orrery.example.org.attacker.example', 'localhost.attacker.example', 'xinternal', 'internal.attacker.example', '127.0.0.1.nip.io', 'evil@localhost', 'localhost/x']) {
       const read = await at(host);
       expect(read.statusCode, host).toBe(403);
-      expect(read.json().error).toMatch(/does not answer to the name .*RU_ALLOWED_HOSTS/);
+      expect(read.json().error).toMatch(/does not answer to the name .*ORRERY_ALLOWED_HOSTS/);
       expect((await at(host, 'POST')).statusCode, host).toBe(403);
     }
     expect(store.all()).toHaveLength(before);
@@ -103,15 +103,15 @@ describe('a web page the operator visits cannot act through the API', () => {
     expect(SECURITY_HEADERS['content-security-policy']).toMatch(/default-src 'self'.*frame-ancestors 'none'/);
   });
 
-  it('holds on the real server, which answers to the names RU_ALLOWED_HOSTS lists', SPAWNS, async () => {
+  it('holds on the real server, which answers to the names ORRERY_ALLOWED_HOSTS lists', SPAWNS, async () => {
     const port = await freePort();
-    const app = await startServer(serverSettings({ RU_DATA_FILE: join(tmp, 'real.jsonl'), PORT: String(port), RU_ALLOWED_HOSTS: 'ru.example.org', RU_WEB_DIST: join(tmp, 'no-ui') }), {});
+    const app = await startServer(serverSettings({ ORRERY_DATA_FILE: join(tmp, 'real.jsonl'), PORT: String(port), ORRERY_ALLOWED_HOSTS: 'orrery.example.org', ORRERY_WEB_DIST: join(tmp, 'no-ui') }), {});
     // fetch may not set Host, which is the whole point of a rebinding attack; node:http may.
     const status = (host: string) =>
       new Promise<number>((done, fail) => request({ host: '127.0.0.1', port, path: '/api/health', headers: { host } }, (res) => done(res.resume() && res.statusCode!)).on('error', fail).end());
     try {
       expect(await status(`127.0.0.1:${port}`)).toBe(200);
-      expect(await status('ru.example.org')).toBe(200);
+      expect(await status('orrery.example.org')).toBe(200);
       expect(await status(`attacker.example:${port}`)).toBe(403);
     } finally {
       await app.close();
@@ -190,7 +190,7 @@ describe('no secret leaves the server', () => {
     ];
     let call = 0;
     const fakeFetch = (async (_url: unknown, init?: RequestInit) => replies[call++ % replies.length]!(String((init?.headers as Record<string, string>).authorization))) as typeof fetch;
-    const [src] = parseSources([{ id: 'prom', kind: 'prometheus', url: 'http://prometheus.internal:9090', tokenEnv: 'RU_PROM_TOKEN', stepSeconds: 60, settleSeconds: 0, timeoutSeconds: 5 }], { RU_PROM_TOKEN: SECRET });
+    const [src] = parseSources([{ id: 'prom', kind: 'prometheus', url: 'http://prometheus.internal:9090', tokenEnv: 'ORRERY_PROM_TOKEN', stepSeconds: 60, settleSeconds: 0, timeoutSeconds: 5 }], { ORRERY_PROM_TOKEN: SECRET });
     let now = T0;
     const file = join(tmp, 'canary.jsonl');
     const store = EventStore.open(file);

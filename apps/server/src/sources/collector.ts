@@ -15,8 +15,8 @@ import {
   type NewEvent,
   type SourceCatalog,
   type Universe,
-} from '@ru/core';
-import type { DrillOut, PullFailure } from '@ru/module-kit';
+} from '@orrery/core';
+import type { DrillOut, PullFailure } from '@orrery/module-kit';
 import type { EventStore } from '../store.js';
 import { catalogOf, drillOutOf, kindOf, toPublic, type PublicSource, type ResolvedSource } from './config.js';
 

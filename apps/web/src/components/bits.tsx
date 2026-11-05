@@ -8,7 +8,7 @@ import {
   type Priority,
   type SeriesPoint,
   type Status,
-} from '@ru/core';
+} from '@orrery/core';
 
 export function StatusIcon({ status, size = 14 }: { status: Status; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 16 16', 'aria-hidden': true } as const;

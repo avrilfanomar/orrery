@@ -75,7 +75,7 @@ export function guard(app: FastifyInstance, allowedHosts: readonly string[]): vo
     const header = req.headers.host;
     const host = header === undefined ? null : hostOf(header);
     if (header !== undefined && (host === null || !hostAllowed(host, allowedHosts))) {
-      return refuse(req, reply, 403, 'host', `This server does not answer to the name “${header}”. If that is how you reach it, add the name to RU_ALLOWED_HOSTS`, { host: header });
+      return refuse(req, reply, 403, 'host', `This server does not answer to the name “${header}”. If that is how you reach it, add the name to ORRERY_ALLOWED_HOSTS`, { host: header });
     }
     const origin = req.headers.origin;
     if (origin !== undefined && !SAFE_METHODS.has(req.method)) {

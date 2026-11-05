@@ -1,9 +1,9 @@
-// Re-seeds a universe relative to now (the demo unless RU_SEED says otherwise).
+// Re-seeds a universe relative to now (the demo unless ORRERY_SEED says otherwise).
 // Refuses while a server writes the log: it keeps the log in memory and would
 // append to a file whose sequence numbers it no longer matches. The new log is
 // renamed over the old one only once it is complete (ADR 0008), and the old one
 // stays beside it, named for the moment of the reset (ADR 0009): a reset typed
-// in the wrong shell, or with the wrong RU_DATA_FILE, can be undone.
+// in the wrong shell, or with the wrong ORRERY_DATA_FILE, can be undone.
 import { seedEvents } from './seeds.js';
 import { baseUrl, serverSettings } from './settings.js';
 import { EventStore } from './store.js';

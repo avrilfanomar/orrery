@@ -4,7 +4,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
-import { applyEvent, decide, parseCommand, project, type RuEvent } from '@ru/core';
+import { applyEvent, decide, parseCommand, project, type OrreryEvent } from '@orrery/core';
 import { PROFILES } from '../demo.js';
 import { binPath, isSkip, lastLine, runProgram } from './collectors.js';
 import type { ProbeContext, ProbeOutcome } from './probes.js';
@@ -41,7 +41,7 @@ export const FAST_SIGNALS = PROFILES.filter((p) => p.cadenceHours <= 6 && !p.pas
  * The demo plus a week of the simulator's fast signals, recorded through `decide` like the real webhook would.
  * Shorter spans exist for the tests; the probes always use the week, which is what their versions were defined over.
  */
-export function withLiveWeek(demo: readonly RuEvent[], start: number, days = 7): RuEvent[] {
+export function withLiveWeek(demo: readonly OrreryEvent[], start: number, days = 7): OrreryEvent[] {
   const events = [...demo];
   const u = project(events);
   for (let t = start + 30_000; t <= start + days * 24 * 3.6e6; t += 30_000) {
@@ -49,7 +49,7 @@ export function withLiveWeek(demo: readonly RuEvent[], start: number, days = 7):
     for (const p of FAST_SIGNALS) {
       const cmd = parseCommand({ type: 'reading.record', data: { nodeId: p.id, value: p.base, observedAt: at, source: p.source } });
       for (const e of decide(u, cmd, { now: at, actor: 'ingest', sources: new Map() })) {
-        const ev = { ...e, seq: events.length + 1 } as RuEvent;
+        const ev = { ...e, seq: events.length + 1 } as OrreryEvent;
         events.push(ev);
         applyEvent(u, ev);
       }
@@ -113,7 +113,7 @@ export async function withDemoServer(ctx: ProbeContext, log: string, noServer: (
   if (isSkip(b)) return { skipped: `no UI build: ${b.skipped}` };
   const port = await freePort();
   const serverDir = resolve(ctx.root, 'apps/server');
-  const env = { ...process.env, PATH: binPath(ctx.root, serverDir), RU_DATA_FILE: join(ctx.tmp, log), PORT: String(port), HOST: '127.0.0.1', RU_SEED: 'demo', RU_WEB_DIST: b.outDir, RU_SOURCES_FILE: '' };
+  const env = { ...process.env, PATH: binPath(ctx.root, serverDir), ORRERY_DATA_FILE: join(ctx.tmp, log), PORT: String(port), HOST: '127.0.0.1', ORRERY_SEED: 'demo', ORRERY_WEB_DIST: b.outDir, ORRERY_SOURCES_FILE: '' };
   const server = spawn('tsx', ['src/main.ts'], { cwd: serverDir, env, stdio: ['ignore', 'ignore', 'pipe'] });
   let serverErr = '';
   let exited = false;
@@ -139,7 +139,7 @@ const NO_BROWSER = (stderr: string, code: number | null) => `the browser could n
 
 export const smoke = (ctx: ProbeContext): Promise<ProbeOutcome> =>
   withDemoServer(ctx, 'smoke.jsonl', (why) => ({ value: 0, detail: `the server did not start: ${why}` }), async (base) => {
-    const res = await runProgram(ctx.root, 'node', [resolve(ctx.root, 'apps/web/e2e/smoke.mjs')], { cwd: ctx.tmp, env: { RU_URL: base }, timeoutMs: 180_000 });
+    const res = await runProgram(ctx.root, 'node', [resolve(ctx.root, 'apps/web/e2e/smoke.mjs')], { cwd: ctx.tmp, env: { ORRERY_URL: base }, timeoutMs: 180_000 });
     if (res.code === 0) return { value: 1, detail: `${(res.stdout.match(/✓/g) ?? []).length} steps` };
     if (res.stdout.includes('✓')) return { value: 0, detail: lastLine(res.stderr) || lastLine(res.stdout) };
     return { skipped: NO_BROWSER(res.stderr, res.code) };
@@ -152,7 +152,7 @@ export const smoke = (ctx: ProbeContext): Promise<ProbeOutcome> =>
  */
 export const accessibility = (ctx: ProbeContext): Promise<ProbeOutcome> =>
   withDemoServer(ctx, 'a11y.jsonl', (why) => ({ skipped: `the server did not start: ${why}` }), async (base) => {
-    const res = await runProgram(ctx.root, 'node', [resolve(ctx.root, 'apps/web/e2e/a11y.mjs')], { cwd: ctx.tmp, env: { RU_URL: base }, timeoutMs: 240_000 });
+    const res = await runProgram(ctx.root, 'node', [resolve(ctx.root, 'apps/web/e2e/a11y.mjs')], { cwd: ctx.tmp, env: { ORRERY_URL: base }, timeoutMs: 240_000 });
     const count = /^a11y: (\d+) of (\d+) checks failed$/m.exec(res.stdout);
     if (count) {
       const failed = res.stdout.split('\n').filter((l) => l.trimStart().startsWith('✗')).map((l) => l.trim().slice(2));

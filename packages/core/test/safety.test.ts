@@ -13,7 +13,7 @@ import {
   evaluateUniverse,
   parseCommand,
   rollup,
-  type RuEvent,
+  type OrreryEvent,
   type KnownStatus,
   type Priority,
   type RollupRule,
@@ -167,7 +167,7 @@ describe('evidence it does not have never reads green', () => {
       { seq: 3, at, actor: 'hand', type: 'node.linked', data: { id: 'a', target: 'b', reason: 'edited by hand' } },
     ];
     const u = emptyUniverse();
-    let prev: RuEvent | undefined;
+    let prev: OrreryEvent | undefined;
     for (const e of raw) {
       const r = checkLogEntry(e, prev);
       expect(r.ok).toBe(true);

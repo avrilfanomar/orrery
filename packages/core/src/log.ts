@@ -6,7 +6,7 @@
 // it is refused, never repaired in place. Tightening a rule here can strand an
 // existing log — apps/server/test/fixtures/events.v1.jsonl is frozen history
 // that must keep loading, so such a change fails a test instead of a deploy.
-import { EventSchema, type RuEvent } from './schema.js';
+import { EventSchema, type OrreryEvent } from './schema.js';
 
 const CANONICAL_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
@@ -20,7 +20,7 @@ export function isCanonicalInstant(s: string): boolean {
   return !Number.isNaN(t) && new Date(t).toISOString() === s;
 }
 
-export type LogEntryCheck = { ok: true; event: RuEvent } | { ok: false; problem: string };
+export type LogEntryCheck = { ok: true; event: OrreryEvent } | { ok: false; problem: string };
 
 /**
  * Checks one stored event against the contract, given the event before it:
@@ -30,7 +30,7 @@ export type LogEntryCheck = { ok: true; event: RuEvent } | { ok: false; problem:
  * A recording time later than the clock is allowed: refusing it would turn a
  * clock step into an outage.
  */
-export function checkLogEntry(raw: unknown, prev: RuEvent | undefined): LogEntryCheck {
+export function checkLogEntry(raw: unknown, prev: OrreryEvent | undefined): LogEntryCheck {
   const parsed = EventSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

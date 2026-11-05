@@ -200,12 +200,12 @@ export const EventSchema = z.discriminatedUnion('type', [
   envelope('node.reactivated', NodeLifecycleData),
   envelope('reading.recorded', ReadingRecordedData),
 ]);
-export type RuEvent = z.infer<typeof EventSchema>;
-export type EventType = RuEvent['type'];
+export type OrreryEvent = z.infer<typeof EventSchema>;
+export type EventType = OrreryEvent['type'];
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 /** An event before the store has given it a sequence number. */
-export type NewEvent = DistributiveOmit<RuEvent, 'seq'>;
+export type NewEvent = DistributiveOmit<OrreryEvent, 'seq'>;
 
 // ---------------------------------------------------------------------------
 // Commands — what a person or an integration asks for. `decide` turns a valid

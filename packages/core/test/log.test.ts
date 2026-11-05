@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { checkLogEntry, isCanonicalInstant, type RuEvent } from '../src/index.js';
+import { checkLogEntry, isCanonicalInstant, type OrreryEvent } from '../src/index.js';
 
-const created = (seq: number, at: string): RuEvent => ({
+const created = (seq: number, at: string): OrreryEvent => ({
   seq,
   at,
   actor: 'test',
@@ -23,7 +23,7 @@ const created = (seq: number, at: string): RuEvent => ({
   },
 });
 
-const problem = (raw: unknown, prev?: RuEvent) => {
+const problem = (raw: unknown, prev?: OrreryEvent) => {
   const r = checkLogEntry(raw, prev);
   return r.ok ? null : r.problem;
 };

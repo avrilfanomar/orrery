@@ -9,7 +9,7 @@
 // replaces (ADR 0009): nothing it does destroys the record.
 import { closeSync, constants, copyFileSync, existsSync, fsyncSync, ftruncateSync, linkSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { checkLogEntry, type NewEvent, type RuEvent } from '@ru/core';
+import { checkLogEntry, type NewEvent, type OrreryEvent } from '@orrery/core';
 
 /**
  * A crash during a write can leave the last line cut short. That line was
@@ -26,8 +26,8 @@ function parseLine(line: string, where: () => string, isLast: boolean): unknown 
 }
 
 /** Holds events to the contract in order after `prev`, and returns them as a reload would read them. */
-function checked(events: readonly unknown[], prev: RuEvent | undefined, where: (i: number) => string): RuEvent[] {
-  const out: RuEvent[] = [];
+function checked(events: readonly unknown[], prev: OrreryEvent | undefined, where: (i: number) => string): OrreryEvent[] {
+  const out: OrreryEvent[] = [];
   events.forEach((raw, i) => {
     const r = checkLogEntry(raw, out.at(-1) ?? prev);
     if (!r.ok) throw new Error(`${where(i)}: the event ${r.problem}`);
@@ -37,7 +37,7 @@ function checked(events: readonly unknown[], prev: RuEvent | undefined, where: (
 }
 
 interface Loaded {
-  events: RuEvent[];
+  events: OrreryEvent[];
   bytes: number;
   /** The file ends without a line break: a crash between an event and its newline. */
   endsOpen: boolean;
@@ -49,7 +49,7 @@ function load(file: string): Loaded {
   const lines = buf.toString('utf8').split('\n');
   let last = lines.length - 1;
   while (last > 0 && !lines[last]!.trim()) last--;
-  const events: RuEvent[] = [];
+  const events: OrreryEvent[] = [];
   lines.forEach((line, i) => {
     if (!line.trim()) return;
     const where = () => `${file}:${i + 1}`;
@@ -61,7 +61,7 @@ function load(file: string): Loaded {
   return { events, bytes: buf.length, endsOpen: buf.length > 0 && buf[buf.length - 1] !== 0x0a };
 }
 
-const line = (e: RuEvent) => `${JSON.stringify(e)}\n`;
+const line = (e: OrreryEvent) => `${JSON.stringify(e)}\n`;
 
 function writeAll(fd: number, data: Buffer): void {
   for (let done = 0; done < data.length; ) done += writeSync(fd, data, done);
@@ -172,7 +172,7 @@ export interface OpenOptions {
 }
 
 export class EventStore {
-  private events: RuEvent[] = [];
+  private events: OrreryEvent[] = [];
   private fd: number | null = null;
   /** The file's size after the last acknowledged write: a failed write is cut back to it. */
   private bytes = 0;
@@ -204,7 +204,7 @@ export class EventStore {
     return store;
   }
 
-  all(): readonly RuEvent[] {
+  all(): readonly OrreryEvent[] {
     return this.events;
   }
 
@@ -219,7 +219,7 @@ export class EventStore {
    * are remembered only after they are on disk, so a failed write leaves the
    * store, the file and every answer as they were.
    */
-  append(newEvents: readonly NewEvent[]): RuEvent[] {
+  append(newEvents: readonly NewEvent[]): OrreryEvent[] {
     const prev = this.events.at(-1);
     let lastAt = prev?.at ?? '';
     const stamped = newEvents.map((e, i) => {
@@ -240,7 +240,7 @@ export class EventStore {
    * or the new one, never part of one. With `keep`, a log that holds anything
    * stays at that path; the result says whether one was kept.
    */
-  replaceAll(events: readonly RuEvent[], keep?: string): { kept: string | null } {
+  replaceAll(events: readonly OrreryEvent[], keep?: string): { kept: string | null } {
     let kept: string | null = null;
     const next = checked(events, undefined, (i) => `Refused to write event ${i + 1} of a new log`);
     if (this.file) {
