@@ -30,6 +30,7 @@ pnpm --filter @ru/core exec vitest run --coverage   # its statement coverage (AD
 pnpm --filter @ru/server test    # API + demo-story tests
 pnpm --filter @ru/web e2e        # browser smoke test (needs a running app)
 pnpm --filter @ru/web a11y       # accessibility scan (needs a running app; reads only)
+pnpm --filter @ru/web readme-gif # re-record docs/tour.gif (needs a freshly reset, running app and ffmpeg)
 pnpm dogfood [--dry-run]         # measure this repo against its own model (ADR 0003)
 pnpm dogfood:serve               # that universe in the UI on :4711
 ```
@@ -86,6 +87,8 @@ pnpm dogfood:serve               # that universe in the UI on :4711
 - Logic that decides what the console shows (the backlog, the breadcrumb, the
   signal, the ribbon) lives in `packages/core`, with a test there: the console has no unit
   tests, and the claim breaks reach only the core.
+- `docs/tour.gif` pictures the console and the demo story. If a change alters
+  what it shows, re-record it with `readme-gif` against a fresh `pnpm reset`.
 - The console warns when its live view stops updating (`useStalledSince` in
   `apps/web/src/App.tsx`). The smoke test checks it in its last steps, after the
   console-error check, because the requests it blocks log errors.

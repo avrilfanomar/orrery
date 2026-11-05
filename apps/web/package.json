@@ -12,7 +12,8 @@
     "test": "echo 'web: no unit tests yet (see README → Verification)'",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "e2e": "node e2e/smoke.mjs",
-    "a11y": "node e2e/a11y.mjs"
+    "a11y": "node e2e/a11y.mjs",
+    "readme-gif": "node e2e/readme-gif.mjs"
   },
   "dependencies": {
     "@ru/core": "workspace:*",
