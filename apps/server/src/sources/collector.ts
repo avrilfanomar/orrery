@@ -1,8 +1,9 @@
 // The collector (ADR 0002, decision 4): pulls every bound metric from its
-// configured source and records the answers through `decide`, like any other
-// reading. A failed or ambiguous pull records nothing; the node goes stale and
-// reports unknown. Pull outcomes are operational state, held here in memory —
-// a failed pull is not a fact about the requirement, its staleness is.
+// configured source, through the adapter its kind's module brings (ADR 0013),
+// and records the answers through `decide`, like any other reading. A failed
+// or ambiguous pull records nothing; the node goes stale and reports unknown.
+// Pull outcomes are operational state, held here in memory — a failed pull is
+// not a fact about the requirement, its staleness is.
 import {
   bindingSince,
   currentDefinition,
@@ -15,16 +16,19 @@ import {
   type SourceCatalog,
   type Universe,
 } from '@ru/core';
+import type { DrillOut, PullFailure } from '@ru/module-kit';
 import type { EventStore } from '../store.js';
-import { catalogOf, toPublic, type PublicSource, type ResolvedSource } from './config.js';
-import { queryRange, type FailureCategory } from './prometheus.js';
+import { catalogOf, drillOutOf, kindOf, toPublic, type PublicSource, type ResolvedSource } from './config.js';
 
 const H = 3.6e6;
 /** Catch-up after downtime reaches back at most this far (or 1 000 steps, whichever is shorter). */
 const MAX_CATCH_UP_MS = 24 * H;
 const MAX_CATCH_UP_STEPS = 1000;
-/** Points per request — far below Prometheus's 11 000 cap. */
+/** Points per request — far below the caps sources set (Prometheus: 11 000). */
 const CHUNK_POINTS = 1000;
+
+/** Why a binding has no fresh readings: the adapter's reasons, and the collector's own. */
+export type FailureCategory = PullFailure | 'rejected' | 'internal' | 'not-configured' | 'token-missing';
 
 export interface BindingStatus {
   nodeId: string;
@@ -38,6 +42,8 @@ export interface BindingStatus {
   lastSuccessAt: string | null;
   /** Readings recorded by the last successful pull. */
   recorded: number;
+  /** Where a person can look at the query in the source's own UI, if it has a public URL. */
+  drillOut: DrillOut | null;
 }
 
 export interface SourcesView {
@@ -142,7 +148,7 @@ export class Collector {
     let recorded = 0;
     for (let cs = start; cs <= end; cs += CHUNK_POINTS * step) {
       const ce = Math.min(end, cs + (CHUNK_POINTS - 1) * step);
-      const res = await queryRange(src, { query: binding.query, start: cs, end: ce, stepSeconds: src.stepSeconds }, this.opts.fetch);
+      const res = await kindOf(src).queryRange(src, { query: binding.query, start: cs, end: ce, stepSeconds: src.stepSeconds }, this.opts.fetch ?? fetch);
       if (!res.ok) {
         this.fail(src.id, nodeId, attemptAt, res.category, res.httpStatus ?? null, res.detail ?? null);
         return;
@@ -174,7 +180,7 @@ export class Collector {
     const key = `${sourceId}\u0000${nodeId}`;
     let s = this.status.get(key);
     if (!s) {
-      s = { nodeId, sourceId, state: 'pending', category: null, httpStatus: null, detail: null, lastAttemptAt: null, lastSuccessAt: null, recorded: 0 };
+      s = { nodeId, sourceId, state: 'pending', category: null, httpStatus: null, detail: null, lastAttemptAt: null, lastSuccessAt: null, recorded: 0, drillOut: null };
       this.status.set(key, s);
     }
     return s;
@@ -204,16 +210,20 @@ export class Collector {
       if (n.lifecycle !== 'active' || !b?.sourceId) continue;
       const src = this.sources.get(b.sourceId);
       const known = this.status.get(`${b.sourceId}\u0000${n.id}`);
-      if (!src) bindings.push(derived(n.id, b.sourceId, 'not-configured', `no source “${b.sourceId}” is configured on this server`));
-      else if (src.tokenMissing) bindings.push(derived(n.id, b.sourceId, 'token-missing', `${src.tokenEnv} is not set on this server`));
-      else bindings.push(known ? { ...known } : { ...this.entry(b.sourceId, n.id) });
+      if (!src) {
+        bindings.push(derived(n.id, b.sourceId, 'not-configured', `no source “${b.sourceId}” is configured on this server`, null));
+        continue;
+      }
+      const drillOut = drillOutOf(src, b.query);
+      if (src.tokenMissing) bindings.push(derived(n.id, b.sourceId, 'token-missing', `${src.tokenEnv} is not set on this server`, drillOut));
+      else bindings.push({ ...(known ?? this.entry(b.sourceId, n.id)), drillOut });
     }
     return { sources: [...this.sources.values()].map(toPublic), bindings };
   }
 }
 
-function derived(nodeId: string, sourceId: string, category: FailureCategory, detail: string): BindingStatus {
-  return { nodeId, sourceId, state: 'failing', category, httpStatus: null, detail, lastAttemptAt: null, lastSuccessAt: null, recorded: 0 };
+function derived(nodeId: string, sourceId: string, category: FailureCategory, detail: string, drillOut: DrillOut | null): BindingStatus {
+  return { nodeId, sourceId, state: 'failing', category, httpStatus: null, detail, lastAttemptAt: null, lastSuccessAt: null, recorded: 0, drillOut };
 }
 
 /**

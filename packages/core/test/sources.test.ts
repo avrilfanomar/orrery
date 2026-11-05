@@ -1,10 +1,10 @@
 // ADR 0002: metrics bound to sources. The rules that keep a pulled number
 // honest live in `decide`, so they are pinned here, without any network.
 import { describe, expect, it } from 'vitest';
-import { bindingSince, DomainError, EventSchema, evaluateUniverse, project, PASS_FAIL_UNIT, type SourceCatalog } from '../src/index.js';
+import { bindingLanguage, bindingSince, DomainError, EventSchema, evaluateUniverse, languageChoices, project, PASS_FAIL_UNIT, type SourceCatalog } from '../src/index.js';
 import { makeLog, pctHigher } from './helpers.js';
 
-const PROM: SourceCatalog = new Map([['prom', { kind: 'prometheus' }]]);
+const PROM: SourceCatalog = new Map([['prom', { kind: 'prometheus', languages: ['promql'] }]]);
 const Q1 = 'sum(rate(errors_total[5m])) / sum(rate(requests_total[5m])) * 100';
 const Q2 = 'sum(rate(errors_total[1h])) / sum(rate(requests_total[1h])) * 100';
 const bound = (sourceId: string | null, query = Q1) => ({ sourceId, language: 'promql' as const, query });
@@ -45,6 +45,33 @@ describe('bindings', () => {
     expect(create('b', 'prom', new Map())).toBe('invalid');
     expect(create('c', 'prom', PROM)).toBe('accepted');
     expect(create('d', null, new Map())).toBe('accepted');
+  });
+
+  it('names no language itself: a source runs what its catalog entry says, and a query nobody runs may be in any (ADR 0013)', () => {
+    const log = makeLog();
+    const SQL: SourceCatalog = new Map([['warehouse', { kind: 'sql', languages: ['sql'] }]]);
+    const create = (id: string, sourceId: string | null, language: string) =>
+      code(() => log.run({ type: 'node.create', data: { id, kind: 'kpi', title: id, measure: pctHigher(99, 95), binding: { sourceId, language, query: 'select 1' } } }, 'analyst', { sources: SQL }));
+    expect(create('a', 'warehouse', 'sql')).toBe('accepted');
+    expect(create('b', 'warehouse', 'promql')).toBe('invalid');
+    expect(create('c', null, 'kusto')).toBe('accepted');
+    expect(create('d', null, 'Not A Language')).toBe('invalid');
+  });
+
+  it('offers the languages an installed kind can pull, and keeps a binding in one nothing pulls as it is', () => {
+    const langs = [
+      { id: 'promql', kinds: ['prometheus'] },
+      { id: 'sql', kinds: ['warehouse'] },
+      { id: 'probe', kinds: [] },
+    ];
+    const ids = (current: string) => languageChoices(langs, current).map((l) => l.id);
+    expect(ids('')).toEqual(['promql', 'sql']); // a new binding
+    expect(ids('sql')).toEqual(['promql', 'sql']); // a pulled one may move to another pullable language
+    expect(ids('probe')).toEqual(['probe']); // never re-labelled as PromQL (ADR 0003)
+    expect(ids('kusto')).toEqual([]); // declared by no module: nothing to pick, the id is kept as written
+    expect(bindingLanguage('', langs)).toBe('promql');
+    expect(bindingLanguage('probe', langs)).toBe('probe');
+    expect(bindingLanguage('', [{ id: 'probe', kinds: [] }])).toBe('');
   });
 
   it('does not re-check an unchanged binding when only a threshold is revised', () => {
@@ -187,7 +214,7 @@ describe('pulled readings', () => {
   it('are refused for a source the node is not bound to, or once it is deprecated', () => {
     const log = boundKpi();
     log.advanceHours(1);
-    const other: SourceCatalog = new Map([...PROM, ['other', { kind: 'prometheus' }]]);
+    const other: SourceCatalog = new Map([...PROM, ['other', { kind: 'prometheus', languages: ['promql'] }]]);
     expect(code(() => log.run({ ...pulled(1, log.now()), data: { ...pulled(1, log.now()).data, source: 'pull:other' } }, 'collector', { sources: other, origin: 'collector' }))).toBe('conflict');
     log.run({ type: 'node.deprecate', data: { id: 'k', reason: 'replaced by an SLO burn rate' } });
     expect(code(() => log.run(pulled(99.5, log.now()), 'collector', asCollector))).toBe('conflict');

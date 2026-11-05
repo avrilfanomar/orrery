@@ -20,6 +20,11 @@ decisions everything rests on.
 4. **Readings are judged against the definition in force when observed**
    (`definitionAt`). Never evaluate history against the current definition.
 5. **`packages/core` stays pure** — no Node or DOM APIs, so the UI can import it.
+6. **Core names no integration** (ADR 0013). A query language or a source kind
+   is a module: a package under `packages/` implementing `@ru/module-kit`,
+   installed in `apps/server/src/modules.ts` and nowhere else. A module loads
+   only core and the kit; the console loads none and learns what to show from
+   `GET /api/sources`. `seam-crossings` counts every import that breaks this.
 
 ## Commands
 
@@ -101,6 +106,11 @@ pnpm dogfood:serve               # that universe in the UI on :4711
   with `refuse()`, which logs the refusal and never the credentials offered.
 - Nothing shaped like a credential is committed, not even in a test: build a
   fake one at runtime (`secrets-in-history` reads all of history).
+- The settings every source shares, and their checks, live in
+  `apps/server/src/sources/config.ts`. A source kind declares only its own
+  fields, never a shared one, and lets out only what its `details` allowlists.
+  Only the collector calls a kind's `queryRange`. `registryProblems` and
+  `apps/server/test/sources.test.ts` hold the installed modules to this.
 - Background work (timers, the collector) never lets a promise reject
   unhandled: a failure fails its own binding or tick, not the process.
 - A test that starts real processes, or works for seconds, sets an explicit

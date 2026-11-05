@@ -1,7 +1,7 @@
 // Commands in, events out. Every rule that protects the model's integrity
 // lives here, so the API, the seed and any future importer share one gate.
 import { ZodError } from 'zod';
-import { LANGUAGES_BY_KIND, PASS_FAIL_UNIT, PULL_SOURCE_PREFIX, type SourceKind } from './constants.js';
+import { PASS_FAIL_UNIT, PULL_SOURCE_PREFIX } from './constants.js';
 import { bindingSince, currentDefinition, contributesTo } from './evaluate.js';
 import { isCanonicalInstant } from './log.js';
 import type { NodeState, Universe } from './model.js';
@@ -19,8 +19,12 @@ export class DomainError extends Error {
   }
 }
 
-/** The sources this server is configured with, by id (ADR 0002). Never their URLs or tokens. */
-export type SourceCatalog = ReadonlyMap<string, { kind: SourceKind }>;
+/**
+ * The sources this server is configured with, by id (ADR 0002), and the
+ * languages each runs. Never their URLs or tokens. Core names no kind and no
+ * language: the modules that bring them do (ADR 0013).
+ */
+export type SourceCatalog = ReadonlyMap<string, { kind: string; languages: readonly string[] }>;
 
 export interface DecideContext {
   /** The moment the change happens; it becomes the event's `at` and the definition's `effectiveFrom`. */
@@ -86,7 +90,7 @@ function checkBinding(binding: Binding | null, measure: MeasureSpec | null, sour
   if (binding.sourceId === null) return; // provenance only: nothing will run it
   const src = sources.get(binding.sourceId);
   if (!src) throw new DomainError('invalid', `No source “${binding.sourceId}” is configured on this server`);
-  if (!LANGUAGES_BY_KIND[src.kind].includes(binding.language)) {
+  if (!src.languages.includes(binding.language)) {
     throw new DomainError('invalid', `Source “${binding.sourceId}” (${src.kind}) cannot run ${binding.language}`);
   }
 }

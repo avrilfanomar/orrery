@@ -4,7 +4,9 @@
 [ADR 0001](0001-one-graph-append-only-evolution.md),
 [ADR 0002](0002-metrics-bind-to-configured-sources.md),
 [ADR 0003](0003-the-repository-measures-itself.md),
-[ADR 0004](0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md)
+[ADR 0004](0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md) ·
+**Amended by:** [ADR 0013](0013-modules-bring-what-core-does-not-know.md),
+which redraws the seams around module packages (`seam-crossings` v2)
 
 ## Context
 

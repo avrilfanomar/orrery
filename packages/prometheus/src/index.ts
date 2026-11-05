@@ -1,32 +1,23 @@
-// The Prometheus adapter: it translates one range query into samples, or a
-// failure category. Every decision about *which* instants to ask for, and what
-// to do with the answer, belongs to the collector (ADR 0002, decision 4).
+// Prometheus, reached directly or through Grafana (ADR 0002, ADR 0013). It
+// brings PromQL and one source kind: it turns one range query into samples or a
+// failure category, and builds the link that opens a query where people
+// already look. Which instants to ask for, and what to do with the answer,
+// belongs to the server's collector.
 //
 // The binding only supplies the query text. Path, method and host are fixed
 // here, so a binding can't reach admin endpoints through the Grafana proxy or
 // point the server anywhere new.
-import type { ResolvedSource } from './config.js';
+import { defineSourceKind, type OrreryModule, type PullResult, type RangeQuery, type Sample, type SourceBasics } from '@ru/module-kit';
+import { z } from 'zod';
 
-export interface Sample {
-  /** Evaluation instant, Unix milliseconds. */
-  t: number;
-  value: number;
-}
-
-export type FailureCategory = 'unreachable' | 'timeout' | 'http' | 'bad-query' | 'empty' | 'multi-series' | 'rejected' | 'internal' | 'not-configured' | 'token-missing';
-
-export type PullResult = { ok: true; samples: Sample[]; skipped: number } | { ok: false; category: FailureCategory; httpStatus?: number; detail?: string };
-
-export interface RangeQuery {
-  query: string;
-  /** Unix milliseconds, on the step grid. */
-  start: number;
-  end: number;
-  stepSeconds: number;
-}
+/** Reach Prometheus through Grafana's datasource proxy instead of directly. Grafana is a route, not a kind. */
+const settings = {
+  grafana: z.object({ datasourceUid: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, 'datasourceUid: letters, digits, _ and -') }).strict().optional(),
+};
+type Source = SourceBasics & { grafana?: { datasourceUid: string } };
 
 /** Joins a fixed API path onto a base URL, keeping any subpath (`https://host/grafana`). */
-export function endpoint(source: ResolvedSource): string {
+export function endpoint(source: Pick<Source, 'url' | 'grafana'>): string {
   const base = new URL(source.url);
   const prefix = base.pathname.replace(/\/+$/, '');
   const api = source.grafana ? `/api/datasources/proxy/uid/${encodeURIComponent(source.grafana.datasourceUid)}/api/v1/query_range` : '/api/v1/query_range';
@@ -39,7 +30,7 @@ interface PromResponse {
   data?: { resultType?: string; result?: { metric?: Record<string, string>; values?: [number, string][] }[] };
 }
 
-export async function queryRange(source: ResolvedSource, q: RangeQuery, fetchImpl: typeof fetch = fetch): Promise<PullResult> {
+export async function queryRange(source: Source, q: RangeQuery, fetchImpl: typeof fetch = fetch): Promise<PullResult> {
   const body = new URLSearchParams({
     query: q.query,
     start: String(q.start / 1000),
@@ -90,3 +81,29 @@ export async function queryRange(source: ResolvedSource, q: RangeQuery, fetchImp
   }
   return { ok: true, samples, skipped };
 }
+
+/** Opens the query itself: Grafana Explore on the datasource, or the Prometheus graph page. */
+export function drillOut(publicUrl: string, source: Pick<Source, 'grafana'>, query: string): { href: string; label: string } {
+  const base = new URL(publicUrl).href.replace(/\/+$/, '');
+  if (source.grafana) {
+    const uid = source.grafana.datasourceUid;
+    const panes = { ru: { datasource: uid, queries: [{ refId: 'A', expr: query, datasource: { type: 'prometheus', uid } }], range: { from: 'now-24h', to: 'now' } } };
+    return { href: `${base}/explore?schemaVersion=1&panes=${encodeURIComponent(JSON.stringify(panes))}`, label: 'Open in Grafana Explore' };
+  }
+  return { href: `${base}/graph?g0.expr=${encodeURIComponent(query)}&g0.tab=0&g0.range_input=1d`, label: 'Open in Prometheus' };
+}
+
+export const prometheus: OrreryModule = {
+  id: 'prometheus',
+  languages: [{ id: 'promql', label: 'PromQL', hint: 'Must return one series in the measure’s unit — aggregate with sum(…) if needed. Changing it later starts a new version.' }],
+  sources: [
+    defineSourceKind({
+      kind: 'prometheus',
+      runs: ['promql'],
+      settings,
+      details: (s) => ({ route: s.grafana ? 'grafana' : 'direct' }),
+      queryRange,
+      drillOut,
+    }),
+  ],
+};

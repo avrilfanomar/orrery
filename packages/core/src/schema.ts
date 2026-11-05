@@ -2,7 +2,7 @@
 // and the commands the API accepts. Types are inferred from here so the schema
 // and the type can never disagree.
 import { z } from 'zod';
-import { DIMENSIONS, NODE_KINDS, PRIORITIES, QUERY_LANGUAGES } from './constants.js';
+import { DIMENSIONS, NODE_KINDS, PRIORITIES } from './constants.js';
 
 export const NodeIdSchema = z
   .string()
@@ -51,13 +51,24 @@ export const SourceIdSchema = z
   .regex(/^[a-z0-9][a-z0-9-]{0,31}$/, 'Source ids are 1–32 lowercase letters, digits and dashes');
 
 /**
+ * What a binding's query is written in (`promql`, say): independent of who runs
+ * it, so re-pointing a source can't silently reinterpret logged queries. Core
+ * knows no language by name (ADR 0013): modules declare them, and `decide`
+ * checks that a binding's source runs its language. A query nobody runs only
+ * documents where the number comes from, in whatever language it is written.
+ */
+export const LanguageIdSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]{0,31}$/, 'Languages are 1–32 lowercase letters, digits and dashes, starting with a letter');
+
+/**
  * Where a measured node's number comes from (ADR 0002). Part of the versioned
  * definition: the query *is* the meaning of the number. Without a source it
  * only documents provenance; with one, the server's collector pulls it.
  */
 export const BindingSchema = z.object({
   sourceId: SourceIdSchema.nullable(),
-  language: z.enum(QUERY_LANGUAGES),
+  language: LanguageIdSchema,
   query: z.string().trim().min(1, 'A query is required').max(2000),
 });
 export type Binding = z.infer<typeof BindingSchema>;

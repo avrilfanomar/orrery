@@ -1,9 +1,9 @@
 // The forms that change what a node says or how it is judged.
-import { KIND_LABELS, NODE_KINDS, SUGGESTED_CHILD_KINDS, type Dimension, type MeasureSpec, type NodeKind, type Priority, type RollupRule, type ScenarioSpec } from '@ru/core';
+import { bindingLanguage, KIND_LABELS, NODE_KINDS, SUGGESTED_CHILD_KINDS, type Dimension, type MeasureSpec, type NodeKind, type Priority, type RollupRule, type ScenarioSpec } from '@ru/core';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api.js';
-import { BindingFields, MeasureFields, METRIC_DEFAULT, PASS_FAIL_DEFAULT, RollupFields, SCENARIO_DEFAULT, ScenarioFields, type BindingDraft } from './definition-fields.js';
+import { BindingFields, MeasureFields, METRIC_DEFAULT, PASS_FAIL_DEFAULT, RollupFields, SCENARIO_DEFAULT, ScenarioFields, type BindingDraft, type SourceChoice } from './definition-fields.js';
 import { DimensionPicker, Field, PriorityPicker, ReasonField } from './fields.js';
 import { Frame, type FormProps } from './frame.js';
 
@@ -139,18 +139,26 @@ export function RedefineForm({ node, session }: FormProps) {
   const [scenario, setScenario] = useState<ScenarioSpec>(def.scenario ?? SCENARIO_DEFAULT);
   const [binding, setBinding] = useState<BindingDraft>({
     on: def.binding !== null,
-    language: def.binding?.language ?? 'promql',
+    language: def.binding?.language ?? '',
     sourceId: def.binding?.sourceId ?? '',
     query: def.binding?.query ?? '',
   });
   const [reason, setReason] = useState('');
   const sources = useQuery({ queryKey: ['sources'], queryFn: api.sources });
-  const sourceIds = useMemo(() => {
-    const ids = new Set(sources.data?.sources.map((s) => s.id) ?? []);
+  const languages = useMemo(() => sources.data?.languages ?? [], [sources.data]);
+  const sourceChoices = useMemo(() => {
+    const list: SourceChoice[] = sources.data?.sources.map((s) => ({ id: s.id, runs: s.runs })) ?? [];
     // Keep the current choice selectable even if this server no longer has it.
-    if (def.binding?.sourceId) ids.add(def.binding.sourceId);
-    return [...ids];
+    const cur = def.binding;
+    if (cur?.sourceId && !list.some((s) => s.id === cur.sourceId)) list.push({ id: cur.sourceId, runs: [cur.language] });
+    return list;
   }, [sources.data, def.binding]);
+  /** Only a language some installed kind can pull may name a source; any other query documents where the number comes from. */
+  const builtBinding = () => {
+    const language = bindingLanguage(binding.language, languages);
+    const pullable = languages.some((l) => l.id === language && l.kinds.length > 0);
+    return { sourceId: pullable ? binding.sourceId || null : null, language, query: binding.query };
+  };
 
   const hasScenario = node.kind === 'scenario' || def.scenario;
   return (
@@ -167,7 +175,7 @@ export function RedefineForm({ node, session }: FormProps) {
           rollup,
           ...(hasScenario ? { scenario } : {}),
           // A binding needs a measure, so dropping the measure drops it too.
-          binding: hasMeasure && binding.on ? { sourceId: binding.language === 'probe' ? null : binding.sourceId || null, language: binding.language, query: binding.query } : null,
+          binding: hasMeasure && binding.on ? builtBinding() : null,
           reason,
         },
       })}
@@ -178,7 +186,7 @@ export function RedefineForm({ node, session }: FormProps) {
         This node has its own measure
       </label>
       {hasMeasure && <MeasureFields value={measure} onChange={setMeasure} />}
-      {hasMeasure && <BindingFields value={binding} onChange={setBinding} sourceIds={sourceIds} />}
+      {hasMeasure && <BindingFields value={binding} onChange={setBinding} sources={sourceChoices} languages={languages} />}
       <RollupFields value={rollup} onChange={setRollup} />
       <ReasonField value={reason} onChange={setReason} />
     </Frame>

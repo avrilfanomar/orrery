@@ -1,7 +1,10 @@
 # ADR 0002 — A metric binds to a configured source; the platform pulls, the log keeps the binding
 
 **Status:** Accepted (PoC) · **Date:** 2026-11-04 · **Builds on:**
-[ADR 0001](0001-one-graph-append-only-evolution.md)
+[ADR 0001](0001-one-graph-append-only-evolution.md) · **Amended by:**
+[ADR 0013](0013-modules-bring-what-core-does-not-know.md), which moves the
+source kinds, the query languages and the Prometheus adapter out of core and
+the server into modules
 
 ## Context
 

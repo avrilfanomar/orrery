@@ -163,3 +163,25 @@ export function buildChangeFeed(events: readonly RuEvent[], opts: ViewOptions & 
   const u = project(events, asOf);
   return u.timeline.slice(-(opts.limit ?? 60)).reverse();
 }
+
+/** A query language as the console learns it from the server: its id and the installed source kinds that run it (ADR 0013). */
+export interface LanguageOffer {
+  id: string;
+  kinds: readonly string[];
+}
+
+/**
+ * The languages a binding's form offers: those some installed kind can pull.
+ * A binding already in a language nothing pulls keeps it, and is offered
+ * nothing else: re-labelling a probe as PromQL would log a new, wrong yardstick
+ * (ADR 0003).
+ */
+export function languageChoices<L extends LanguageOffer>(languages: readonly L[], current: string): L[] {
+  const pullable = languages.filter((l) => l.kinds.length > 0);
+  return current && !pullable.some((l) => l.id === current) ? languages.filter((l) => l.id === current) : pullable;
+}
+
+/** The language a binding will be written in: the one chosen, else the first an installed kind can pull, else none. */
+export function bindingLanguage(chosen: string, languages: readonly LanguageOffer[]): string {
+  return chosen || languageChoices(languages, '')[0]?.id || '';
+}

@@ -15,6 +15,7 @@ import {
 } from '@ru/core';
 import { z } from 'zod';
 import { bearerMatches, guard, refuse, RESERVED_ACTORS } from './guard.js';
+import { publicLanguages } from './modules.js';
 import { Collector } from './sources/collector.js';
 import type { EventStore } from './store.js';
 
@@ -94,8 +95,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return buildChangeFeed(store.all(), { asOf: asOfFrom(req.query), now: now(), limit: Math.min(500, Math.max(1, limit || 60)) });
   });
 
-  /** Configured sources (public fields only) and the pull state of every binding to one. */
-  app.get('/api/sources', async () => collector.describe(project(store.all())));
+  /** Configured sources (public fields only), the pull state of every binding to one, and the query languages the installed modules bring. */
+  app.get('/api/sources', async () => ({ ...collector.describe(project(store.all())), languages: publicLanguages() }));
 
   app.post('/api/commands', async (req, reply) => {
     const cmd = parseCommand(req.body);

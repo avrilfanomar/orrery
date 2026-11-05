@@ -1,13 +1,15 @@
-// ADR 0002 end to end: configuration, the Prometheus adapter and the collector,
-// against an in-process fake Prometheus speaking the real HTTP API shape.
+// ADR 0002 end to end: configuration, the Prometheus module's adapter and the
+// collector, against an in-process fake Prometheus speaking the real HTTP API
+// shape — and the registry that installs the module (ADR 0013).
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { evaluateUniverse, project, type RuEvent } from '@ru/core';
+import { evaluateUniverse, LanguageIdSchema, project, type RuEvent } from '@ru/core';
+import { endpoint } from '@ru/prometheus';
 import { buildApp } from '../src/app.js';
+import { MODULES, registryProblems, SOURCE_KINDS } from '../src/modules.js';
 import { Collector } from '../src/sources/collector.js';
-import { assertSafeToServe, parseSources, type ResolvedSource } from '../src/sources/config.js';
-import { endpoint } from '../src/sources/prometheus.js';
+import { assertSafeToServe, parseSources, SHARED_SETTINGS, type ResolvedSource } from '../src/sources/config.js';
 import { EventStore } from '../src/store.js';
 
 const T0 = Date.parse('2026-11-03T10:00:00.000Z');
@@ -122,6 +124,17 @@ describe('source configuration', () => {
     expect(() => assertSafeToServe([], '0.0.0.0', false)).not.toThrow();
   });
 
+  it('installs modules that claim distinct languages and kinds, and leave the shared settings to the server (ADR 0013)', () => {
+    expect(registryProblems(MODULES)).toEqual([]);
+    for (const m of MODULES) for (const l of m.languages ?? []) expect(LanguageIdSchema.safeParse(l.id).success, `${m.id}: ${l.id}`).toBe(true);
+    for (const k of SOURCE_KINDS.values()) expect(Object.keys(k.settings).filter((f) => SHARED_SETTINGS.includes(f)), k.kind).toEqual([]);
+    // A second module may not take over a language or a kind already installed.
+    expect(registryProblems([...MODULES, { id: 'copy', languages: [{ id: 'promql', label: 'PromQL', hint: '' }], sources: [...SOURCE_KINDS.values()] }])).toEqual([
+      'language “promql” is declared twice',
+      'source kind “prometheus” is declared twice',
+    ]);
+  });
+
   it('builds fixed API paths, keeping a base subpath, directly or through Grafana', () => {
     expect(endpoint(source({ url: 'http://prom:9090/' }))).toBe('http://prom:9090/api/v1/query_range');
     expect(endpoint(source({ url: 'https://ops.example.com/grafana', grafana: { datasourceUid: 'P18' } }))).toBe(
@@ -226,12 +239,17 @@ describe('the collector', () => {
     expect(res.json().sources[0]).toEqual({
       id: 'prom',
       kind: 'prometheus',
-      route: 'grafana',
+      runs: ['promql'],
       publicUrl: 'https://grafana.example.com',
-      grafanaDatasourceUid: 'P18',
       stepSeconds: STEP,
       problem: null,
+      details: { route: 'grafana' },
     });
+    // The way out opens this query in Grafana Explore, built from the public URL only.
+    const { drillOut } = res.json().bindings[0];
+    expect(drillOut.label).toBe('Open in Grafana Explore');
+    expect(drillOut.href.startsWith('https://grafana.example.com/explore?')).toBe(true);
+    expect(JSON.parse(new URL(drillOut.href).searchParams.get('panes')!).ru.queries[0]).toMatchObject({ expr: QUERY, datasource: { uid: 'P18' } });
   });
 
   it('realigns to the new grid when stepSeconds changes', async () => {

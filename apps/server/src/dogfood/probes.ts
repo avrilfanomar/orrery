@@ -263,9 +263,9 @@ export const PROBES: readonly Probe[] = [
   },
   {
     id: 'type-errors',
-    version: 1,
-    since: V1,
-    method: '`tsc --noEmit -p tsconfig.json` in packages/core, apps/server and apps/web, one after the other; the value is the number of `error TS…` lines.',
+    version: 2,
+    since: 'ADR 0013: the module packages (packages/module-kit, packages/prometheus) have tsconfigs of their own, so every workspace package with one is checked, not a fixed list of three',
+    method: '`tsc --noEmit -p tsconfig.json` in every workspace package with a tracked tsconfig.json (packages/*/ and apps/*/), one after the other; the value is the number of `error TS…` lines.',
     async measure(ctx) {
       const run = await ctx.typecheck();
       if (isSkip(run)) return run;

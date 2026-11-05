@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { buildUniverseView, evaluateUniverse, PASS_FAIL_UNIT, project, type RuEvent } from '@ru/core';
 import { buildApp } from '../src/app.js';
 import { parseVitestJson, type GitSnapshot } from '../src/dogfood/collectors.js';
+import { crossingsIn } from '../src/dogfood/flexibility.js';
 import { scrub } from '../src/dogfood/harness.js';
 import { cognitiveComplexity, duplicatedLines, importCycles, majorBehind, parseSource } from '../src/dogfood/maintainability.js';
 import { DOGFOOD_MODEL, type ModelNode } from '../src/dogfood/model.js';
@@ -197,6 +198,27 @@ describe('measurement helpers', () => {
       '(anonymous)@24': 1, // …nor escapes being scored itself
       'load@25': 3, // if +1 (a try block nests nothing), ?? +1, catch +1
     });
+  });
+
+  it('count the imports and calls that cross a seam, and none of the ones the layout allows (ADR 0013)', () => {
+    const crossings = (f: string, src: string) => crossingsIn(f, scrub(src, false)).length;
+    const imports = (f: string, ...specs: string[]) => crossings(f, specs.map((s) => `import { x } from '${s}';`).join('\n'));
+    // What the layout allows.
+    expect(imports('apps/server/src/modules.ts', '@ru/prometheus', '@ru/module-kit', './dogfood/module.js')).toBe(0);
+    expect(imports('packages/prometheus/src/index.ts', '@ru/module-kit', '@ru/core', 'zod')).toBe(0);
+    expect(imports('apps/web/src/api.ts', '@ru/core')).toBe(0);
+    expect(imports('packages/core/src/decide.ts', './constants.js', 'zod')).toBe(0);
+    expect(crossings('apps/server/src/sources/collector.ts', 'await kindOf(src).queryRange(src, q, f);')).toBe(0);
+    // Each seam, crossed once.
+    expect(imports('apps/server/src/app.ts', '@ru/core/src/decide.js')).toBe(1); // around a package's entry
+    expect(imports('apps/server/src/app.ts', '../../../packages/module-kit/src/index.js')).toBe(1);
+    expect(imports('packages/core/src/decide.ts', '@ru/module-kit')).toBe(1); // core reaching out
+    expect(imports('packages/prometheus/src/index.ts', '@ru/server')).toBe(1); // a module reaching past the kit
+    expect(imports('packages/module-kit/src/index.ts', '@ru/prometheus')).toBe(1);
+    expect(imports('apps/web/src/components/Provenance.tsx', '@ru/prometheus')).toBe(1); // the UI loading a module
+    expect(imports('apps/web/src/components/Provenance.tsx', '@ru/module-kit')).toBe(1);
+    expect(imports('apps/server/src/sources/config.ts', '@ru/prometheus')).toBe(1); // installed past the registry
+    expect(crossings('apps/server/src/app.ts', 'const r = await kind.queryRange(src, q, fetch); // not in a comment: .queryRange(')).toBe(1);
   });
 
   it('find import cycles, copied blocks and majors behind', () => {

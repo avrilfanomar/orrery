@@ -9,6 +9,8 @@ import { scrub } from './harness.js';
 import type { Probe, ProbeContext } from './probes.js';
 
 const V1 = 'First version of this method (ADR 0005)';
+const V2_SEAMS =
+  'ADR 0013: the Prometheus adapter left apps/server for the @ru/prometheus module, so the rule keyed to its old path could never fire. The seams now say which package may load which — the UI no package but core, a module only core and the kit, the server a module only through its registry — and a source adapter is reached by calling it, so that rule counts calls';
 const read = (ctx: ProbeContext, f: string) => readFileSync(join(ctx.root, f), 'utf8');
 const sources = (ctx: ProbeContext, pattern: RegExp) => ctx.tracked().filter((f) => pattern.test(f));
 const tally = (hits: readonly string[]) => {
@@ -28,15 +30,40 @@ export function resolveImport(from: string, spec: string): string {
   return spec.startsWith('.') ? posix.normalize(posix.join(posix.dirname(from), spec)).replace(/\.(?:[cm]?js|tsx?|jsx)$/, '') : spec;
 }
 
-/** Component boundaries no source import may cross, each kept for a reason ADR 0005 gives. */
+/** The package a repository path or an `@ru/` specifier belongs to (`packages/core`, `@ru/core` → `core`), or null. */
+const packageOf = (t: string) => {
+  const [root, name] = t.split('/');
+  return root === 'packages' || root === 'apps' || root === '@ru' ? (name ?? null) : null;
+};
+/** A module (ADR 0013): any workspace package that is not core, the kit or an app. */
+const isModule = (t: string) => /^@ru\/(?!core$|module-kit$|server$|web$)[^/]+$/.test(t);
+
+/** Component boundaries no source import may cross, each kept for a reason ADR 0005 or ADR 0013 gives. */
 export const SEAMS: readonly { rule: string; crosses(from: string, to: string): boolean }[] = [
-  { rule: 'core is used through its entry', crosses: (f, t) => !f.startsWith('packages/core/') && (t.startsWith('@ru/core/') || t.startsWith('packages/core/')) },
-  { rule: 'core depends on no app', crosses: (f, t) => f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@ru\/(?!core$)/.test(t)) },
-  { rule: 'the UI and the server share only core and HTTP', crosses: (f, t) => (f.startsWith('apps/web/') && /^(?:apps\/server\/|@ru\/server)/.test(t)) || (f.startsWith('apps/server/') && /^(?:apps\/web\/|@ru\/web)/.test(t)) },
-  { rule: 'only the collector talks to a source adapter', crosses: (f, t) => t === 'apps/server/src/sources/prometheus' && f !== 'apps/server/src/sources/collector.ts' },
+  { rule: 'a package is used through its entry', crosses: (f, t) => (t.startsWith('@ru/') && t.split('/').length > 2) || (t.startsWith('packages/') && packageOf(t) !== packageOf(f)) },
+  { rule: 'core depends on no other package or app', crosses: (f, t) => f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@ru\/(?!core$)/.test(t)) },
+  { rule: 'a module depends only on core and the kit', crosses: (f, t) => f.startsWith('packages/') && !f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@ru\/(?!core$|module-kit$)/.test(t)) },
+  { rule: 'the UI and the server share only core and HTTP', crosses: (f, t) => (f.startsWith('apps/web/') && (t.startsWith('apps/server/') || /^@ru\/(?!core$)/.test(t))) || (f.startsWith('apps/server/') && /^(?:apps\/web\/|@ru\/web)/.test(t)) },
+  { rule: 'only the registry installs a module', crosses: (f, t) => f.startsWith('apps/') && f !== 'apps/server/src/modules.ts' && isModule(t) },
 ];
+/** A source adapter is reached through its kind (`kindOf(src).queryRange(…)`); only the collector, which schedules pulls and records their answers, may call one. */
+const ADAPTER_CALL = /\.queryRange\s*\(/g;
+const ADAPTER_CALLER = 'apps/server/src/sources/collector.ts';
 const IMPORT = /\b(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g;
 const UI_NETWORK = /\bfetch\s*\(|\bnew\s+(?:XMLHttpRequest|EventSource|WebSocket)\b/g;
+
+/** The crossings in one source file, its comments already blanked: imports past a seam, adapter calls outside the collector, network calls outside the UI's one module. */
+export function crossingsIn(f: string, src: string): string[] {
+  const hits: string[] = [];
+  for (const [, spec] of src.matchAll(IMPORT)) {
+    const broken = SEAMS.find((s) => s.crosses(f, resolveImport(f, spec!)));
+    if (broken) hits.push(`${f} → ${spec} (${broken.rule})`);
+  }
+  const code = scrub(src, true);
+  if (f !== ADAPTER_CALLER) for (const [call] of code.matchAll(ADAPTER_CALL)) hits.push(`${f}: ${call.trim()} (only the collector calls a source adapter)`);
+  if (f.startsWith('apps/web/src/') && f !== 'apps/web/src/api.ts') for (const [call] of code.matchAll(UI_NETWORK)) hits.push(`${f}: ${call.trim()}`);
+  return hits;
+}
 
 const COLOUR = /(?<![\w&#])#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/gi;
 
@@ -66,19 +93,11 @@ export const FLEXIBILITY_PROBES: readonly Probe[] = [
   },
   {
     id: 'seam-crossings',
-    version: 1,
-    since: V1,
-    method: `Resolves every import in tracked packages/*/src and apps/*/src (comments ignored) and counts those that break a boundary: ${SEAMS.map((s) => s.rule).join('; ')}. Network calls (fetch, XMLHttpRequest, EventSource, WebSocket) in apps/web/src outside api.ts count too: the UI reaches the server through one module.`,
+    version: 2,
+    since: V2_SEAMS,
+    method: `Resolves every import in tracked packages/*/src and apps/*/src (comments ignored) and counts those that break a boundary: ${SEAMS.map((s) => s.rule).join('; ')}. A module is any workspace package but core, module-kit and the apps. Calls of a source adapter (\`.queryRange(\`) outside ${ADAPTER_CALLER} count too: only the collector talks to a source. So do network calls (fetch, XMLHttpRequest, EventSource, WebSocket) in apps/web/src outside api.ts: the UI reaches the server through one module.`,
     measure(ctx) {
-      const hits: string[] = [];
-      for (const f of sources(ctx, /^(?:packages|apps)\/[^/]+\/src\/.+\.tsx?$/)) {
-        const src = scrub(read(ctx, f), false);
-        for (const [, spec] of src.matchAll(IMPORT)) {
-          const broken = SEAMS.find((s) => s.crosses(f, resolveImport(f, spec!)));
-          if (broken) hits.push(`${f} → ${spec} (${broken.rule})`);
-        }
-        if (f.startsWith('apps/web/src/') && f !== 'apps/web/src/api.ts') for (const [call] of scrub(src, true).matchAll(UI_NETWORK)) hits.push(`${f}: ${call.trim()}`);
-      }
+      const hits = sources(ctx, /^(?:packages|apps)\/[^/]+\/src\/.+\.tsx?$/).flatMap((f) => crossingsIn(f, scrub(read(ctx, f), false)));
       return { value: hits.length, detail: hits.slice(0, 3).join('; ') || undefined };
     },
   },

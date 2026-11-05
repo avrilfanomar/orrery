@@ -277,7 +277,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   },
   {
     id: 'r-plug', kind: 'requirement', parentId: 'g-flex', title: 'Other tools plug in through documented contracts and fixed seams', priority: 'medium', dimensions: ['flexible', 'operable'],
-    description: 'Integrability, interchangeability and replaceability: the README’s API is the API, the UI reaches the server through one module, core is used through its entry, and only the collector talks to a source adapter (ADR 0002, decision 4).',
+    description: 'Integrability, interchangeability and replaceability: the README’s API is the API, the UI reaches the server through one module, a package is used through its entry, and only the collector talks to a source adapter (ADR 0002, decision 4). A query language or a source kind is a module: core names none, a module loads only core and the kit, and the server installs modules in one registry (ADR 0013).',
   },
   {
     id: 's-api-contract', kind: 'scenario', parentId: 'r-plug', title: 'The API the README documents is the API the server serves', priority: 'medium', dimensions: ['flexible', 'usable'], measure: pass, probe: 'suite-api-contract',

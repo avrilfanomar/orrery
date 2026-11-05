@@ -33,7 +33,7 @@ export interface NodeState {
   priority: Priority;
   dimensions: Dimension[];
   owner: string | null;
-  /** Where a person looks at this node (a Grafana panel, say). Navigation, not meaning — so it is metadata, not definition. */
+  /** Where a person looks at this node (a dashboard panel, say). Navigation, not meaning — so it is metadata, not definition. */
   dashboardUrl: string | null;
   lifecycle: Lifecycle;
   createdAt: string;

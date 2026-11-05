@@ -86,6 +86,7 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 | [0002](docs/adr/0002-metrics-bind-to-configured-sources.md) | Metrics bind to configured Prometheus and Grafana sources |
 | [0003](docs/adr/0003-the-repository-measures-itself.md) | The repository measures itself |
 | 0004–0012 | How each quality is tested: [efficiency](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md), [flexibility](docs/adr/0005-flexibility-is-tested-as-promises.md), [maintainability](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md), [operability](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.md), [reliability](docs/adr/0008-reliability-what-it-acknowledged-survives.md), [safety](docs/adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.md), [security](docs/adr/0010-security-the-browser-is-the-way-in.md), [usability](docs/adr/0011-usability-everyone-can-read-and-operate-it.md), and [suitability](docs/adr/0012-suitability-it-does-what-the-readme-says.md) (it does what this README says) |
+| [0013](docs/adr/0013-modules-bring-what-core-does-not-know.md) | Modules bring what core does not know: query languages and source kinds. Prometheus is one |
 
 ## The repository measures itself
 
@@ -186,7 +187,7 @@ anyone else ([ADR 0010](docs/adr/0010-security-the-browser-is-the-way-in.md)).
 | `GET` | `/api/changes?asOf=&limit=` | The model's change feed (readings excluded) |
 | `POST` | `/api/commands` | `node.create · edit · redefine · reprioritize · move · link · unlink · deprecate · reactivate`, `reading.record` |
 | `POST` | `/api/readings` | Ingestion webhook (single reading or `{ readings: [...] }`) |
-| `GET` | `/api/sources` | Configured metric sources (public fields only) and each binding's pull state |
+| `GET` | `/api/sources` | Configured metric sources (public fields only), each binding's pull state and drill-out link, and the query languages the installed modules bring |
 | `GET` | `/api/health` | Liveness, how many events the log holds and when the last was recorded |
 
 - Commands are validated by `decide` in the core: unknown ids are 404, cycles
@@ -246,13 +247,22 @@ more later, stops it at once.
 ## Layout
 
 ```
-packages/core   pure domain — schemas, projection, evaluation & rollup, history, read models
-apps/server     Fastify shell, append-only JSONL event store, demo seed, simulator,
-                metric sources and the pull collector (src/sources),
-                the dogfood model, probes and runner (src/dogfood)
-apps/web        React + TanStack Query UI — outline, focus view, chart, dialogs, time travel
-docs/adr        architecture decisions
+packages/core         pure domain — schemas, projection, evaluation & rollup, history, read models;
+                      it names no query language and no source kind
+packages/module-kit   the contract a module implements: query languages and source kinds (ADR 0013)
+packages/prometheus   a module: PromQL and the Prometheus source kind, directly or through Grafana
+apps/server           Fastify shell, append-only JSONL event store, demo seed, simulator,
+                      the installed modules (src/modules.ts), source settings and the pull collector (src/sources),
+                      the dogfood model, probes and runner (src/dogfood)
+apps/web              React + TanStack Query UI — outline, focus view, chart, dialogs, time travel
+docs/adr              architecture decisions
 ```
+
+A system to pull from, or a language a binding is written in, is a module: a
+package implementing `@ru/module-kit`, added to `apps/server/src/modules.ts`
+and to the server's dependencies. Core, the log's shape and the console stay as
+they are. The console learns what to say about a language, and where a query
+opens, from `GET /api/sources`.
 
 ## What is deliberately missing
 
@@ -270,8 +280,9 @@ docs/adr        architecture decisions
   English only. Its accessibility is checked by machine (ADR 0011), not yet by
   anyone using a screen reader, a keyboard alone or magnification.
 - **Integrations beyond Prometheus.** Prometheus (directly or through Grafana)
-  can be pulled (ADR 0002). Datadog, SQL or analytics sources and alert
-  webhooks are not built. CI reporters push into the webhook.
+  can be pulled (ADR 0002). It is the one source module installed (ADR 0013).
+  Datadog, SQL or analytics sources and alert webhooks are not built. CI
+  reporters push into the webhook.
 
 ## Next steps
 
@@ -279,8 +290,8 @@ docs/adr        architecture decisions
    (ADR 0003): definitions in a reviewed file, reconciled through `decide`.
    Next, make the format a product feature (YAML beside any codebase, imported
    the same way) and run the probes in CI.
-2. **Integrations.** More source kinds behind the ADR 0002 seam (Datadog, SQL or
-   analytics for business KPIs), JUnit/CI results feeding scenarios, and
+2. **Integrations.** More source kinds as modules (ADR 0013): Datadog, SQL or
+   analytics for business KPIs. Also JUnit/CI results feeding scenarios, and
    authentication on commands so bindings can safely target shared monitoring.
 3. **Impact preview.** Before publishing a new target or priority, show which
    ancestors would change status ("this makes *Pages feel instant* amber").

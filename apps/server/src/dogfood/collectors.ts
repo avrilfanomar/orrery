@@ -107,7 +107,10 @@ export async function runTests(root: string, tmp: string, extra: readonly string
 // Typecheck and build
 // ---------------------------------------------------------------------------
 
-export const TYPECHECK_PACKAGES = ['packages/core', 'apps/server', 'apps/web'] as const;
+/** Every workspace package with a tracked tsconfig.json, so a new module is checked without anyone remembering to list it (ADR 0013). */
+export function typecheckPackages(tracked: readonly string[]): string[] {
+  return tracked.filter((f) => /^(?:packages|apps)\/[^/]+\/tsconfig\.json$/.test(f)).map((f) => f.slice(0, -'/tsconfig.json'.length)).sort();
+}
 
 export interface TypecheckRun {
   errors: number;
@@ -117,7 +120,7 @@ export interface TypecheckRun {
 
 export async function runTypecheck(root: string): Promise<TypecheckRun | Skip> {
   const run: TypecheckRun = { errors: 0, byPackage: {}, ms: 0 };
-  for (const pkg of TYPECHECK_PACKAGES) {
+  for (const pkg of typecheckPackages(trackedFiles(root))) {
     const res = await runProgram(root, 'tsc', ['--noEmit', '-p', 'tsconfig.json'], { cwd: resolve(root, pkg), timeoutMs: 300_000 });
     run.ms += res.ms;
     if (res.spawnError) return { skipped: `tsc could not start: ${res.spawnError}` };

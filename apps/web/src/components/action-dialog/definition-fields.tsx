@@ -1,7 +1,8 @@
 // The pieces of a node's definition: how it is measured, where the number
 // comes from, how contributors roll up, and its quality scenario.
-import { PASS_FAIL_UNIT, type MeasureSpec, type QueryLanguage, type RollupRule, type ScenarioSpec } from '@ru/core';
+import { bindingLanguage, languageChoices, PASS_FAIL_UNIT, type MeasureSpec, type RollupRule, type ScenarioSpec } from '@ru/core';
 import type { ChangeEvent } from 'react';
+import type { PublicLanguage } from '../../api.js';
 import { Field } from './fields.js';
 
 export const METRIC_DEFAULT: MeasureSpec = { unit: '%', direction: 'higher', target: 95, warn: 90, staleAfterHours: 24 };
@@ -50,15 +51,24 @@ export function MeasureFields({ value, onChange }: { value: MeasureSpec; onChang
 
 export interface BindingDraft {
   on: boolean;
-  /** Carried through unchanged: re-labelling a probe as PromQL would log a new, wrong yardstick (ADR 0003). */
-  language: QueryLanguage;
+  /** Empty until chosen. A language nothing pulls is carried through: re-labelling a probe as PromQL would log a new, wrong yardstick (ADR 0003). */
+  language: string;
   sourceId: string;
   query: string;
 }
 
-/** Where the number comes from (ADR 0002). Part of the definition: a new query is a new yardstick. */
-export function BindingFields({ value, onChange, sourceIds }: { value: BindingDraft; onChange: (b: BindingDraft) => void; sourceIds: string[] }) {
-  const probe = value.language === 'probe';
+/** A source to offer: its id and the languages it runs. */
+export interface SourceChoice {
+  id: string;
+  runs: string[];
+}
+
+/** Where the number comes from (ADR 0002). Part of the definition: a new query is a new yardstick. Languages and what they need come from the server's modules (ADR 0013). */
+export function BindingFields({ value, onChange, sources, languages }: { value: BindingDraft; onChange: (b: BindingDraft) => void; sources: SourceChoice[]; languages: PublicLanguage[] }) {
+  const id = bindingLanguage(value.language, languages);
+  const language = languages.find((l) => l.id === id) ?? null;
+  const choices = languageChoices(languages, id);
+  const runners = sources.filter((s) => s.runs.includes(id));
   return (
     <fieldset className="group">
       <legend>Where the number comes from</legend>
@@ -68,25 +78,32 @@ export function BindingFields({ value, onChange, sourceIds }: { value: BindingDr
       </label>
       {value.on && (
         <>
-          {!probe && (
-            <Field label="Source" hint={sourceIds.length ? 'Pick a source to have the server pull it; “none” only documents the query.' : 'No sources are configured on this server, so the query is documentation only.'}>
+          {choices.length > 1 && (
+            <Field label="Language">
+              <select value={id} onChange={(e) => onChange({ ...value, language: e.target.value, sourceId: '' })}>
+                {choices.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {language && language.kinds.length > 0 && (
+            <Field label="Source" hint={runners.length ? 'Pick a source to have the server pull it; “none” only documents the query.' : 'No sources are configured on this server, so the query is documentation only.'}>
               <select value={value.sourceId} onChange={(e) => onChange({ ...value, sourceId: e.target.value })}>
                 <option value="">none — documented only</option>
-                {sourceIds.map((id) => (
-                  <option key={id} value={id}>
-                    {id} — pull it
+                {runners.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.id} — pull it
                   </option>
                 ))}
               </select>
             </Field>
           )}
           <Field
-            label={probe ? 'Probe (id@version)' : 'PromQL query'}
-            hint={
-              probe
-                ? 'Measured by `pnpm dogfood`, never pulled. A new version is a new method, so it starts a new yardstick.'
-                : 'Must return one series in the measure’s unit — aggregate with sum(…) if needed. Changing it later starts a new version.'
-            }
+            label={language ? `${language.label} query` : id ? `Query (${id})` : 'Query'}
+            hint={language?.hint ?? 'No module on this server declares this language, so the query only documents where the number comes from.'}
           >
             <textarea rows={3} className="mono" value={value.query} onChange={(e) => onChange({ ...value, query: e.target.value })} required maxLength={2000} spellCheck={false} />
           </Field>

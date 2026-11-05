@@ -164,7 +164,7 @@ describe('declared dependencies', () => {
   const packageOf = (spec: string) => (spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0]!);
 
   it('finds the members it checks', () => {
-    expect(MEMBERS.sort()).toEqual(['.', 'apps/server', 'apps/web', 'packages/core']);
+    expect(MEMBERS.sort()).toEqual(['.', 'apps/server', 'apps/web', 'packages/core', 'packages/module-kit', 'packages/prometheus']);
   });
 
   it('declares every package a member imports in that member’s own manifest', () => {
@@ -184,7 +184,7 @@ describe('declared dependencies', () => {
     }
     expect(undeclared).toEqual([]);
     // The scan sees static, type-only, dynamic and .mjs imports alike, or it would pass by seeing nothing.
-    for (const used of ['packages/core zod', 'apps/server fastify', 'apps/server typescript', 'apps/web react', 'apps/web playwright-core', 'apps/web vite']) expect(seen).toContain(used);
+    for (const used of ['packages/core zod', 'packages/prometheus @ru/module-kit', 'apps/server fastify', 'apps/server typescript', 'apps/web react', 'apps/web playwright-core', 'apps/web vite']) expect(seen).toContain(used);
   });
 
   it('records in the lockfile exactly the ranges the manifests ask for', () => {

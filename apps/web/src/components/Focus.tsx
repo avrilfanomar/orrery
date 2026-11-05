@@ -13,6 +13,7 @@ import {
   formatThreshold,
   formatValue,
   signalPath,
+  type Binding,
   type Evaluation,
   type UniverseView,
 } from '@ru/core';
@@ -42,6 +43,23 @@ const bySeverity = (view: UniverseView) => (a: string, b: string) => {
   );
 };
 
+/**
+ * What the server says about a node's binding: its source and last pull when it
+ * is live and pulled, and its language — asked for past bindings too, since
+ * what the console says about a language comes from the server's modules (ADR 0013).
+ */
+function useSourceView(id: string, binding: Binding | null, live: boolean, events: number) {
+  const sources = useQuery({ queryKey: ['sources', live ? events : 0], queryFn: api.sources, enabled: !!binding });
+  const data = sources.data;
+  const language = data?.languages.find((l) => l.id === binding?.language) ?? null;
+  if (!live || !binding?.sourceId || !data) return { source: null, pullStatus: null, language };
+  return {
+    source: data.sources.find((s) => s.id === binding.sourceId) ?? null,
+    pullStatus: data.bindings.find((b) => b.nodeId === id && b.sourceId === binding.sourceId) ?? null,
+    language,
+  };
+}
+
 export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
   const node = view.nodes[id]!;
   const ev = node.evaluation;
@@ -64,10 +82,7 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
   const hasInputs = children.length + linked.length > 0;
   const m = ev.measurement;
   const binding = node.definition.binding;
-  const pulled = live && !!binding?.sourceId;
-  const sources = useQuery({ queryKey: ['sources', view.stats.events], queryFn: api.sources, enabled: pulled });
-  const source = sources.data?.sources.find((s) => s.id === binding?.sourceId) ?? null;
-  const pullStatus = sources.data?.bindings.find((b) => b.nodeId === id && b.sourceId === binding?.sourceId) ?? null;
+  const { source, pullStatus, language } = useSourceView(id, binding, live, view.stats.events);
   const dashboard = safeHref(node.dashboardUrl);
 
   return (
@@ -262,7 +277,7 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
           )}
           {spec && (
             <>
-              <Provenance binding={binding} dashboardUrl={node.dashboardUrl} source={source} status={pullStatus} asOf={view.asOf} live={live} />
+              <Provenance binding={binding} dashboardUrl={node.dashboardUrl} source={source} status={pullStatus} language={language} asOf={view.asOf} live={live} />
               <div className="figure-row">
                 <div className="figure">
                   <span className="figure-value">{m?.value !== null && m?.value !== undefined ? formatValue(m.value, spec.unit) : '—'}</span>
