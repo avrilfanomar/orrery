@@ -1,7 +1,7 @@
 // Re-seeds a universe relative to now (the demo unless RU_SEED says otherwise).
-// Refuses while the server runs, because the server keeps the log in memory
-// and would append to a file whose sequence numbers it no longer matches.
-import { rmSync } from 'node:fs';
+// Refuses while a server writes the log: it keeps the log in memory and would
+// append to a file whose sequence numbers it no longer matches. The new log is
+// renamed over the old one only once it is complete (ADR 0008).
 import { seedEvents } from './seeds.js';
 import { baseUrl, serverSettings } from './settings.js';
 import { EventStore } from './store.js';
@@ -17,6 +17,13 @@ if (running) {
 }
 
 const events = seedEvents(kind, new Date());
-rmSync(dataFile, { force: true });
-EventStore.open(dataFile).replaceAll(events);
+try {
+  // `fresh`: the log is not read, so a damaged one can be reset; its lock still refuses a server on another port.
+  const store = EventStore.open(dataFile, { fresh: true });
+  store.replaceAll(events);
+  store.close();
+} catch (err) {
+  console.error((err as Error).message);
+  process.exit(1);
+}
 console.log(`Reset the ${kind} universe: ${events.length} events → ${dataFile}`);

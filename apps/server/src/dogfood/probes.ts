@@ -29,6 +29,7 @@ import { EFFICIENCY_PROBES } from './efficiency.js';
 import { FLEXIBILITY_PROBES } from './flexibility.js';
 import { MAINTAINABILITY_PROBES } from './maintainability.js';
 import { OPERABILITY_PROBES } from './operability.js';
+import { RELIABILITY_PROBES } from './reliability.js';
 import { scrub, smoke, withLiveWeek } from './harness.js';
 import type { ProbeSpec } from './sync.js';
 
@@ -71,6 +72,7 @@ const V4 = 'First version of this method (ADR 0004)';
 const V5 = 'First version of this method (ADR 0005)';
 const V6 = 'First version of this method (ADR 0006)';
 const V7 = 'First version of this method (ADR 0007)';
+const V8 = 'First version of this method (ADR 0008)';
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 export function createContext(root: string, tmp: string): ProbeContext {
@@ -185,7 +187,7 @@ export const PROBES: readonly Probe[] = [
         const file = join(ctx.tmp, `contract-${i}.jsonl`);
         writeFileSync(file, events.map((e) => JSON.stringify(e)).join('\n') + '\n');
         try {
-          EventStore.open(file);
+          EventStore.open(file, { readOnly: true });
           accepted.push(name);
         } catch {
           // refused, as it should be
@@ -351,6 +353,12 @@ export const PROBES: readonly Probe[] = [
   suite('suite-on-the-record', [{ file: `${SERVER}/operability.test.ts`, describe: ['on the record'] }], V7),
   suite('suite-documented-operations', [{ file: `${SERVER}/operability.test.ts`, describe: ['documented operations'] }], V7),
   ...OPERABILITY_PROBES,
+  suite('suite-log-written', [{ file: `${SERVER}/reliability.test.ts`, describe: ['the store keeps the log contract'] }], V8),
+  suite('suite-failed-write', [{ file: `${SERVER}/reliability.test.ts`, describe: ['a failed write changes nothing'] }], V8),
+  suite('suite-one-writer', [{ file: `${SERVER}/reliability.test.ts`, describe: ['one writer per log'] }], V8),
+  suite('suite-contained', [{ file: `${SERVER}/reliability.test.ts`, describe: ['faults stay contained'] }], V8),
+  suite('suite-restart', [{ file: `${SERVER}/reliability.test.ts`, describe: ['stops and restarts cleanly'] }], V8),
+  ...RELIABILITY_PROBES,
   suite('suite-sources', [{ file: `${CORE}/sources.test.ts` }, { file: `${SERVER}/sources.test.ts` }]),
   {
     id: 'audit-high',

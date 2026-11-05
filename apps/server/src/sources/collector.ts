@@ -78,7 +78,8 @@ export class Collector {
         this.opts.log?.(`source ${s.id}: ${s.tokenEnv} is not set — it will not be queried`);
         continue;
       }
-      const run = () => void this.tickSource(s.id);
+      // A tick never rejects: an unhandled rejection would stop the whole server over one pull (ADR 0008).
+      const run = () => void this.tickSource(s.id).catch((err: unknown) => this.opts.log?.(`source ${s.id}: the tick failed — ${(err as Error).message}`));
       run();
       this.timers.push(setInterval(run, s.stepSeconds * 1000));
     }
@@ -105,6 +106,10 @@ export class Collector {
     this.inFlight.add(key);
     try {
       await this.pull(src, nodeId);
+    } catch (err) {
+      // Anything but a refusal (which `pull` handles) is this server's own fault, a full disk say: it fails this binding, never the others.
+      const at = new Date(this.clock().getTime()).toISOString();
+      this.fail(src.id, nodeId, at, 'internal', null, 'the answer could not be recorded on this server; its log says why', (err as Error).message);
     } finally {
       this.inFlight.delete(key);
     }
@@ -182,10 +187,11 @@ export class Collector {
     if (queried) Object.assign(s, { lastSuccessAt: at, recorded });
   }
 
-  private fail(sourceId: string, nodeId: string, at: string, category: FailureCategory, httpStatus: number | null, detail: string | null): void {
+  /** `cause` goes to the server's log only: it may name paths the API must not show. */
+  private fail(sourceId: string, nodeId: string, at: string, category: FailureCategory, httpStatus: number | null, detail: string | null, cause?: string): void {
     const s = this.entry(sourceId, nodeId);
     if (s.state !== 'failing' || s.category !== category) {
-      this.opts.log?.(`pull ${sourceId} → ${nodeId}: ${category}${httpStatus ? ` (HTTP ${httpStatus})` : ''}${detail ? ` — ${detail}` : ''}`);
+      this.opts.log?.(`pull ${sourceId} → ${nodeId}: ${category}${httpStatus ? ` (HTTP ${httpStatus})` : ''}${detail ? ` — ${detail}` : ''}${cause ? ` (${cause})` : ''}`);
     }
     Object.assign(s, { state: 'failing', category, httpStatus, detail, lastAttemptAt: at });
   }

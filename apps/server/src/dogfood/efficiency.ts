@@ -46,10 +46,15 @@ function collector(): () => void {
   return runInNewContext('gc') as () => void;
 }
 
-/** The server as it starts on the week's log: the store loaded from the file, the app built around it, the clock at the week's end. */
-const serve = async (week: BenchWeek, file = week.file): Promise<{ app: FastifyInstance; store: EventStore }> => {
-  const store = EventStore.open(file);
-  return { store, app: await buildApp({ store, clock: () => new Date(week.now) }) };
+/**
+ * The server as it starts on the week's log: the store loaded from the file, the app built around it, the clock at the week's end.
+ * The shared week file is opened read-only; a probe that writes passes its own copy. Closing the app releases the log (ADR 0008).
+ */
+const serve = async (week: BenchWeek, copy?: string): Promise<{ app: FastifyInstance; store: EventStore }> => {
+  const store = copy ? EventStore.open(copy) : EventStore.open(week.file, { readOnly: true });
+  const app = await buildApp({ store, clock: () => new Date(week.now) });
+  app.addHook('onClose', async () => store.close());
+  return { store, app };
 };
 
 async function universe(app: FastifyInstance): Promise<string> {

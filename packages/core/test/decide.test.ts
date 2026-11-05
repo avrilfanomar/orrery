@@ -60,6 +60,16 @@ describe('decide', () => {
     expect(e!.type === 'reading.recorded' && e!.data.observedAt).toBe('2025-12-31T23:30:00.000Z');
   });
 
+  it('refuses a timestamp whose offset names no instant, rather than failing on it', () => {
+    const log = tree();
+    log.run({ type: 'node.create', data: { id: 'k', kind: 'kpi', title: 'K', parentId: 'r', measure: pctHigher(90, 80) } });
+    // Well spelled for zod, but Date.parse gives NaN for an offset past ±23:59.
+    for (const observedAt of ['2025-12-31T22:30:00+99:00', '2025-12-31T22:30:00-24:00']) {
+      expect(() => log.run({ type: 'reading.record', data: { nodeId: 'k', value: 95, observedAt } })).toThrow(/a UTC offset runs from -23:59 to \+23:59/);
+    }
+    expect(log.run({ type: 'reading.record', data: { nodeId: 'k', value: 95, observedAt: '2025-12-31T22:30:00+23:59' } })).toHaveLength(1);
+  });
+
   it('refuses a warning threshold on the good side of the target', () => {
     const log = tree();
     expect(code(() => log.run({ type: 'node.create', data: { kind: 'kpi', title: 'Bad', measure: msLower(500, 400) } }))).toBe('invalid');

@@ -9,6 +9,12 @@ export const NodeIdSchema = z
   .regex(/^[a-z0-9][a-z0-9-]{0,63}$/, 'Ids are 1–64 lowercase letters, digits and dashes');
 
 const IsoSchema = z.string().datetime({ offset: true });
+/**
+ * An instant a caller sends. An offset beyond ±23:59 passes zod's spelling
+ * check but names no instant: Date.parse gives NaN. A stored instant needs no
+ * such check, since the log contract requires the canonical UTC spelling.
+ */
+const InstantInputSchema = IsoSchema.refine((s) => !Number.isNaN(Date.parse(s)), 'Not an instant: a UTC offset runs from -23:59 to +23:59');
 
 /** Every evolutionary change carries its reason, so "why did this go red?" stays answerable. */
 const ReasonSchema = z.string().trim().min(3, 'Give a reason — every change to the model is kept with its why').max(500);
@@ -210,7 +216,7 @@ export const CommandSchema = z.discriminatedUnion('type', [
     data: z.object({
       nodeId: NodeIdSchema,
       value: z.number().finite(),
-      observedAt: IsoSchema.optional(),
+      observedAt: InstantInputSchema.optional(),
       source: z.string().trim().min(1).max(80).default('manual'),
     }),
   }),

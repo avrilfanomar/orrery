@@ -34,9 +34,10 @@ const HTTP_STATUS = { invalid: 400, not_found: 404, conflict: 409 } as const;
 /**
  * An instant that means the same on every server: a date (UTC midnight, as
  * ECMAScript reads it) or a date-time with Z or an offset. Without a zone,
- * Date.parse would use the server's own (flexibility.test.ts).
+ * Date.parse would use the server's own (flexibility.test.ts). An offset
+ * beyond ±23:59 is well spelled but names no instant (reliability.test.ts).
  */
-const ZonedInstantSchema = z.union([z.string().date(), z.string().datetime({ offset: true })]);
+const ZonedInstantSchema = z.union([z.string().date(), z.string().datetime({ offset: true })]).refine((v) => !Number.isNaN(Date.parse(v)));
 /** The most readings one webhook request may carry; the body limit must leave room for a full batch (efficiency.test.ts). */
 export const MAX_READINGS_PER_REQUEST = 5000;
 

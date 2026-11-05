@@ -86,11 +86,12 @@ export function parseVitestJson(root: string, json: VitestJson): Omit<TestRun, '
   return { tests, brokenFiles };
 }
 
-export async function runTests(root: string, tmp: string): Promise<TestRun | Skip> {
+/** `extra` adds vitest options; give each differently-run suite its own `tmp`, since the reports land there by package name. */
+export async function runTests(root: string, tmp: string, extra: readonly string[] = []): Promise<TestRun | Skip> {
   const run: TestRun = { tests: [], brokenFiles: [], ms: 0 };
   for (const pkg of TEST_PACKAGES) {
     const out = join(tmp, `${pkg.replace(/\W+/g, '-')}.json`);
-    const res = await runProgram(root, 'vitest', ['run', '--reporter=json', `--outputFile=${out}`], { cwd: resolve(root, pkg), timeoutMs: 300_000 });
+    const res = await runProgram(root, 'vitest', ['run', '--reporter=json', `--outputFile=${out}`, ...extra], { cwd: resolve(root, pkg), timeoutMs: 300_000 });
     run.ms += res.ms;
     if (res.spawnError) return { skipped: `vitest could not start in ${pkg}: ${res.spawnError}` };
     // A failing test exits non-zero; only a missing report means nothing was measured.

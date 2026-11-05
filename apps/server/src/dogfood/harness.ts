@@ -1,6 +1,6 @@
 // The heavier machinery a few probes share: a scrubber for regex scans, the
-// week-of-live-signals workload, and the smoke run against a real server.
-import { spawn } from 'node:child_process';
+// week-of-live-signals workload, a real server process, and the smoke run.
+import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { applyEvent, decide, parseCommand, project, type RuEvent } from '@ru/core';
@@ -66,6 +66,41 @@ export const freePort = () =>
       srv.close(() => done(port));
     });
   });
+
+export interface ServerProcess {
+  url: string;
+  child: ChildProcess;
+  /** Everything it has printed so far, stdout and stderr together. */
+  output: () => string;
+  /** Its exit code; null when a signal ended it. */
+  exited: Promise<number | null>;
+}
+
+/**
+ * Starts apps/server/src/main.ts as a node process of its own — not through
+ * the tsx CLI, whose child a SIGKILL would orphan, so the pid holding the log
+ * is the pid a signal reaches — on a free port, and waits for /api/health.
+ * `limitKiB` caps the size of any file it writes (`ulimit -f`), as a full disk
+ * would. When it exits or stays silent for 30 s, resolves to what it printed.
+ */
+export async function spawnServer(serverDir: string, env: Record<string, string | undefined>, limitKiB?: number): Promise<ServerProcess | { failed: string }> {
+  const url = `http://127.0.0.1:${await freePort()}`;
+  const node = [process.execPath, '--import', 'tsx', 'src/main.ts'];
+  const options = { cwd: serverDir, env: { ...env, HOST: '127.0.0.1', PORT: new URL(url).port }, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'] };
+  const child = limitKiB ? spawn('bash', ['-c', `ulimit -f ${limitKiB} && exec "$@"`, 'bash', ...node], options) : spawn(node[0]!, node.slice(1), options);
+  let out = '';
+  child.stdout.on('data', (d: Buffer) => (out += d));
+  child.stderr.on('data', (d: Buffer) => (out += d));
+  child.on('error', (e) => (out += e.message));
+  const exited = new Promise<number | null>((done) => child.on('close', (code) => done(code)));
+  for (const started = Date.now(); Date.now() - started < 30_000 && child.exitCode === null && child.signalCode === null; ) {
+    if (await fetch(`${url}/api/health`).then((r) => r.ok, () => false)) return { url, child, output: () => out, exited };
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  child.kill('SIGKILL');
+  await exited;
+  return { failed: out.trim() || 'no answer within 30 s' };
+}
 
 export async function smoke(ctx: ProbeContext): Promise<ProbeOutcome> {
   const b = await ctx.build();

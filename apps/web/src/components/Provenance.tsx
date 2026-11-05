@@ -36,6 +36,7 @@ const CATEGORY_TEXT: Record<string, string> = {
   empty: 'the query returned no data',
   'multi-series': 'the query returns several series',
   rejected: 'answer refused by the model',
+  internal: 'failed inside this server',
   'not-configured': 'source not configured on this server',
   'token-missing': 'token not set on this server',
 };

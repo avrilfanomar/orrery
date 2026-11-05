@@ -2,6 +2,9 @@ node_modules/
 dist/
 coverage/
 data/*.jsonl
+# a running writer's lock, and a new log before it is renamed into place (ADR 0008)
+data/*.lock
+data/*.tmp
 *.log
 .DS_Store
 .vite/

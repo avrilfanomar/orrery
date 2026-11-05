@@ -54,7 +54,7 @@ describe('frozen history', () => {
         expect(check.ok ? null : `line ${i + 1} ${check.problem}`, f).toBeNull();
         if (check.ok) prev = check.event;
       }
-      const store = EventStore.open(join(dir, f));
+      const store = EventStore.open(join(dir, f), { readOnly: true });
       expect(store.all()).toHaveLength(raw.length);
       const app = await buildApp({ store, clock: () => NOW });
       expect((await app.inject('/api/universe')).statusCode, f).toBe(200);
@@ -68,7 +68,7 @@ describe('frozen history', () => {
   });
 
   it('reads v1 as it read when written: old readings by the old yardstick, the stub unknown', () => {
-    const events = EventStore.open(join(dir, 'events.v1.jsonl')).all();
+    const events = EventStore.open(join(dir, 'events.v1.jsonl'), { readOnly: true }).all();
     const now = '2026-01-07T12:00:00.000Z';
     const view = buildUniverseView(events, { now });
     const status = Object.fromEntries(Object.entries(view.nodes).map(([id, n]) => [id, n.evaluation.status]));
@@ -82,7 +82,7 @@ describe('frozen history', () => {
   });
 
   it('reads v2 as it read when written: bindings, links and the pulled reading kept', () => {
-    const events = EventStore.open(join(dir, 'events.v2.jsonl')).all();
+    const events = EventStore.open(join(dir, 'events.v2.jsonl'), { readOnly: true }).all();
     const now = '2026-06-02T09:00:00.000Z';
     const view = buildUniverseView(events, { now });
     const node = (id: string) => view.nodes[id]!;
@@ -130,7 +130,8 @@ describe('time zones', () => {
     return { offset, answers };
   }
 
-  it('seeds the same demo and gives the same answers in every zone', async () => {
+  // Seconds of work on a quiet machine: the 5 s default failed it under a shuffled run (ADR 0008).
+  it('seeds the same demo and gives the same answers in every zone', { timeout: 30_000 }, async () => {
     const runs = [];
     for (const zone of ZONES) runs.push(await answersIn(zone));
     // If the runtime ignored the switch, the comparison below would prove nothing.

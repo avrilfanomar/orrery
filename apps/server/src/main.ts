@@ -1,4 +1,4 @@
-import { startServer } from './server.js';
+import { startServer, stopOnSignals } from './server.js';
 import { serverSettings } from './settings.js';
 
-await startServer(serverSettings(process.env));
+stopOnSignals(await startServer(serverSettings(process.env)));

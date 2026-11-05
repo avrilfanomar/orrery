@@ -45,6 +45,12 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     reason: 'Checks the enforcement path itself: a passing log.test.ts proves the contract is right, not that the store applies it',
   },
   {
+    id: 's-log-written', kind: 'scenario', parentId: 'c-log', title: 'The store writes only what it would load, and any cut a crash leaves can be recovered', priority: 'critical', dimensions: ['reliable'],
+    measure: pass, probe: 'suite-log-written',
+    scenario: { stimulus: 'An event the contract refuses is about to be written; the log is cut at any byte; a crash left out the last line break', environment: 'The store on a real file', response: 'The write is refused and nothing changes; every cut loads what came before it or names the line to delete; the next event starts a line of its own' },
+    reason: 'ADR 0008: until then the store checked only the schema, so s-log-load read 0',
+  },
+  {
     id: 's-log-contract', kind: 'scenario', parentId: 'c-log', title: 'The log contract’s own tests pass', priority: 'high', dimensions: ['reliable'], measure: pass, probe: 'suite-log-contract',
     scenario: { stimulus: 'The contract check meets gaps, repeats, reordering and non-canonical instants', environment: 'Unit tests', response: 'Each is refused with a reason' },
   },
@@ -354,6 +360,52 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   },
 
   // --- running it exposes nothing it shouldn't -----------------------------
+  // --- what it acknowledged survives ---------------------------------------
+  {
+    id: 'g-rely', kind: 'goal', parentId: 'ru', title: 'What it acknowledges survives, and a fault stays where it happens', priority: 'high', dimensions: ['reliable'], owner: OWNER,
+    description:
+      'ADR 0008: durability, fault tolerance, fault isolation and recoverability. The suite pins what must always hold: a failed write changes nothing, one process writes a log, a fault fails one request or one binding, and a stop or a kill is followed by a clean start. The dogfood kills a real server mid-write and runs the suite in an order nobody chose. The log contract itself stays under the model telling the truth. Worst-of, so one broken promise shows.',
+  },
+  {
+    id: 'r-durable', kind: 'requirement', parentId: 'g-rely', title: 'An acknowledged change survives a failed write, a second writer and a kill', priority: 'critical', dimensions: ['reliable'],
+    description: 'An event is acknowledged only once it is written and flushed; a write that fails is cut back; a seed or a reset replaces the file in one step; the log’s lock refuses a second writer.',
+  },
+  {
+    id: 's-failed-write', kind: 'scenario', parentId: 'r-durable', title: 'A write the disk refuses changes nothing, and the store stays writable', priority: 'critical', dimensions: ['reliable'], measure: pass, probe: 'suite-failed-write',
+    scenario: { stimulus: 'The disk refuses a batch partway; a new log cannot be written; the store is read-only or closed', environment: 'The real server under a file-size limit; the store on a real file', response: 'The request fails with an id; nothing of it is served or kept; the old log stays whole; a write that fits then lands' },
+  },
+  {
+    id: 's-one-writer', kind: 'scenario', parentId: 'r-durable', title: 'One process writes a log, and a lock left by a dead one is taken over', priority: 'high', dimensions: ['reliable', 'operable'], measure: pass, probe: 'suite-one-writer',
+    scenario: { stimulus: 'A second store, a reset or another server opens a log a server is writing; a lock names a process that is gone', environment: 'The real server and reset as processes', response: 'Each is refused, naming the writer’s pid and its lock, and the log stays as it was; the dead writer’s lock is taken over' },
+  },
+  {
+    id: 'k-lost-on-kill', kind: 'kpi', parentId: 'r-durable', links: ['r-restartable'], title: 'Acknowledged readings missing after a kill mid-write', priority: 'high', dimensions: ['reliable'], measure: zero('readings'), probe: 'kill-recovery',
+    reason: 'Baseline 0 of 13 450 acknowledged readings, back in 0.8 s by itself. Acknowledging a write 50 ms before it is written read 350',
+  },
+  {
+    id: 'r-contained', kind: 'requirement', parentId: 'g-rely', title: 'A fault fails one request or one binding, never the server', priority: 'high', dimensions: ['reliable'],
+    description: 'Fault isolation and robustness: hostile input is refused with a reason, a pull that cannot be recorded fails its binding, a source that hangs holds up no other, and a clock that steps back is absorbed.',
+  },
+  {
+    id: 's-contained', kind: 'scenario', parentId: 'r-contained', title: 'Hostile input, a failing pull, a hanging source and a clock step stay contained', priority: 'high', dimensions: ['reliable'], measure: pass, probe: 'suite-contained',
+    scenario: { stimulus: 'Malformed, deep, oversized or impossible input; a pull whose answer cannot be recorded; a source that never answers; the clock stepping back an hour', environment: 'The app in-process, with the collector', response: 'Each request is refused with a reason and the log is unchanged; that binding reads failing and the server answers on; other sources pull on; writes land in order' },
+  },
+  {
+    id: 'r-restartable', kind: 'requirement', parentId: 'g-rely', links: ['r-recovers'], title: 'After a stop or a crash it starts again by itself, with everything it acknowledged', priority: 'high', dimensions: ['reliable', 'operable'],
+  },
+  {
+    id: 's-restart', kind: 'scenario', parentId: 'r-restartable', title: 'A SIGTERM lets go cleanly, and a start after a SIGKILL needs no hand', priority: 'high', dimensions: ['reliable', 'operable'], measure: pass, probe: 'suite-restart',
+    scenario: { stimulus: 'SIGTERM; SIGKILL', environment: 'The real server as a process', response: 'It exits 0 and releases its lock; the next start takes over the dead writer’s lock and serves every acknowledged write' },
+  },
+  {
+    id: 'r-faultless', kind: 'requirement', parentId: 'g-rely', title: 'Its tests give the same verdict in any order and on a busy machine', priority: 'medium', dimensions: ['reliable', 'maintainable'],
+    description: 'Faultlessness of the safety net: a test that passes only in one order, or only on an idle machine, is a check that sometimes lies.',
+  },
+  {
+    id: 'k-order-dependent', kind: 'kpi', parentId: 'r-faultless', title: 'Tests that fail only when the suite runs shuffled', priority: 'medium', dimensions: ['reliable', 'maintainable'], measure: zero('tests'), probe: 'tests-order-dependent',
+    reason: 'Baseline 0. Before the slowest tests had explicit timeouts, seed 1 failed two of them on vitest’s 5 s default',
+  },
+
   { id: 'g-safe', kind: 'goal', parentId: 'ru', title: 'Running it exposes nothing it shouldn’t', priority: 'high', dimensions: ['secure'], owner: OWNER },
   {
     id: 'c-secrets', kind: 'constraint', parentId: 'g-safe', title: 'No secret enters the log, and no caller chooses the address', priority: 'critical', dimensions: ['secure'],

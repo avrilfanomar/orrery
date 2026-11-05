@@ -49,8 +49,16 @@ async function open(): Promise<{ transport: Transport; where: string; close: () 
     () => false,
   );
   if (up) return { transport: httpTransport(url), where: url, close: async () => {} };
-  const app = await buildApp({ store: EventStore.open(settings.file) });
-  return { transport: injectTransport(app), where: settings.file, close: () => app.close() };
+  const store = EventStore.open(settings.file);
+  const app = await buildApp({ store });
+  return {
+    transport: injectTransport(app),
+    where: settings.file,
+    close: async () => {
+      await app.close();
+      store.close();
+    },
+  };
 }
 
 const tmp = mkdtempSync(join(tmpdir(), 'ru-dogfood-'));

@@ -105,7 +105,8 @@ describe('startup refusals explain themselves', () => {
     }
   });
 
-  it('starts the server with the settings it was given: its log, its seed and its ingest token', async () => {
+  // Real processes and sockets: the 5 s default is too tight on a busy machine (ADR 0008).
+  it('starts the server with the settings it was given: its log, its seed and its ingest token', { timeout: 30_000 }, async () => {
     const dataFile = join(tmp, 'started.jsonl');
     const port = await freePort();
     const app = await startServer(serverSettings({ RU_DATA_FILE: dataFile, PORT: String(port), RU_SEED: 'dogfood', RU_INGEST_TOKEN: 's3cret', RU_WEB_DIST: join(tmp, 'no-ui') }), {});
@@ -144,7 +145,7 @@ describe('startup refusals explain themselves', () => {
     const cases: [string, string, RegExp][] = [
       ['torn.jsonl', `${event(1)}\n${event(2).slice(0, 40)}`, /torn\.jsonl:2: not a complete JSON event — .*back up the file, then delete that line/],
       ['middle.jsonl', `${event(1)}\n{oops\n${event(2)}\n`, /middle\.jsonl:2: not a complete JSON event — [^]*\.$/],
-      ['schema.jsonl', `${JSON.stringify({ seq: 1, at: 'yesterday', actor: 'x', type: 'node.created', data: {} })}\n`, /schema\.jsonl:1: invalid event — /],
+      ['schema.jsonl', `${JSON.stringify({ seq: 1, at: 'yesterday', actor: 'x', type: 'node.created', data: {} })}\n`, /schema\.jsonl:1: the event does not match the event schema — /],
     ];
     for (const [name, text, message] of cases) {
       const file = join(tmp, name);
@@ -161,7 +162,8 @@ describe('startup refusals explain themselves', () => {
     expect(() => loadSources(broken, {})).toThrow(/^RU_SOURCES_FILE: .*sources\.json is not valid JSON/);
   });
 
-  it('stops the real entry points before they open or serve anything', async () => {
+  // Real processes and sockets: the 5 s default is too tight on a busy machine (ADR 0008).
+  it('stops the real entry points before they open or serve anything', { timeout: 30_000 }, async () => {
     const dataFile = join(tmp, 'never-created.jsonl');
     const server = await runEntry('src/main.ts', { PORT: 'abc', RU_DATA_FILE: dataFile });
     expect(server.code, server.stderr).not.toBe(0);
@@ -226,6 +228,7 @@ describe('recovery', () => {
     const URLS = ['/api/universe', '/api/changes?limit=500', '/api/nodes/k-p95', '/api/health'];
     const answers = async (a: typeof app) => Promise.all(URLS.map(async (u) => (await a.inject(u)).body));
     const before = await answers(app);
+    first.close(); // the stopped server lets go of its log
     const restarted = await buildApp({ store: EventStore.open(file), clock });
     expect(await answers(restarted)).toEqual(before);
   });

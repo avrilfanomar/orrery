@@ -13,7 +13,7 @@ export interface Sample {
   value: number;
 }
 
-export type FailureCategory = 'unreachable' | 'timeout' | 'http' | 'bad-query' | 'empty' | 'multi-series' | 'rejected' | 'not-configured' | 'token-missing';
+export type FailureCategory = 'unreachable' | 'timeout' | 'http' | 'bad-query' | 'empty' | 'multi-series' | 'rejected' | 'internal' | 'not-configured' | 'token-missing';
 
 export type PullResult = { ok: true; samples: Sample[]; skipped: number } | { ok: false; category: FailureCategory; httpStatus?: number; detail?: string };
 

@@ -66,6 +66,16 @@ pnpm dogfood:serve               # that universe in the UI on :4711
   `apps/server/test/operability.test.ts`.
 - Log a failure inside a request with `req.log`, so the line carries the
   request id the caller gets back.
+- Apart from probes and tests, which write their own temp logs, only
+  `apps/server/src/store.ts` writes a log file (ADR 0008). Open a log you only
+  read with `{ readOnly: true }`; a writer holds `<log>.lock` until `close()`. The store may cut back a write that failed, which was never
+  acknowledged, but never rewrites an acknowledged line.
+- Background work (timers, the collector) never lets a promise reject
+  unhandled: a failure fails its own binding or tick, not the process.
+- A test that starts real processes, or works for seconds, sets an explicit
+  timeout (`SPAWNS` in `apps/server/test/reliability.test.ts`).
+  `tests-order-dependent` runs the suites shuffled and counts what fails only
+  then.
 - UI colours go through the theme tokens in `styles.css` (`--name: …`).
 - Instants that cross the API carry a zone (`Z` or an offset), so answers
   don't depend on the server's time zone.

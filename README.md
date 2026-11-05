@@ -32,7 +32,8 @@ How the repository measures itself is in [ADR 0003](docs/adr/0003-the-repository
 How its efficiency is tested is in [ADR 0004](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md),
 how its flexibility is tested is in [ADR 0005](docs/adr/0005-flexibility-is-tested-as-promises.md),
 how its maintainability is tested is in [ADR 0006](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md),
-and how its operability is tested is in [ADR 0007](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.md).
+how its operability is tested is in [ADR 0007](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.md),
+and how its reliability is tested is in [ADR 0008](docs/adr/0008-reliability-what-it-acknowledged-survives.md).
 
 ## Run it
 
@@ -87,11 +88,11 @@ readings come from versioned probes in
 [`probes.ts`](apps/server/src/dogfood/probes.ts).
 
 ```bash
-pnpm dogfood          # sync the model, measure, record, print the tree (~70 s)
+pnpm dogfood          # sync the model, measure, record, print the tree (~95 s)
 pnpm dogfood:serve    # the dogfood universe in the console on :4711
 ```
 
-The eight goals:
+The nine goals:
 
 | Goal | What it covers |
 |---|---|
@@ -101,6 +102,7 @@ The eight goals:
 | *The console stays fast and frugal at realistic scale* | after a week of live signals: view, write and restart time, heap and response size; the UI bundle; and, pinned by the suite, how cost scales, the batch limit and a fixed benchmark workload |
 | *It adapts, connects and outlasts its own versions* | frozen logs that must keep loading, the same answers in any time zone, two universes side by side, the README's API and settings as contracts, component seams, theme tokens |
 | *Whoever runs it can install, start, watch and recover it* | a fresh clone that installs, builds and serves, settings read only where they are checked, licences of what it ships; and, pinned by the suite, startup refusals that name what to fix, health and failures an operator can see, recovery after a restart or a source outage, an audit trail, docs that name real commands |
+| *What it acknowledges survives, and a fault stays where it happens* | acknowledged readings lost when a real server is killed mid-write, tests that fail only in a shuffled order; and, pinned by the suite, a failed write that changes nothing, one writer per log, faults that fail one request or one binding, a clean stop and a start after a kill |
 | *Running it exposes nothing it shouldn't* | source and pull guards, dependency advisories |
 | *People can follow it end to end* | the demo story, the browser smoke test against the real server, doc links |
 
@@ -143,6 +145,13 @@ How a measurement is kept consistent:
   and why, and that the docs name commands that exist. Probes install, build
   and serve a fresh clone, count settings read past their checks, and check
   the licences of what it ships.
+- **Reliability: what it acknowledged survives** (ADR 0008). The suite checks
+  that the store writes only what it would load, that a write the disk
+  refuses changes nothing, that one process writes a log, that hostile input,
+  a failing pull or a hanging source fails only itself, and that the server
+  stops cleanly and starts again after a kill. Probes kill a real server in
+  the middle of writes and count what it lost, and run the suite in a
+  shuffled order.
 
 **To change the model**, edit `model.ts` and commit. `pnpm dogfood` turns the
 difference into reasoned commands. The reason is `--reason "…"`, or the model's
@@ -158,7 +167,7 @@ measures a subset.
 The identity stub keeps the top level from reading green until it is refined.
 The first run (2026-11-04) also found three real problems, recorded in
 [ADR 0003 → Consequences](docs/adr/0003-the-repository-measures-itself.md#consequences):
-- the store loads logs that break the contract;
+- the store loads logs that break the contract (fixed in ADR 0008);
 - dependencies have critical advisories;
 - one module is over the size target.
 
@@ -255,7 +264,12 @@ directory is used.
 | `PW_CHROMIUM` | unset | `e2e`, `dogfood` | A Chromium binary for the smoke test |
 
 The demo and the dogfood servers default to different logs and ports, so both
-can run at once.
+can run at once. One process writes a log at a time: a running server keeps
+`<log>.lock` beside it, and a second writer, `pnpm reset` included, is refused
+with the writer's pid. A lock left behind by a crash is taken over at the next
+start. Ctrl-C or SIGTERM closes the server, letting the requests in flight
+finish, and releases the log before it exits. A second Ctrl-C, a second or
+more later, stops it at once.
 
 ## Layout
 
