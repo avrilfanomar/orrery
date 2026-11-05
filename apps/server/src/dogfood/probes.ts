@@ -28,6 +28,7 @@ import {
 import { EFFICIENCY_PROBES } from './efficiency.js';
 import { FLEXIBILITY_PROBES } from './flexibility.js';
 import { MAINTAINABILITY_PROBES } from './maintainability.js';
+import { OPERABILITY_PROBES } from './operability.js';
 import { scrub, smoke, withLiveWeek } from './harness.js';
 import type { ProbeSpec } from './sync.js';
 
@@ -69,6 +70,7 @@ const V1 = 'First version of this method (ADR 0003)';
 const V4 = 'First version of this method (ADR 0004)';
 const V5 = 'First version of this method (ADR 0005)';
 const V6 = 'First version of this method (ADR 0006)';
+const V7 = 'First version of this method (ADR 0007)';
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 export function createContext(root: string, tmp: string): ProbeContext {
@@ -343,6 +345,12 @@ export const PROBES: readonly Probe[] = [
   suite('suite-no-hidden-inputs', [{ file: `${SERVER}/maintainability.test.ts`, describe: ['no hidden inputs'] }], V6),
   suite('suite-dependencies', [{ file: `${SERVER}/maintainability.test.ts`, describe: ['declared dependencies'] }], V6),
   ...MAINTAINABILITY_PROBES,
+  suite('suite-startup-refusals', [{ file: `${SERVER}/operability.test.ts`, describe: ['startup refusals explain themselves'] }], V7),
+  suite('suite-visible-failures', [{ file: `${SERVER}/operability.test.ts`, describe: ['failures are visible'] }], V7),
+  suite('suite-recovery', [{ file: `${SERVER}/operability.test.ts`, describe: ['recovery'] }], V7),
+  suite('suite-on-the-record', [{ file: `${SERVER}/operability.test.ts`, describe: ['on the record'] }], V7),
+  suite('suite-documented-operations', [{ file: `${SERVER}/operability.test.ts`, describe: ['documented operations'] }], V7),
+  ...OPERABILITY_PROBES,
   suite('suite-sources', [{ file: `${CORE}/sources.test.ts` }, { file: `${SERVER}/sources.test.ts` }]),
   {
     id: 'audit-high',

@@ -87,9 +87,8 @@ export function parseSources(raw: unknown, env: Record<string, string | undefine
   });
 }
 
-/** Loads `RU_SOURCES_FILE`. Unset means no sources — the same as `[]`. */
-export function loadSources(env: Record<string, string | undefined>): ResolvedSource[] {
-  const file = env.RU_SOURCES_FILE?.trim();
+/** Loads the file `RU_SOURCES_FILE` names (settings.ts). None means no sources — the same as `[]`. */
+export function loadSources(file: string | null, env: Record<string, string | undefined>): ResolvedSource[] {
   if (!file) return [];
   if (!existsSync(file)) throw new Error(`RU_SOURCES_FILE: ${file} does not exist`);
   let raw: unknown;
@@ -112,8 +111,8 @@ const LOOPBACK = /^(localhost|127(?:\.\d{1,3}){3}|::1|\[::1\])$/i;
  * and read its answers back from the log — the server's token turned into an
  * oracle. With sources configured, listen on loopback only unless told otherwise.
  */
-export function assertSafeToServe(sources: readonly ResolvedSource[], host: string, env: Record<string, string | undefined>): void {
-  if (sources.length === 0 || LOOPBACK.test(host) || env.RU_ALLOW_REMOTE === '1') return;
+export function assertSafeToServe(sources: readonly ResolvedSource[], host: string, allowRemote: boolean): void {
+  if (sources.length === 0 || LOOPBACK.test(host) || allowRemote) return;
   throw new Error(
     `Refusing to listen on ${host} with metric sources configured: commands are unauthenticated, so anyone who can reach the API ` +
       'could run queries with the server’s credentials. Listen on 127.0.0.1, or set RU_ALLOW_REMOTE=1 if the network is trusted.',

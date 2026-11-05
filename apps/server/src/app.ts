@@ -24,7 +24,8 @@ export interface AppOptions {
   ingestToken?: string | null;
   /** The built web app to serve, if present. */
   webDist?: string | null;
-  logger?: boolean;
+  /** Fastify's log of warnings and errors: off, to stdout, or into a stream the caller reads (one JSON line per entry). */
+  logger?: boolean | { write(line: string): void };
   /** Pulls bound metrics from configured sources (ADR 0002). Defaults to one with no sources. */
   collector?: Collector;
 }
@@ -40,18 +41,20 @@ const ZonedInstantSchema = z.union([z.string().date(), z.string().datetime({ off
 export const MAX_READINGS_PER_REQUEST = 5000;
 
 export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: opts.logger ? { level: 'warn' } : false, bodyLimit: 4 * 1024 * 1024 });
+  const logger = opts.logger ? { level: 'warn', ...(typeof opts.logger === 'object' ? { stream: opts.logger } : {}) } : false;
+  const app = Fastify({ logger, bodyLimit: 4 * 1024 * 1024 });
   const now = () => (opts.clock?.() ?? new Date()).toISOString();
   const { store } = opts;
   const collector = opts.collector ?? new Collector({ store, sources: [] });
   const sources = collector.catalog;
 
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err, req, reply) => {
     if (err instanceof DomainError) return reply.code(HTTP_STATUS[err.code]).send({ error: err.message, code: err.code });
     const { statusCode: status, message } = err as { statusCode?: number; message?: string };
     if (status && status < 500) return reply.code(status).send({ error: message ?? 'Bad request', code: 'invalid' });
-    app.log.error(err);
-    return reply.code(500).send({ error: 'Internal error', code: 'internal' });
+    // The caller gets an id and no detail; the log gets the detail under the same id (ADR 0007).
+    req.log.error({ err }, 'request failed');
+    return reply.code(500).send({ error: 'Internal error', code: 'internal', requestId: req.id });
   });
 
   const asOfFrom = (query: unknown): string | null => {
@@ -68,7 +71,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return v || 'you';
   };
 
-  app.get('/api/health', async () => ({ ok: true, events: store.all().length }));
+  app.get('/api/health', async () => ({ ok: true, events: store.all().length, lastEventAt: store.all().at(-1)?.at ?? null }));
 
   app.get('/api/universe', async (req) => buildUniverseView(store.all(), { asOf: asOfFrom(req.query), now: now() }));
 

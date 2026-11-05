@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { buildNodeDetail, buildUniverseView, checkLogEntry, CommandSchema, EventSchema, type RuEvent, type UniverseView } from '@ru/core';
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.js';
@@ -12,6 +12,7 @@ import { generateDemo } from '../src/demo.js';
 import { BENCH_NOW } from '../src/dogfood/probes.js';
 import { repoRoot } from '../src/paths.js';
 import { generateDogfood } from '../src/seeds.js';
+import { dogfoodSettings, serverSettings } from '../src/settings.js';
 import { EventStore } from '../src/store.js';
 
 const NOW = new Date('2026-11-03T12:00:00.000Z');
@@ -151,11 +152,6 @@ describe('time zones', () => {
 });
 
 describe('co-existence', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.resetModules();
-  });
-
   it('keeps two universes in one process apart', async () => {
     const demo = await buildApp({ store: storeOf(generateDemo(NOW)), clock: () => NOW });
     const dogfood = await buildApp({ store: storeOf(generateDogfood(NOW)), clock: () => NOW });
@@ -167,12 +163,11 @@ describe('co-existence', () => {
     expect((await dogfood.inject('/api/universe')).body).toBe(before);
   });
 
-  it('gives the demo and the dogfood servers their own log and port when nothing is set', async () => {
-    for (const name of ['RU_DATA_FILE', 'RU_DOGFOOD_FILE', 'PORT', 'RU_DOGFOOD_PORT']) vi.stubEnv(name, undefined);
-    vi.resetModules();
-    const paths = await import('../src/paths.js');
-    expect(paths.dataFile).not.toBe(paths.dogfoodFile);
-    expect(paths.port).not.toBe(paths.dogfoodPort);
+  it('gives the demo and the dogfood servers their own log and port when nothing is set', () => {
+    const demo = serverSettings({});
+    const dogfood = dogfoodSettings({});
+    expect(demo.dataFile).not.toBe(dogfood.file);
+    expect(demo.port).not.toBe(dogfood.port);
   });
 });
 

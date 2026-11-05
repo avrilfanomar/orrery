@@ -116,10 +116,10 @@ describe('source configuration', () => {
 
   it('refuses to serve beyond loopback with sources configured, unless told the network is trusted', () => {
     const s = [source()];
-    expect(() => assertSafeToServe(s, '0.0.0.0', {})).toThrow(/unauthenticated/);
-    expect(() => assertSafeToServe(s, '127.0.0.1', {})).not.toThrow();
-    expect(() => assertSafeToServe(s, '0.0.0.0', { RU_ALLOW_REMOTE: '1' })).not.toThrow();
-    expect(() => assertSafeToServe([], '0.0.0.0', {})).not.toThrow();
+    expect(() => assertSafeToServe(s, '0.0.0.0', false)).toThrow(/unauthenticated/);
+    expect(() => assertSafeToServe(s, '127.0.0.1', false)).not.toThrow();
+    expect(() => assertSafeToServe(s, '0.0.0.0', true)).not.toThrow();
+    expect(() => assertSafeToServe([], '0.0.0.0', false)).not.toThrow();
   });
 
   it('builds fixed API paths, keeping a base subpath, directly or through Grafana', () => {

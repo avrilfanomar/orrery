@@ -59,6 +59,13 @@ pnpm dogfood:serve               # that universe in the UI on :4711
   new shape, pinned by its hash in `flexibility.test.ts`.
 - A new environment variable needs a row in the README's configuration
   table. A new route needs a row in its API table.
+- `apps/server` reads the environment only in `apps/server/src/settings.ts`
+  (ADR 0007), and only from entry points, never at import time. There, an empty
+  value means unset, and anything else must parse or the process stops,
+  naming the variable. A new setting also needs a row in `SETTINGS` in
+  `apps/server/test/operability.test.ts`.
+- Log a failure inside a request with `req.log`, so the line carries the
+  request id the caller gets back.
 - UI colours go through the theme tokens in `styles.css` (`--name: …`).
 - Instants that cross the API carry a zone (`Z` or an offset), so answers
   don't depend on the server's time zone.

@@ -4,6 +4,20 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { dirname } from 'node:path';
 import { EventSchema, type NewEvent, type RuEvent } from '@ru/core';
 
+/**
+ * A crash during a write can leave the last line cut short. That line was
+ * never acknowledged, but removing it is the operator's call, not the store's
+ * (ADR 0007): the message names the line and says what to do.
+ */
+function parseLine(line: string, where: string, isLast: boolean): unknown {
+  try {
+    return JSON.parse(line);
+  } catch (err) {
+    const hint = isLast ? ' The last write was probably cut short: back up the file, then delete that line.' : '';
+    throw new Error(`${where}: not a complete JSON event — ${(err as Error).message}.${hint}`);
+  }
+}
+
 export class EventStore {
   private readonly events: RuEvent[] = [];
 
@@ -14,10 +28,12 @@ export class EventStore {
     const store = new EventStore(file);
     if (file && existsSync(file)) {
       const lines = readFileSync(file, 'utf8').split('\n');
+      let last = lines.length - 1;
+      while (last > 0 && !lines[last]!.trim()) last--;
       lines.forEach((line, i) => {
         if (!line.trim()) return;
-        const parsed = EventSchema.safeParse(JSON.parse(line));
         // A log that does not parse is corrupted history; refusing to start beats silently rewriting the past.
+        const parsed = EventSchema.safeParse(parseLine(line, `${file}:${i + 1}`, i === last));
         if (!parsed.success) throw new Error(`${file}:${i + 1}: invalid event — ${parsed.error.issues[0]?.message}`);
         store.events.push(parsed.data);
       });

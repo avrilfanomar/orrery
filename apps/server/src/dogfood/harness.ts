@@ -57,7 +57,7 @@ export function withLiveWeek(demo: readonly RuEvent[], start: number, days = 7):
   return events;
 }
 
-const freePort = () =>
+export const freePort = () =>
   new Promise<number>((done, fail) => {
     const srv = createServer();
     srv.once('error', fail);

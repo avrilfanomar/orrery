@@ -8,7 +8,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { buildApp } from '../app.js';
-import { dogfoodFile, dogfoodPort, repoRoot } from '../paths.js';
+import { repoRoot } from '../paths.js';
+import { dogfoodSettings } from '../settings.js';
 import { EventStore } from '../store.js';
 import { gitSnapshot } from './collectors.js';
 import { createContext } from './probes.js';
@@ -35,19 +36,21 @@ if (args.help) {
   --only         measure only these node or probe ids
 
   RU_PROBE_ENV   label for the machine (default local); timings compare only within one label
-  RU_DOGFOOD_URL a running dogfood server (default http://127.0.0.1:${dogfoodPort})`);
+  RU_DOGFOOD_URL a running dogfood server (default http://127.0.0.1:RU_DOGFOOD_PORT)`);
   process.exit(0);
 }
 
+const settings = dogfoodSettings(process.env);
+
 async function open(): Promise<{ transport: Transport; where: string; close: () => Promise<void> }> {
-  const url = process.env.RU_DOGFOOD_URL ?? `http://127.0.0.1:${dogfoodPort}`;
+  const { url } = settings;
   const up = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(1500) }).then(
     (r) => r.ok,
     () => false,
   );
   if (up) return { transport: httpTransport(url), where: url, close: async () => {} };
-  const app = await buildApp({ store: EventStore.open(dogfoodFile) });
-  return { transport: injectTransport(app), where: dogfoodFile, close: () => app.close() };
+  const app = await buildApp({ store: EventStore.open(settings.file) });
+  return { transport: injectTransport(app), where: settings.file, close: () => app.close() };
 }
 
 const tmp = mkdtempSync(join(tmpdir(), 'ru-dogfood-'));
@@ -57,9 +60,9 @@ try {
   console.error(`dogfood: ${conn.where} · ${git.sha}${git.dirty ? ' (uncommitted changes)' : ''}`);
   const result = await runDogfood(
     { reason: args.reason ?? null, dryRun: args['dry-run'], allowDirty: args['allow-dirty'], only: args.only?.split(',').map((s) => s.trim()).filter(Boolean) },
-    { transport: conn.transport, git, context: createContext(repoRoot, tmp), env: process.env.RU_PROBE_ENV ?? 'local', progress: (l) => console.error(l) },
+    { transport: conn.transport, git, context: createContext(repoRoot, tmp), env: settings.probeEnv, progress: (l) => console.error(l) },
   );
-  process.stdout.write(renderReport(result, process.stdout.isTTY && !process.env.NO_COLOR));
+  process.stdout.write(renderReport(result, process.stdout.isTTY && settings.colour));
 } catch (err) {
   if (!(err instanceof ReasonRequired)) throw err;
   console.error(err.message);

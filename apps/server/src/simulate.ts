@@ -4,14 +4,13 @@
 // restarted demo is not stale), then keeps the fast signals moving.
 import type { UniverseView } from '@ru/core';
 import { clampRound, jitter, mulberry32, PROFILES, type Profile } from './demo.js';
-import { host, port } from './paths.js';
+import { simulatorSettings } from './settings.js';
 
-const API = process.env.RU_API ?? `http://${host}:${port}`;
-const TICK_MS = Number(process.env.RU_SIM_TICK_MS ?? 30_000);
+const { api: API, tickMs: TICK_MS, ingestToken } = simulatorSettings(process.env);
 const H = 3.6e6;
 const rnd = mulberry32(Date.now() & 0xffff);
 const headers: Record<string, string> = { 'content-type': 'application/json' };
-if (process.env.RU_INGEST_TOKEN) headers.authorization = `Bearer ${process.env.RU_INGEST_TOKEN}`;
+if (ingestToken) headers.authorization = `Bearer ${ingestToken}`;
 
 interface Reading {
   nodeId: string;

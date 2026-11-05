@@ -5,15 +5,9 @@ import { generateDemo } from './demo.js';
 import { DOGFOOD_MODEL } from './dogfood/model.js';
 import { PROBE_SPECS } from './dogfood/probes.js';
 import { planSync, resolveReasons } from './dogfood/sync.js';
+import type { SeedKind } from './settings.js';
 
-export const SEED_KINDS = ['demo', 'dogfood'] as const;
-export type SeedKind = (typeof SEED_KINDS)[number];
-
-export function seedKindFrom(raw: string | undefined): SeedKind {
-  const v = raw?.trim() || 'demo';
-  if (!(SEED_KINDS as readonly string[]).includes(v)) throw new Error(`RU_SEED must be one of ${SEED_KINDS.join(', ')} (got “${v}”)`);
-  return v as SeedKind;
-}
+export { SEED_KINDS, seedKindFrom, type SeedKind } from './settings.js';
 
 /** The dogfood model as of now, created through the real `decide` — the same plan `pnpm dogfood` syncs. */
 export function generateDogfood(now: Date): RuEvent[] {

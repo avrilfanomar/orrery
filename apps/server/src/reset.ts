@@ -2,12 +2,12 @@
 // Refuses while the server runs, because the server keeps the log in memory
 // and would append to a file whose sequence numbers it no longer matches.
 import { rmSync } from 'node:fs';
-import { dataFile, host, port } from './paths.js';
-import { seedEvents, seedKindFrom } from './seeds.js';
+import { seedEvents } from './seeds.js';
+import { baseUrl, serverSettings } from './settings.js';
 import { EventStore } from './store.js';
 
-const kind = seedKindFrom(process.env.RU_SEED);
-const running = await fetch(`http://${host}:${port}/api/health`).then(
+const { dataFile, host, port, seed: kind } = serverSettings(process.env);
+const running = await fetch(`${baseUrl(host, port)}/api/health`).then(
   () => true,
   () => false,
 );

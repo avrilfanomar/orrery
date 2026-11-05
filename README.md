@@ -31,7 +31,8 @@ Prometheus and Grafana is in [ADR 0002](docs/adr/0002-metrics-bind-to-configured
 How the repository measures itself is in [ADR 0003](docs/adr/0003-the-repository-measures-itself.md).
 How its efficiency is tested is in [ADR 0004](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md),
 how its flexibility is tested is in [ADR 0005](docs/adr/0005-flexibility-is-tested-as-promises.md),
-and how its maintainability is tested is in [ADR 0006](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md).
+how its maintainability is tested is in [ADR 0006](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md),
+and how its operability is tested is in [ADR 0007](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.md).
 
 ## Run it
 
@@ -90,7 +91,7 @@ pnpm dogfood          # sync the model, measure, record, print the tree (~70 s)
 pnpm dogfood:serve    # the dogfood universe in the console on :4711
 ```
 
-The seven goals:
+The eight goals:
 
 | Goal | What it covers |
 |---|---|
@@ -99,6 +100,7 @@ The seven goals:
 | *Its code stays easy to read, test and update* | complex functions, import cycles, copied blocks, hidden clocks, dependencies a major behind; and, pinned by the suite, statuses and refusals that explain themselves, answers that ignore the system clock, dependencies declared and locked |
 | *The console stays fast and frugal at realistic scale* | after a week of live signals: view, write and restart time, heap and response size; the UI bundle; and, pinned by the suite, how cost scales, the batch limit and a fixed benchmark workload |
 | *It adapts, connects and outlasts its own versions* | frozen logs that must keep loading, the same answers in any time zone, two universes side by side, the README's API and settings as contracts, component seams, theme tokens |
+| *Whoever runs it can install, start, watch and recover it* | a fresh clone that installs, builds and serves, settings read only where they are checked, licences of what it ships; and, pinned by the suite, startup refusals that name what to fix, health and failures an operator can see, recovery after a restart or a source outage, an audit trail, docs that name real commands |
 | *Running it exposes nothing it shouldn't* | source and pull guards, dependency advisories |
 | *People can follow it end to end* | the demo story, the browser smoke test against the real server, doc links |
 
@@ -134,6 +136,13 @@ How a measurement is kept consistent:
   over cognitive complexity 15, import cycles, copied blocks and clock reads
   outside the composition roots. They also measure the core's test coverage
   and how many dependencies are a major version behind.
+- **Operability: what whoever runs it can rely on** (ADR 0007). The suite
+  checks that a bad setting or a damaged log stops the server at start and
+  names what to fix, that health and internal errors leave a trail, that a
+  restart or a source outage heals by itself, that every change says who, when
+  and why, and that the docs name commands that exist. Probes install, build
+  and serve a fresh clone, count settings read past their checks, and check
+  the licences of what it ships.
 
 **To change the model**, edit `model.ts` and commit. `pnpm dogfood` turns the
 difference into reasoned commands. The reason is `--reason "…"`, or the model's
@@ -207,18 +216,23 @@ RU_SOURCES_FILE=sources.json pnpm dev
 | `POST` | `/api/commands` | `node.create · edit · redefine · reprioritize · move · link · unlink · deprecate · reactivate`, `reading.record` |
 | `POST` | `/api/readings` | Ingestion webhook (single reading or `{ readings: [...] }`) |
 | `GET` | `/api/sources` | Configured metric sources (public fields only) and each binding's pull state |
-| `GET` | `/api/health` | Liveness, and how many events the log holds |
+| `GET` | `/api/health` | Liveness, how many events the log holds and when the last was recorded |
 
 Commands are validated by `decide` in the core: unknown ids are 404, cycles
 and duplicate state are 409, and missing reasons or malformed measures are 400.
 The optional `x-actor` header names the author (there is no authentication in
 the PoC). `asOf` is an ISO-8601 date (read as UTC midnight) or a date-time with
 `Z` or an offset. A date-time without a zone is refused, so an answer never
-depends on the server's time zone.
+depends on the server's time zone. An internal error answers 500 with a
+`requestId`; the server's log records the error under the same id.
 
 ## Configuration
 
-Everything is set through environment variables, and nothing is required.
+Everything is set through environment variables, and nothing is required. An
+empty value means unset. A value the server cannot use stops it at start, with
+a message naming the variable. A relative path is read from the directory the
+command was typed in: pnpm passes it as `INIT_CWD`, and without it the working
+directory is used.
 
 | Variable | Default | Used by | What it does |
 |---|---|---|---|

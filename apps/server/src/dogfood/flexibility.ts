@@ -19,9 +19,9 @@ const tally = (hits: readonly string[]) => {
 
 /** Code an operator runs or configures: the apps' sources, the browser smoke test and the dev-server config. */
 const CONFIGURABLE = /^(?:apps\/[^/]+\/src\/.+\.tsx?|apps\/web\/e2e\/.+\.m?js|apps\/web\/vite\.config\.ts|packages\/[^/]+\/src\/.+\.ts)$/;
-const ENV_READ = /\b(?:process\.)?env\.([A-Z][A-Z0-9_]*)\b|\benv\[\s*['"]([A-Z][A-Z0-9_]*)['"]\s*\]/g;
+export const ENV_READ = /\b(?:process\.)?env\.([A-Z][A-Z0-9_]*)\b|\benv\[\s*['"]([A-Z][A-Z0-9_]*)['"]\s*\]/g;
 /** Defined by the platform, not by this repository. */
-const PLATFORM_ENV = new Set(['PATH']);
+export const PLATFORM_ENV: ReadonlySet<string> = new Set(['PATH']);
 
 /** An import, resolved to a repository path when it is relative (extension dropped), else the bare specifier. */
 export function resolveImport(from: string, spec: string): string {

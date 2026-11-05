@@ -10,6 +10,7 @@ import { parseVitestJson, type GitSnapshot } from '../src/dogfood/collectors.js'
 import { scrub } from '../src/dogfood/harness.js';
 import { cognitiveComplexity, duplicatedLines, importCycles, majorBehind, parseSource } from '../src/dogfood/maintainability.js';
 import { DOGFOOD_MODEL, type ModelNode } from '../src/dogfood/model.js';
+import { licenceApproved } from '../src/dogfood/operability.js';
 import { judgeSuite, PROBE_SPECS, PROBES, type Probe, type ProbeContext } from '../src/dogfood/probes.js';
 import { injectTransport, runDogfood } from '../src/dogfood/runner.js';
 import { currentFromView, planSync, probeQuery, ReasonRequired, resolveReasons, type ProbeSpec } from '../src/dogfood/sync.js';
@@ -67,6 +68,7 @@ describe('the dogfood model and its probes', () => {
     expect(ev.get('r-identity')!.status).toBe('unknown'); // an honest stub
     expect(ev.get('k-core-coverage')!.status).toBe('unknown'); // defined, not yet measured
     expect(ev.get('ru')!.status).toBe('unknown'); // nothing measured yet is never green
+    expect(u.nodes.get('k-start-week')!.links).toEqual(['r-recovers']); // restart time evidences recovery too
   });
 
   it('chooses the seed explicitly, so the dogfood log never gets the demo', () => {
@@ -189,6 +191,11 @@ describe('measurement helpers', () => {
     expect(majorBehind('1.62.1', '1.64.1')).toBe(false);
     expect(majorBehind('0.3.1', '0.4.0')).toBe(true);
     expect(majorBehind('0.3.1', '0.3.9')).toBe(false);
+  });
+
+  it('approve a licence only when an SPDX expression leaves no unapproved choice', () => {
+    for (const ok of ['MIT', 'Apache-2.0', '(MIT OR Apache-2.0)', 'MIT OR GPL-3.0', 'BSD-3-Clause AND MIT', 'BlueOak-1.0.0']) expect(licenceApproved(ok), ok).toBe(true);
+    for (const no of ['Unknown', 'GPL-3.0', 'MIT AND GPL-3.0', '(MIT OR GPL-3.0) AND Apache-2.0', 'SEE LICENSE IN LICENSE.md', '']) expect(licenceApproved(no), no).toBe(false);
   });
 
   it('scan code, not comments or strings', () => {

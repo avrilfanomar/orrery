@@ -203,7 +203,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   },
   { id: 'r-start', kind: 'requirement', parentId: 'g-fast', title: 'A restart is back within seconds, even with a week of history', priority: 'medium', dimensions: ['efficient', 'operable'] },
   {
-    id: 'k-start-week', kind: 'kpi', parentId: 'r-start', title: 'Loading a week of live signals to the first view (median)', priority: 'medium', dimensions: ['efficient'],
+    id: 'k-start-week', kind: 'kpi', parentId: 'r-start', links: ['r-recovers'], title: 'Loading a week of live signals to the first view (median)', priority: 'medium', dimensions: ['efficient', 'operable'],
     measure: m('s', 'lower', 3, 6), probe: 'start-s-week', reason: '`pnpm dev` restarts the server on every code change. Baseline 1.6 s, most of it checking each stored line against the schema',
   },
   {
@@ -285,6 +285,72 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
     id: 'k-theme-literals', kind: 'kpi', parentId: 'r-theme', title: 'Colours outside the theme tokens', priority: 'low', dimensions: ['flexible', 'usable'], measure: m('colours', 'lower', 0, 10), probe: 'theme-literals',
     reason: 'Baseline 7: three in styles.css and four in the status icons in bits.tsx — knowingly starts in warning',
+  },
+
+  // --- whoever runs it can install, watch and recover it --------------------
+  {
+    id: 'g-operate', kind: 'goal', parentId: 'ru', title: 'Whoever runs it can install, start, watch and recover it', priority: 'medium', dimensions: ['operable'], owner: OWNER,
+    description:
+      'ADR 0007: installability, diagnosability, observability, recovery, auditability and licensing, from the point of view of whoever runs the server. The suite pins the promises — a bad setting or a damaged log stops it at start and says what to fix, a failure leaves a trail, a restart or a source outage heals by itself, every change says who, when and why, and the docs name commands that exist. Probes check a fresh clone, settings read past their checks, and dependency licences.',
+  },
+  {
+    id: 'r-installable', kind: 'requirement', parentId: 'g-operate', title: 'A fresh clone runs with the documented commands', priority: 'medium', dimensions: ['operable', 'flexible'],
+    description: 'Installability and deployability: nothing it needs is untracked, ignored or left over in a working copy, and the commands the README and CLAUDE.md give are the ones the scripts define.',
+  },
+  {
+    id: 's-fresh-clone', kind: 'scenario', parentId: 'r-installable', title: 'A fresh clone installs, builds and serves the console', priority: 'medium', dimensions: ['operable'], measure: pass, probe: 'fresh-clone',
+    scenario: { stimulus: 'HEAD cloned into an empty directory', environment: 'A frozen, offline install from the package store; no data, no build output, no settings', response: 'The UI builds, and the server starts, seeds the demo and serves the console' },
+  },
+  {
+    id: 's-documented-ops', kind: 'scenario', parentId: 'r-installable', title: 'The commands and the Node floor the docs state are the real ones', priority: 'low', dimensions: ['operable', 'usable'], measure: pass, probe: 'suite-documented-operations',
+    scenario: { stimulus: 'Every pnpm command in README.md and CLAUDE.md, the Node floor, and a relative path in a setting', environment: 'Tests reading the docs and the manifests', response: 'Each command names a script that exists; engines, .nvmrc, the README and @types/node agree on the floor; a relative path is read from where the command was typed' },
+    reason: 'The README’s `RU_SOURCES_FILE=sources.json pnpm dev` looked for the file in apps/server until ADR 0007',
+  },
+  {
+    id: 'r-start-checked', kind: 'requirement', parentId: 'g-operate', title: 'A bad setting or a damaged log stops it at start, naming what to fix', priority: 'high', dimensions: ['operable', 'reliable'],
+    description: 'Diagnosability and controllability: a setting it cannot use is refused before anything is opened or served, never read as something else, and a refusal names the variable, file or line at fault.',
+  },
+  {
+    id: 's-startup-refusals', kind: 'scenario', parentId: 'r-start-checked', title: 'Every setting is taken or refused by name, and a damaged log names its line', priority: 'high', dimensions: ['operable', 'reliable'], measure: pass, probe: 'suite-startup-refusals',
+    scenario: { stimulus: 'Malformed, empty and valid settings, a log cut off mid-write, a line that is not an event, a missing or broken sources file', environment: 'API tests, and the real server and simulator entry points', response: 'Each fault is refused before anything is opened or served, naming the variable and value or the file and line; an empty setting takes its default, and a valid one takes effect' },
+    reason: 'Until ADR 0007 an empty HOST bound every interface, an empty PORT a random one, an empty RU_DATA_FILE kept the log in memory, and a malformed RU_SIM_TICK_MS pushed readings every millisecond',
+  },
+  {
+    id: 'k-settings-unchecked', kind: 'kpi', parentId: 'r-start-checked', title: 'Settings read outside settings.ts', priority: 'medium', dimensions: ['operable'], measure: zero('reads'), probe: 'settings-unchecked',
+    reason: 'A setting read anywhere else skips the empty-means-unset rule and the check. Baseline 0, after ADR 0007 moved eighteen reads in seven files into settings.ts',
+  },
+  {
+    id: 'r-observable', kind: 'requirement', parentId: 'g-operate', title: 'From outside, an operator can tell it is up, what it holds and why a request failed', priority: 'medium', dimensions: ['operable'],
+    description: 'Observability: /api/health says how much history it holds and when the last event landed; a failed request gives the caller an id and the log the detail under the same id; a failing source is named in /api/sources (ADR 0002).',
+  },
+  {
+    id: 's-visible', kind: 'scenario', parentId: 'r-observable', title: 'Health tells the truth, and an internal error leaves a trail', priority: 'medium', dimensions: ['operable', 'secure'], measure: pass, probe: 'suite-visible-failures',
+    scenario: { stimulus: 'Health checks before and after a write, and a request that fails inside the server', environment: 'API tests reading the server’s log', response: 'Health reports the events held and the last one’s instant; the failed request gets 500 with an id and no internal detail, and the log holds the error and its stack under that id' },
+    reason: 'Until ADR 0007 an internal error was logged without its request id, and the caller got no id to quote',
+  },
+  {
+    id: 'r-recovers', kind: 'requirement', parentId: 'g-operate', title: 'It comes back by itself after a restart or a source outage', priority: 'medium', dimensions: ['operable', 'reliable'],
+    description: 'Autonomy and time to recover: the log is the only state (ADR 0001), so a restart rebuilds exactly what was there; the collector catches up on what a source missed (ADR 0002). Restart time is linked here from the efficiency goal.',
+  },
+  {
+    id: 's-recovery', kind: 'scenario', parentId: 'r-recovers', title: 'A restart gives back the same universe, and pulls catch up after an outage', priority: 'medium', dimensions: ['operable', 'reliable'], measure: pass, probe: 'suite-recovery',
+    scenario: { stimulus: 'The server restarted on its log; a source down for two hours, then back', environment: 'API tests with an injected clock and fetch', response: 'Every answer is byte-identical after the restart; while the source is down nothing is recorded and the node reads unknown, and once it is back every missed instant is recorded once, with the state change logged both ways' },
+  },
+  {
+    id: 'r-audit', kind: 'requirement', parentId: 'g-operate', title: 'Every change can be traced to who made it, when and why', priority: 'high', dimensions: ['operable', 'suitable'],
+    description: 'Auditability and traceability: the log keeps an author, an instant and — for every change of meaning, place or lifecycle — a reason (ADR 0001); the change feed shows each; and what was known on a past day is answered the same way however much is written later.',
+  },
+  {
+    id: 's-audit', kind: 'scenario', parentId: 'r-audit', title: 'Every change says who, when and why, and the past stays as it was known', priority: 'high', dimensions: ['operable', 'suitable'], measure: pass, probe: 'suite-on-the-record',
+    scenario: { stimulus: 'Both seeded universes, every evolution command sent under a named author, and later writes including a reading backdated before an earlier day', environment: 'API tests', response: 'Every event has an author and an exact instant, every change of meaning has a reason, the feed reports each one faithfully, and the earlier day’s answers do not change' },
+  },
+  {
+    id: 'r-licensed', kind: 'requirement', parentId: 'g-operate', title: 'Everything it ships may be shipped under its licence', priority: 'medium', dimensions: ['operable', 'secure'],
+    description: 'Legal requirements: the repository is Apache-2.0, and the server’s runtime and the UI bundle carry their dependencies with them.',
+  },
+  {
+    id: 'k-licences', kind: 'kpi', parentId: 'r-licensed', title: 'Shipped dependencies under a licence not approved', priority: 'medium', dimensions: ['operable'], measure: zero('packages'), probe: 'licences-unapproved',
+    reason: 'Baseline 0 of 90. Build and test tools are not shipped and not counted; among them, a platform binary rollup pulls in declares no licence',
   },
 
   // --- running it exposes nothing it shouldn't -----------------------------
