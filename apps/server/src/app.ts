@@ -14,14 +14,17 @@ import {
   type NewEvent,
 } from '@ru/core';
 import { z } from 'zod';
+import { bearerMatches, guard, refuse, RESERVED_ACTORS } from './guard.js';
 import { Collector } from './sources/collector.js';
 import type { EventStore } from './store.js';
 
 export interface AppOptions {
   store: EventStore;
   clock?: () => Date;
-  /** When set, `POST /api/readings` requires `Authorization: Bearer <token>`. */
+  /** When set, every reading, by either route, requires `Authorization: Bearer <token>` (ADR 0010). */
   ingestToken?: string | null;
+  /** Names besides loopback and IP addresses that a request may address the server by (ADR 0010). */
+  allowedHosts?: readonly string[];
   /** The built web app to serve, if present. */
   webDist?: string | null;
   /** Fastify's log of warnings and errors: off, to stdout, or into a stream the caller reads (one JSON line per entry). */
@@ -48,6 +51,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   const { store } = opts;
   const collector = opts.collector ?? new Collector({ store, sources: [] });
   const sources = collector.catalog;
+  guard(app, opts.allowedHosts ?? []);
+  const tokenOk = (req: { headers: { authorization?: string } }) => !opts.ingestToken || bearerMatches(req.headers.authorization, opts.ingestToken);
+  const NEEDS_TOKEN = 'A valid ingest token is required';
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof DomainError) return reply.code(HTTP_STATUS[err.code]).send({ error: err.message, code: err.code });
@@ -65,10 +71,11 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return new Date(Date.parse(v)).toISOString();
   };
 
-  // Identity is out of scope for the PoC: the caller names itself.
+  // Identity is out of scope for the PoC: the caller names itself, but not as one of the server's own writers.
   const actorFrom = (headers: Record<string, unknown>): string => {
     const raw = headers['x-actor'];
     const v = typeof raw === 'string' ? raw.trim().slice(0, 80) : '';
+    if (RESERVED_ACTORS.includes(v.toLowerCase())) throw new DomainError('invalid', `“${v}” names one of the server’s own writers (${RESERVED_ACTORS.join(', ')}); sign with another name in x-actor`);
     return v || 'you';
   };
 
@@ -92,6 +99,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
 
   app.post('/api/commands', async (req, reply) => {
     const cmd = parseCommand(req.body);
+    // The token guards readings, not a route: otherwise a reading refused by the webhook would be accepted here.
+    if (cmd.type === 'reading.record' && !tokenOk(req)) return refuse(req, reply, 401, 'ingest token', NEEDS_TOKEN);
     const events = decide(project(store.all()), cmd, { now: now(), actor: actorFrom(req.headers), sources });
     return reply.code(201).send({ events: store.append(events) });
   });
@@ -101,9 +110,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
    * All-or-nothing, so a batch with one bad reading leaves no partial trace.
    */
   app.post('/api/readings', async (req, reply) => {
-    if (opts.ingestToken && req.headers.authorization !== `Bearer ${opts.ingestToken}`) {
-      return reply.code(401).send({ error: 'A valid ingest token is required', code: 'unauthorized' });
-    }
+    if (!tokenOk(req)) return refuse(req, reply, 401, 'ingest token', NEEDS_TOKEN);
     const body = req.body as { readings?: unknown } | null;
     const list: unknown[] = Array.isArray(body?.readings) ? body.readings : [body];
     if (list.length === 0) throw new DomainError('invalid', 'No readings in the request');

@@ -7,12 +7,13 @@ import {
   KIND_LABELS,
   PRIORITY_WEIGHT,
   SEVERITY,
+  backlogBelow,
+  breadcrumbTo,
   describeRollup,
   formatThreshold,
   formatValue,
   signalPath,
   type Evaluation,
-  type NodeView,
   type UniverseView,
 } from '@ru/core';
 import { useMemo } from 'react';
@@ -41,35 +42,6 @@ const bySeverity = (view: UniverseView) => (a: string, b: string) => {
   );
 };
 
-function trail(view: UniverseView, id: string): NodeView[] {
-  const out: NodeView[] = [];
-  let cur: string | null = view.nodes[id]?.parentId ?? null;
-  while (cur && view.nodes[cur] && !out.some((n) => n.id === cur)) {
-    out.unshift(view.nodes[cur]!);
-    cur = view.nodes[cur]!.parentId;
-  }
-  return out;
-}
-
-/** Unobservable endpoints below a node — the refinement backlog for this part of the universe. */
-function gaps(view: UniverseView, id: string): NodeView[] {
-  const out = new Map<string, NodeView>();
-  const seen = new Set<string>();
-  const walk = (nid: string) => {
-    if (seen.has(nid)) return;
-    seen.add(nid);
-    const n = view.nodes[nid];
-    if (!n || n.lifecycle !== 'active') return;
-    const inputs = [...n.childIds, ...n.linkedFromIds].filter((c) => view.nodes[c]?.lifecycle === 'active');
-    // A gap is a measure nobody feeds (never measured, or stale), or a stub with nothing beneath it.
-    const isGap = n.evaluation.measurement?.status === 'unknown' || (inputs.length === 0 && !n.evaluation.measurement);
-    if (isGap && nid !== id) out.set(nid, n);
-    inputs.forEach(walk);
-  };
-  walk(id);
-  return [...out.values()];
-}
-
 export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
   const node = view.nodes[id]!;
   const ev = node.evaluation;
@@ -86,7 +58,7 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
   const children = node.childIds.filter((c) => view.nodes[c]?.lifecycle === 'active').sort(sort);
   const deprecated = node.childIds.filter((c) => view.nodes[c]?.lifecycle === 'deprecated');
   const linked = node.linkedFromIds.filter((c) => view.nodes[c]?.lifecycle === 'active' && !node.childIds.includes(c)).sort(sort);
-  const backlog = useMemo(() => gaps(view, id), [view, id]);
+  const backlog = useMemo(() => backlogBelow(view, id), [view, id]);
   const spec = node.definition.measure;
   const scenario = node.definition.scenario;
   const hasInputs = children.length + linked.length > 0;
@@ -101,7 +73,7 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
   return (
     <article className="focus">
       <nav className="crumbs" aria-label="Path to this node">
-        {trail(view, id).map((n) => (
+        {breadcrumbTo(view, id).map((n) => (
           <span key={n.id} className="crumb">
             <button type="button" onClick={() => onFocus(n.id)}>
               <StatusDot status={n.evaluation.status} />

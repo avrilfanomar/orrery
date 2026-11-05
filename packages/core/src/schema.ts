@@ -63,6 +63,12 @@ export const BindingSchema = z.object({
 export type Binding = z.infer<typeof BindingSchema>;
 
 /**
+ * A global wherever core runs, browsers and Node alike. Core loads no
+ * environment's types (it stays pure), so it declares only the part it uses.
+ */
+declare const URL: new (input: string) => { protocol: string };
+
+/**
  * A link a person follows, never fetched by the server. Only http(s), so a
  * `javascript:` URL can't be planted for the UI to render — checked here, in
  * the event schema, so a hand-edited log is held to it too.

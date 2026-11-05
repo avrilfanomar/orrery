@@ -439,7 +439,12 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     scenario: { stimulus: 'The simulator started against a universe that shares the demo’s ids but is not the demo', environment: 'The real simulator against an in-process server', response: 'It says why and writes nothing, and stays up so `pnpm dev` keeps running' },
   },
 
-  { id: 'g-safe', kind: 'goal', parentId: 'ru', title: 'Running it exposes nothing it shouldn’t', priority: 'high', dimensions: ['secure'], owner: OWNER },
+  // --- running it exposes nothing it shouldn't (ADR 0002, ADR 0010) ----------
+  {
+    id: 'g-safe', kind: 'goal', parentId: 'ru', title: 'Running it exposes nothing it shouldn’t', priority: 'high', dimensions: ['secure'], owner: OWNER,
+    description:
+      'ADR 0002 and ADR 0010. Commands carry no credentials, so what is left to guard is this: no web page can act through the operator’s browser; a reading needs the ingest token when one is set; no secret leaves the server or enters the history; a request sized to the body limit costs no more to refuse than a small one; every refusal leaves a trace; and no dependency carries a known high advisory. Identity stays a stub, so this reads unknown until commands know who is asking.',
+  },
   {
     id: 'c-secrets', kind: 'constraint', parentId: 'g-safe', title: 'No secret enters the log, and no caller chooses the address', priority: 'critical', dimensions: ['secure'],
     description: 'ADR 0002 decisions 1, 3 and 5: tokens by env-var name only, bindings choose among configured sources, pulled readings are reserved to the collector, loopback-only with sources configured.',
@@ -448,6 +453,37 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     id: 's-sources', kind: 'scenario', parentId: 'c-secrets', title: 'Source configuration and pull guards hold', priority: 'critical', dimensions: ['secure'], measure: pass,
     probe: 'suite-sources',
     scenario: { stimulus: 'Inline tokens, credentialed URLs, a pusher claiming pull provenance, a non-loopback host with sources configured', environment: 'Unit and API tests', response: 'Each is refused before anything is fetched or written' },
+  },
+  {
+    id: 's-no-secret-out', kind: 'scenario', parentId: 'c-secrets', title: 'No source token leaves the server, whatever the source sends back', priority: 'critical', dimensions: ['secure'], measure: pass, probe: 'suite-no-secret-out',
+    scenario: { stimulus: 'A source that echoes the server’s token back in errors, pages, series labels and exceptions', environment: 'The collector and API in process, on a real log file', response: 'The token appears in no event, no answer and no line the server prints, and neither does the internal address' },
+  },
+  {
+    id: 'k-secrets-history', kind: 'kpi', parentId: 'c-secrets', title: 'Lines shaped like a credential anywhere in the repository’s history', priority: 'high', dimensions: ['secure'], measure: zero('lines'), probe: 'secrets-in-history',
+    reason: 'Baseline 0 in 18 commits. A credential deleted later still counts: every clone keeps it',
+  },
+  {
+    id: 'r-browser', kind: 'requirement', parentId: 'g-safe', title: 'A web page the operator visits cannot act through the API', priority: 'critical', dimensions: ['secure'],
+    description: 'ADR 0010, H1 to H3. Loopback alone stopped neither DNS rebinding, which gave any page the server’s origin and with it the source tokens ADR 0002 guards, nor a write sent from another origin. The server answers only to names nobody else’s DNS can point at it, takes writes only from its own origin, and forbids framing and foreign code.',
+  },
+  {
+    id: 's-browser-boundary', kind: 'scenario', parentId: 'r-browser', title: 'Rebound names, other origins and bodies a page sends without asking change nothing', priority: 'critical', dimensions: ['secure'], measure: pass, probe: 'suite-browser-boundary',
+    scenario: { stimulus: 'A request naming a host the server does not answer to; a write from another origin or the null origin; a text/plain, form or multipart body; a page that frames the console', environment: 'The API in process, and the real server with RU_ALLOWED_HOSTS', response: 'Each is refused before anything is read or written, every answer forbids framing and foreign code, and the console’s own writes and clients with no Origin go through' },
+  },
+  { id: 'r-ingest', kind: 'requirement', parentId: 'g-safe', title: 'A reading needs the ingest token, by any route, when one is set', priority: 'high', dimensions: ['secure'] },
+  {
+    id: 's-ingest-token', kind: 'scenario', parentId: 'r-ingest', title: 'A reading without the token is refused by the webhook and by commands alike', priority: 'high', dimensions: ['secure'], measure: pass, probe: 'suite-ingest-token',
+    scenario: { stimulus: 'Readings with no token, a wrong one, a prefix of the right one or another scheme; a caller signing as `ingest` or `collector`', environment: 'The API in process with RU_INGEST_TOKEN set', response: 'Each reading is refused with 401 and nothing is written, whichever route it takes; the reserved names are refused; other commands stay open, as the README says' },
+  },
+  { id: 'r-traced', kind: 'requirement', parentId: 'g-safe', title: 'A refused request leaves a trace for the operator', priority: 'medium', dimensions: ['secure', 'operable'] },
+  {
+    id: 's-refusals-traced', kind: 'scenario', parentId: 'r-traced', title: 'Every refusal is logged under its request id, without the credentials offered', priority: 'medium', dimensions: ['secure'], measure: pass, probe: 'suite-refusals-traced',
+    scenario: { stimulus: 'A foreign host, a foreign origin and a guessed token', environment: 'The API in process, its log read back', response: 'Each refusal is a warning naming what was refused, where it came from and the request id; neither the guess nor the token appears' },
+  },
+  { id: 'r-resistant', kind: 'requirement', parentId: 'g-safe', title: 'A request sized to the body limit costs no more to refuse than a small one', priority: 'high', dimensions: ['secure', 'efficient'] },
+  {
+    id: 's-oversized', kind: 'scenario', parentId: 'r-resistant', title: 'A collection far over its limit is refused at the limit, not element by element', priority: 'high', dimensions: ['secure'], measure: pass, probe: 'suite-oversized',
+    scenario: { stimulus: 'A command holding two million links or dimensions, about what fits in the body limit', environment: 'packages/core/test/security.test.ts', response: 'One problem is reported, the limit; under zod 3 the same request held a server for 12.7 s and 1.9 GB' },
   },
   { id: 'r-deps', kind: 'requirement', parentId: 'g-safe', title: 'No known high or critical advisories in dependencies', priority: 'high', dimensions: ['secure'] },
   {
@@ -460,14 +496,23 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     reason: 'Left as a stub: there is no authentication to measure yet',
   },
 
-  // --- people can follow it end to end -------------------------------------
+  // --- everyone can read, operate and follow it (ADR 0011) -------------------
   {
-    id: 'g-usable', kind: 'goal', parentId: 'ru', title: 'People can follow it end to end', priority: 'medium', dimensions: ['usable', 'suitable', 'operable'], owner: OWNER,
-    rollup: { strategy: 'weighted', okAt: 0.9, warnAt: 0.6 }, description: 'Rolled up by priority-weighted score: the README tour, the real browser loop, and docs that lead somewhere.',
+    id: 'g-usable', kind: 'goal', parentId: 'ru', title: 'Everyone can read, operate and follow it end to end', priority: 'medium', dimensions: ['usable'], owner: OWNER,
+    rollup: { strategy: 'weighted', okAt: 0.9, warnAt: 0.6 },
+    description: 'ADR 0011. Rolled up by priority-weighted score: the console meets WCAG 2.2 AA wherever a scan can tell, in both schemes; the evolution loop works in a real browser; and the docs lead somewhere.',
   },
   {
-    id: 's-story', kind: 'scenario', parentId: 'g-usable', title: 'The demo tells the documented story', priority: 'high', dimensions: ['suitable'], measure: pass, probe: 'suite-demo-story',
-    scenario: { stimulus: 'The README’s five-minute tour', environment: 'The seeded demo, pinned by apps/server/test/app.test.ts', response: 'Every status the tour promises is the one the model reports' },
+    id: 'r-accessible', kind: 'requirement', parentId: 'g-usable', title: 'The console meets WCAG 2.2 AA wherever a scan can tell', priority: 'high', dimensions: ['usable'],
+    description: 'ADR 0011, U1 to U5. Muted text and white on the accent read below 4.5:1, the outline’s chevrons and the feed’s links were smaller than 24 px, the outline claimed a tree’s keyboard behaviour it never had, and a select had no name.',
+  },
+  {
+    id: 'k-a11y', kind: 'kpi', parentId: 'r-accessible', title: 'Accessibility checks that fail in a real browser', priority: 'high', dimensions: ['usable'], measure: zero('checks'), probe: 'ui-accessibility',
+    reason: 'Baseline 25 of 31 checks before ADR 0011 (contrast, target size, an unnamed select); 0 after',
+  },
+  {
+    id: 's-contrast', kind: 'scenario', parentId: 'r-accessible', title: 'Every text colour reads at 4.5:1 on every surface, in both schemes', priority: 'high', dimensions: ['usable'], measure: pass, probe: 'suite-contrast',
+    scenario: { stimulus: 'A theme token edited in styles.css', environment: 'apps/server/test/usability.test.ts, on every pnpm verify', response: 'Each text colour keeps 4.5:1 on each surface and status wash it is drawn on, light and dark, and both ways of asking for dark define it alike' },
   },
   {
     id: 's-smoke', kind: 'scenario', parentId: 'g-usable', links: ['r-not-live'], title: 'The evolution loop works in a real browser', priority: 'high', dimensions: ['usable', 'safe'], measure: pass, probe: 'ui-smoke',
@@ -476,5 +521,27 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
     id: 'k-links', kind: 'kpi', parentId: 'g-usable', title: 'Broken relative links in Markdown docs', priority: 'low', dimensions: ['usable'], measure: zero('links'), probe: 'doc-links',
     reason: 'Baseline 0',
+  },
+
+  // --- it does what the README says it does (ADR 0012) -----------------------
+  {
+    id: 'g-fit', kind: 'goal', parentId: 'ru', title: 'It does what the README says it does', priority: 'high', dimensions: ['suitable'], owner: OWNER,
+    description: 'ADR 0012. Each need in the README’s “The idea” table is met, and breaking the code that meets it turns a test red. The tour tells the story the demo shows.',
+  },
+  {
+    id: 'r-claims', kind: 'requirement', parentId: 'g-fit', title: 'Breaking any claim in “The idea” turns a test red', priority: 'high', dimensions: ['suitable'],
+    description: 'ADR 0012, F1 and F2. Five breaks of a written claim got past the core’s tests, four of them past the whole suite, and the backlog and the breadcrumb the console shows were computed in the UI, where no test reached them.',
+  },
+  {
+    id: 'k-claims', kind: 'kpi', parentId: 'r-claims', title: 'Breaks of a README claim no test catches', priority: 'high', dimensions: ['suitable'], measure: zero('breaks'), probe: 'claim-mutants',
+    reason: 'Baseline 5 of the 18 breaks that applied to the code before ADR 0012 escaped the core’s tests; 0 of 21 after',
+  },
+  {
+    id: 's-claims', kind: 'scenario', parentId: 'r-claims', title: 'The backlog, the breadcrumb, the ribbon, the past, the reasons and the signal show what the README says', priority: 'high', dimensions: ['suitable'], measure: pass, probe: 'suite-claims',
+    scenario: { stimulus: 'Gaps of every kind below a node, a node three levels down with a link, a change on the day shown, a past day, readings in every status, a breach beside a heavier warning, and a reading that arrives late', environment: 'packages/core/test/suitability.test.ts', response: 'The backlog lists every gap and agrees with coverage; the breadcrumb climbs every primary parent and no link; the ribbon ends at the moment shown; the past holds nothing from after it; reasons name their thresholds; the signal leads to the breach; the latest observation decides' },
+  },
+  {
+    id: 's-story', kind: 'scenario', parentId: 'g-fit', title: 'The demo tells the documented story', priority: 'high', dimensions: ['suitable'], measure: pass, probe: 'suite-demo-story',
+    scenario: { stimulus: 'The README’s five-minute tour', environment: 'The seeded demo, pinned by apps/server/test/app.test.ts', response: 'Every status the tour promises is the one the model reports' },
   },
 ];

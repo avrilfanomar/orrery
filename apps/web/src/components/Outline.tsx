@@ -62,10 +62,10 @@ export function Outline({ view, focusId, onFocus }: Props) {
     const kids = n.childIds.filter((c) => !filter || filter.has(c));
     const open = filter ? true : expanded.has(id);
     return (
-      <li key={id} role="treeitem" aria-expanded={kids.length ? open : undefined} aria-selected={id === focusId}>
+      <li key={id}>
         <div className={`row${id === focusId ? ' is-focus' : ''}${n.lifecycle === 'deprecated' ? ' is-deprecated' : ''}`} style={{ paddingLeft: 8 + depth * 14 }}>
           {kids.length ? (
-            <button type="button" className="chev" aria-label={open ? 'Collapse' : 'Expand'} onClick={() => toggle(id)}>
+            <button type="button" className="chev" aria-label={`What contributes to ${n.title}`} aria-expanded={open} onClick={() => toggle(id)}>
               <svg width="10" height="10" viewBox="0 0 10 10" style={{ transform: open ? 'rotate(90deg)' : undefined }}>
                 <path d="M3 1.5L6.5 5 3 8.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
               </svg>
@@ -73,13 +73,13 @@ export function Outline({ view, focusId, onFocus }: Props) {
           ) : (
             <span className="chev-spacer" />
           )}
-          <button type="button" className="row-main" onClick={() => onFocus(id)} title={`${KIND_LABELS[n.kind]} — ${n.evaluation.reason}`}>
+          <button type="button" className="row-main" onClick={() => onFocus(id)} aria-current={id === focusId ? 'location' : undefined} title={`${KIND_LABELS[n.kind]} — ${n.evaluation.reason}`}>
             <StatusDot status={n.evaluation.status} />
             <span className="row-title">{n.title}</span>
             <span className="row-kind">{KIND_LABELS[n.kind]}</span>
           </button>
         </div>
-        {open && kids.length > 0 && <ul role="group">{kids.map((c) => renderNode(c, depth + 1))}</ul>}
+        {open && kids.length > 0 && <ul>{kids.map((c) => renderNode(c, depth + 1))}</ul>}
       </li>
     );
   };
@@ -93,7 +93,8 @@ export function Outline({ view, focusId, onFocus }: Props) {
           Issues only
         </label>
       </div>
-      <ul className="tree" role="tree">
+      {/* Nested lists of buttons, not role="tree": that role promises arrow-key navigation this outline does not offer (ADR 0011). */}
+      <ul className="tree">
         {view.rootIds.map((id) => renderNode(id, 0))}
       </ul>
       {filter && filter.size === 0 && <p className="hint pad">Nothing matches.</p>}

@@ -34,7 +34,10 @@ how its flexibility is tested is in [ADR 0005](docs/adr/0005-flexibility-is-test
 how its maintainability is tested is in [ADR 0006](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md),
 how its operability is tested is in [ADR 0007](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.md),
 how its reliability is tested is in [ADR 0008](docs/adr/0008-reliability-what-it-acknowledged-survives.md),
-and how it keeps anyone from acting on a green it hasn't earned is in [ADR 0009](docs/adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.md).
+how it keeps anyone from acting on a green it hasn't earned is in [ADR 0009](docs/adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.md),
+what keeps a web page, a guessed token or a leaked secret from getting through is in [ADR 0010](docs/adr/0010-security-the-browser-is-the-way-in.md),
+how everyone can read and operate the console is in [ADR 0011](docs/adr/0011-usability-everyone-can-read-and-operate-it.md),
+and how the tests hold it to what this README claims is in [ADR 0012](docs/adr/0012-suitability-it-does-what-the-readme-says.md).
 
 ## Run it
 
@@ -52,6 +55,7 @@ pnpm start      # build the UI and serve everything from :4710
 pnpm reset      # re-seed the demo relative to now (stop the server first; the old log is kept as <log>.<instant>.bak)
 pnpm verify     # typecheck + unit/API tests + UI build
 pnpm --filter @ru/web e2e   # browser smoke test against a running app (writes to the log)
+pnpm --filter @ru/web a11y  # accessibility scan against a running app (reads only)
 pnpm dogfood    # measure this repository against its own requirements (see below)
 ```
 
@@ -93,7 +97,7 @@ pnpm dogfood          # sync the model, measure, record, print the tree (~3 min)
 pnpm dogfood:serve    # the dogfood universe in the console on :4711
 ```
 
-The ten goals:
+The eleven goals:
 
 | Goal | What it covers |
 |---|---|
@@ -105,8 +109,9 @@ The ten goals:
 | *Whoever runs it can install, start, watch and recover it* | a fresh clone that installs, builds and serves, settings read only where they are checked, licences of what it ships; and, pinned by the suite, startup refusals that name what to fix, health and failures an operator can see, recovery after a restart or a source outage, an audit trail, docs that name real commands |
 | *What it acknowledges survives, and a fault stays where it happens* | acknowledged readings lost when a real server is killed mid-write, tests that fail only in a shuffled order; and, pinned by the suite, a failed write that changes nothing, one writer per log, faults that fail one request or one binding, a clean stop and a start after a kill |
 | *No one acts on a green it hasn't earned, and nothing it does destroys the record* | breaks of the core that would show a green nobody earned and that no test catches; the console saying when it has stopped being live; and, pinned by the suite, rollup rules checked over every input, a reset that keeps the log it replaced, a simulator that feeds only the demo |
-| *Running it exposes nothing it shouldn't* | source and pull guards, dependency advisories |
-| *People can follow it end to end* | the demo story, the browser smoke test against the real server, doc links |
+| *Running it exposes nothing it shouldn't* | dependency advisories, anything shaped like a credential in the git history; and, pinned by the suite, source and pull guards, no source token leaving the server, no web page acting through the operator's browser, the ingest token on every route a reading takes, refusals that leave a trace, oversized requests refused at their limit |
+| *Everyone can read, operate and follow it end to end* | accessibility checks in a real browser, in both schemes, the browser smoke test against the real server, doc links; and, pinned by the suite, text that reads at 4.5:1 on every surface |
+| *It does what the README says it does* | breaks of the core that would leave a need in *The idea* unmet and that no test catches; and, pinned by the suite, the backlog, the breadcrumb, the ribbon, the past, the reasons and the signal as described here, and the demo story |
 
 One stub, identity, stays *unknown* until there is something to measure.
 
@@ -120,7 +125,8 @@ How a measurement is kept consistent:
 - **Only committed code is recorded.** On a dirty tree the run measures but
   writes nothing, unless you pass `--allow-dirty`.
 - **A probe that cannot measure records nothing.** That covers no network for
-  `pnpm audit` and no browser for the smoke test. The node goes stale and reads
+  `pnpm audit` and no browser for the smoke test or the accessibility scan.
+  The node goes stale and reads
   unknown, never green.
 - **Benchmarks use a fixed workload** (seed 7, fixed date): warm-up runs, then
   the median. Compare timings within one `RU_PROBE_ENV` only. The workload's
@@ -163,6 +169,26 @@ How a measurement is kept consistent:
   demo. The browser smoke test blocks the API and expects the console to say
   it is not live. A probe breaks the core on purpose in fifteen ways that
   would show a false green, and counts the breaks no test catches.
+- **Security: the browser is the way in** (ADR 0010). The suite checks that
+  the server answers only to names nobody else's DNS can point at it, takes
+  no write from another origin, and forbids framing and foreign code. It also
+  checks that a reading needs the ingest token by either route, that every
+  refusal is logged without the credentials offered, that a source's token
+  never leaves the server whatever the source sends back, and that an
+  oversized request is refused at its limit. Probes count advisories in the
+  dependencies and anything shaped like a credential in the whole git history.
+- **Usability: everyone can read and operate it** (ADR 0011). The suite checks
+  that every text colour reads at 4.5:1 on every surface, in both schemes. A
+  probe runs axe-core on eight views of the real console, light and dark, and
+  checks focus rings and reflow at 320 px, counting the checks that fail.
+- **Suitability: it does what this README says** (ADR 0012). The suite checks
+  that the backlog lists every gap and agrees with coverage, that the
+  breadcrumb climbs every primary parent, that the ribbon
+  ends at the moment shown, that the past holds nothing from after it, that
+  reasons name their thresholds, that the signal leads to the breach, and that
+  a late reading lands in place. A probe breaks the core on purpose in
+  twenty-one ways, each leaving a need in *The idea* unmet, and counts the breaks no test
+  catches.
 
 **To change the model**, edit `model.ts` and commit. `pnpm dogfood` turns the
 difference into reasoned commands. The reason is `--reason "…"`, or the model's
@@ -194,8 +220,11 @@ curl -X POST localhost:4710/api/readings -H 'content-type: application/json' \
 `observedAt` (ISO-8601) is optional and may be in the past; a batch is
 all-or-nothing. The simulator feeds only the demo: in a universe whose top
 level is not Larch Store, it says why and writes nothing, because its made-up
-readings would pass for real ones there. Set `RU_INGEST_TOKEN` to require `Authorization: Bearer …`.
-Readings can also be recorded by hand from any measured node.
+readings would pass for real ones there. Set `RU_INGEST_TOKEN` to require
+`Authorization: Bearer …` on every reading, by either route: the webhook and a
+`reading.record` command alike. While it is set, the console cannot record a
+reading by hand, because it has no way to hold the token. Without it, readings
+can also be recorded by hand from any measured node.
 
 ### Pulling from Prometheus or Grafana
 
@@ -228,6 +257,21 @@ RU_SOURCES_FILE=sources.json pnpm dev
   configured, the server refuses a non-loopback `HOST` unless
   `RU_ALLOW_REMOTE=1`, because commands are unauthenticated.
 
+### What keeps a web page out
+
+Commands carry no credentials, so the operator's own browser is the way in for
+anyone else (ADR 0010).
+- **Names.** The server answers only to IP addresses, `localhost`, the name in
+  `HOST` and the names in `RU_ALLOWED_HOSTS`. Any other `Host` gets a 403, so a
+  page whose DNS name has been rebound to the server reads and writes nothing.
+  If you reach the server by a name, list it.
+- **Writes.** A write that carries an `Origin` other than the server's own is
+  refused. curl, CI and the simulator send none.
+- **Headers.** Every answer forbids framing, code from anywhere else and MIME
+  sniffing.
+- **Trace.** Each refusal is logged as a warning with the request id and where
+  it came from, never the credentials offered.
+
 ## API
 
 | Method | Path | Purpose |
@@ -243,7 +287,7 @@ RU_SOURCES_FILE=sources.json pnpm dev
 Commands are validated by `decide` in the core: unknown ids are 404, cycles
 and duplicate state are 409, and missing reasons or malformed measures are 400.
 The optional `x-actor` header names the author (there is no authentication in
-the PoC). `asOf` is an ISO-8601 date (read as UTC midnight) or a date-time with
+the PoC). `ingest` and `collector` are the server's own writers and are refused. `asOf` is an ISO-8601 date (read as UTC midnight) or a date-time with
 `Z` or an offset. A date-time without a zone is refused, so an answer never
 depends on the server's time zone. An internal error answers 500 with a
 `requestId`; the server's log records the error under the same id.
@@ -263,9 +307,10 @@ directory is used.
 | `PORT` | `4710` | server, `reset`, simulator | The API port |
 | `HOST` | `127.0.0.1` | server, `reset`, simulator | The address the API binds to |
 | `RU_WEB_DIST` | `apps/web/dist` | server | The built UI to serve, if present |
-| `RU_INGEST_TOKEN` | unset | server, simulator | Requires `Authorization: Bearer …` on `POST /api/readings` |
+| `RU_INGEST_TOKEN` | unset | server, simulator | Requires `Authorization: Bearer …` on every reading, through `POST /api/readings` or a `reading.record` command |
 | `RU_SOURCES_FILE` | unset | server | Metric sources to pull from (see above). Their tokens are named by `tokenEnv` |
 | `RU_ALLOW_REMOTE` | unset | server | `1` allows a non-loopback `HOST` with sources configured |
+| `RU_ALLOWED_HOSTS` | unset | server | Host names, comma-separated, a request may name besides IP addresses, `localhost` and `HOST`; `.example.org` covers every name under it |
 | `RU_API` | `http://HOST:PORT` (simulator), `http://127.0.0.1:4710` (Vite) | simulator, Vite dev server | Where the API is |
 | `RU_SIM_TICK_MS` | `30000` | simulator | How often the fast signals move |
 | `RU_DOGFOOD_FILE` | `data/dogfood.jsonl` | `dogfood`, `dogfood:serve` | The repository's own log |
@@ -298,13 +343,17 @@ docs/adr        architecture decisions
 ## What is deliberately missing
 
 - **Identity and tenancy.** The author is self-declared, and there is one
-  universe per log.
+  universe per log. Anyone who can reach the API can change the model; the
+  ingest token guards readings only (ADR 0010).
 - **Scale.** The view is re-projected from the full log on each request.
   That's fine for thousands of events, not for millions of readings. The simulator
   adds ~17k readings a day while `pnpm dev` runs (6 fast signals every 30 s;
   `RU_SIM_TICK_MS` changes it), so `pnpm reset` now and then on a long-running demo.
   Each reset keeps the log it replaced as a `.bak` file beside it (ADR 0009),
   and nothing prunes them: delete the ones you no longer need.
+- **Other languages, and accessibility tested by people.** The console is
+  English only. Its accessibility is checked by machine (ADR 0011), not yet by
+  anyone using a screen reader, a keyboard alone or magnification.
 - **Integrations beyond Prometheus.** Prometheus (directly or through Grafana)
   can be pulled (ADR 0002). Datadog, SQL or analytics sources and alert webhooks
   are not built. CI reporters push into the webhook.

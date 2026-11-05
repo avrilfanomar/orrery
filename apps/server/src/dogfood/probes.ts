@@ -31,6 +31,9 @@ import { MAINTAINABILITY_PROBES } from './maintainability.js';
 import { OPERABILITY_PROBES } from './operability.js';
 import { RELIABILITY_PROBES } from './reliability.js';
 import { SAFETY_PROBES } from './safety.js';
+import { SECURITY_PROBES } from './security.js';
+import { SUITABILITY_PROBES } from './suitability.js';
+import { USABILITY_PROBES } from './usability.js';
 import { scrub, smoke, withLiveWeek } from './harness.js';
 import type { ProbeSpec } from './sync.js';
 
@@ -75,6 +78,9 @@ const V6 = 'First version of this method (ADR 0006)';
 const V7 = 'First version of this method (ADR 0007)';
 const V8 = 'First version of this method (ADR 0008)';
 const V9 = 'First version of this method (ADR 0009)';
+const V10 = 'First version of this method (ADR 0010)';
+const V11 = 'First version of this method (ADR 0011)';
+const V12 = 'First version of this method (ADR 0012)';
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 export function createContext(root: string, tmp: string): ProbeContext {
@@ -366,6 +372,16 @@ export const PROBES: readonly Probe[] = [
   suite('suite-sim-demo-only', [{ file: `${SERVER}/safety.test.ts`, describe: ['the simulator feeds only the demo'] }], V9),
   ...SAFETY_PROBES,
   suite('suite-sources', [{ file: `${CORE}/sources.test.ts` }, { file: `${SERVER}/sources.test.ts` }]),
+  suite('suite-browser-boundary', [{ file: `${SERVER}/security.test.ts`, describe: ['a web page the operator visits cannot act through the API'] }], V10),
+  suite('suite-ingest-token', [{ file: `${SERVER}/security.test.ts`, describe: ['readings need the ingest token by any route'] }], V10),
+  suite('suite-refusals-traced', [{ file: `${SERVER}/security.test.ts`, describe: ['a refusal leaves a trace'] }], V10),
+  suite('suite-no-secret-out', [{ file: `${SERVER}/security.test.ts`, describe: ['no secret leaves the server'] }], V10),
+  suite('suite-oversized', [{ file: `${CORE}/security.test.ts`, describe: ['an oversized request is refused at its first limit'] }], V10),
+  ...SECURITY_PROBES,
+  suite('suite-contrast', [{ file: `${SERVER}/usability.test.ts`, describe: ['the theme is readable in both schemes'] }], V11),
+  ...USABILITY_PROBES,
+  suite('suite-claims', [{ file: `${CORE}/suitability.test.ts`, describe: ['the refinement backlog', 'the breadcrumb climbs back to the top', 'the view shows the moment it names', 'the reason and the signal point at the cause', 'late readings land in place'] }], V12),
+  ...SUITABILITY_PROBES,
   {
     id: 'audit-high',
     version: 1,

@@ -29,6 +29,7 @@ pnpm --filter @ru/core test      # domain unit tests
 pnpm --filter @ru/core exec vitest run --coverage   # its statement coverage (ADR 0006)
 pnpm --filter @ru/server test    # API + demo-story tests
 pnpm --filter @ru/web e2e        # browser smoke test (needs a running app)
+pnpm --filter @ru/web a11y       # accessibility scan (needs a running app; reads only)
 pnpm dogfood [--dry-run]         # measure this repo against its own model (ADR 0003)
 pnpm dogfood:serve               # that universe in the UI on :4711
 ```
@@ -76,19 +77,42 @@ pnpm dogfood:serve               # that universe in the UI on :4711
   removes one keeps what it replaces (`replaceAll(events, keep)`, ADR 0009).
 - Made-up readings (the simulator) feed only the demo universe
   (`simulatorRefusal` in `apps/server/src/demo.ts`).
-- `FALSE_GREEN_MUTANTS` in `apps/server/src/dogfood/safety.ts` quotes
+- `FALSE_GREEN_MUTANTS` in `apps/server/src/dogfood/safety.ts` and
+  `CLAIM_MUTANTS` in `apps/server/src/dogfood/suitability.ts` quote
   `packages/core/src` verbatim. If you change quoted text, rewrite the break
-  for the new code and bump `false-green-mutants`; `dogfood.test.ts` names it.
+  for the new code and bump `false-green-mutants` or `claim-mutants`;
+  `dogfood.test.ts` names it. A new row in the README's *The idea* table needs
+  an entry in `NEEDS` and at least one break that leaves it unmet (ADR 0012).
+- Logic that decides what the console shows (the backlog, the breadcrumb, the
+  signal, the ribbon) lives in `packages/core`, with a test there: the console has no unit
+  tests, and the claim breaks reach only the core.
 - The console warns when its live view stops updating (`useStalledSince` in
   `apps/web/src/App.tsx`). The smoke test checks it in its last steps, after the
   console-error check, because the requests it blocks log errors.
+- Every request passes `guard` in `apps/server/src/guard.ts` (ADR 0010): a Host
+  the server answers to, no write from another origin, the security headers.
+  A new route needs nothing more; a new way in (a socket, a second port) gets
+  the same checks. The console loads only its own files: no inline script, no
+  `eval`, nothing from a CDN, or the CSP blocks it and the smoke test fails.
+- A reading needs the ingest token by every route that records one. Refuse
+  with `refuse()`, which logs the refusal and never the credentials offered.
+- Nothing shaped like a credential is committed, not even in a test: build a
+  fake one at runtime (`secrets-in-history` reads all of history).
 - Background work (timers, the collector) never lets a promise reject
   unhandled: a failure fails its own binding or tick, not the process.
 - A test that starts real processes, or works for seconds, sets an explicit
   timeout (`SPAWNS` in `apps/server/test/reliability.test.ts`).
   `tests-order-dependent` runs the suites shuffled and counts what fails only
   then.
-- UI colours go through the theme tokens in `styles.css` (`--name: …`).
+- UI colours go through the theme tokens in `styles.css` (`--name: …`). A
+  text colour reads at 4.5:1 on every surface it is drawn on, in both schemes;
+  a new text or surface token joins the lists in
+  `apps/server/test/usability.test.ts`, and both dark blocks stay identical.
+- The console meets WCAG 2.2 AA wherever a scan can tell (ADR 0011). A new view
+  or dialog joins `VIEWS` in `apps/web/e2e/a11y.mjs`. Targets are at least
+  24 px. Give a control a role only with the keyboard behaviour the role
+  promises. The scan sets the CSP aside in its own browser context; the smoke
+  test never does.
 - Instants that cross the API carry a zone (`Z` or an offset), so answers
   don't depend on the server's time zone.
 - Core and the server take the time and any randomness as arguments

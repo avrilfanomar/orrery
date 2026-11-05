@@ -43,6 +43,19 @@ function urlOf(name: string, raw: string | undefined, fallback: string): string 
   return v.replace(/\/+$/, '');
 }
 
+/** A host name, or `.name` for the name and every name under it. */
+const HOST_NAME = /^\.?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+function hostNamesOf(name: string, raw: string | undefined): string[] {
+  const v = given(raw);
+  if (v === undefined) return [];
+  return v.split(',').map((part) => {
+    const h = part.trim().toLowerCase();
+    if (!HOST_NAME.test(h)) throw new SettingError(`${name} must be host names separated by commas, e.g. ru.example.org,.internal (got “${v}”)`);
+    return h;
+  });
+}
+
 function flagOf(name: string, raw: string | undefined): boolean {
   const v = given(raw);
   if (v === undefined || v === '0') return false;
@@ -71,6 +84,8 @@ export interface ServerSettings {
   ingestToken: string | null;
   sourcesFile: string | null;
   allowRemote: boolean;
+  /** Names besides loopback and IP addresses that a request may address the server by (ADR 0010). */
+  allowedHosts: string[];
 }
 
 /** The API server and `reset`. */
@@ -83,6 +98,7 @@ export function serverSettings(env: Env): ServerSettings {
     ingestToken: given(env.RU_INGEST_TOKEN) ?? null,
     sourcesFile: pathOf(env.RU_SOURCES_FILE, env),
     allowRemote: flagOf('RU_ALLOW_REMOTE', env.RU_ALLOW_REMOTE),
+    allowedHosts: hostNamesOf('RU_ALLOWED_HOSTS', env.RU_ALLOWED_HOSTS),
   };
 }
 

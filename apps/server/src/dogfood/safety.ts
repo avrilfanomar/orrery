@@ -1,27 +1,13 @@
 // What keeps a green earned (ADR 0009), measured from outside the suite: the
 // core broken on purpose in each way that would show someone a status nobody
-// earned, and the core's own tests run against each break. A break that no
-// test catches is a false green the suite would let through. The suite checks
-// that every break still applies to the code (dogfood.test.ts), so a refactor
-// cannot quietly retire one. These live apart from probes.ts, which imports
-// them, so they may import only types from it.
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { lastLine, parseVitestJson, runProgram } from './collectors.js';
+// earned, and the core's own tests run against each break (mutants.ts). A
+// break that no test catches is a false green the suite would let through.
+// These live apart from probes.ts, which imports them, so they may import only
+// types from it.
+import { runMutants, type Mutant } from './mutants.js';
 import type { Probe, ProbeContext, ProbeOutcome } from './probes.js';
 
 const V1 = 'First version of this method (ADR 0009)';
-
-export interface Mutant {
-  id: string;
-  /** Relative to packages/core/src. */
-  file: string;
-  /** Occurs exactly once in the file (dogfood.test.ts). */
-  find: string;
-  replace: string;
-  /** What a person would be shown if the break shipped. */
-  shows: string;
-}
 
 export const FALSE_GREEN_MUTANTS: readonly Mutant[] = [
   {
@@ -47,63 +33,11 @@ export const FALSE_GREEN_MUTANTS: readonly Mutant[] = [
   { id: 'breachless-rule-accepted', file: 'schema.ts', find: "(r) => !(r.strategy === 'weighted' && r.warnAt === 0) && !(r.strategy === 'quorum' && r.warnShare === 0),", replace: '() => true,', shows: 'a rule that can never read breach' },
 ];
 
-/** A copy of packages/core to break: never the checkout itself, which an interrupted run would leave broken. */
-function copyCore(root: string, dir: string): string {
-  const core = join(dir, 'packages/core');
-  for (const part of ['src', 'test', 'package.json', 'tsconfig.json']) cpSync(join(root, 'packages/core', part), join(core, part), { recursive: true });
-  cpSync(join(root, 'tsconfig.base.json'), join(dir, 'tsconfig.base.json'));
-  // Its own node_modules of links to the real packages, so vitest writes nothing into the checkout's.
-  const modules = join(root, 'packages/core/node_modules');
-  mkdirSync(join(core, 'node_modules'));
-  for (const name of readdirSync(modules).filter((n) => !n.startsWith('.'))) symlinkSync(realpathSync(join(modules, name)), join(core, 'node_modules', name), 'dir');
-  return core;
-}
-
-/** Copies broken side by side: each run is mostly vitest starting up, which leaves the cores idle. */
-const COPIES = 3;
-
-type Verdict = 'caught' | 'missed' | 'did not load';
-
-/**
- * Runs the copy's tests. A break counts as caught only when a test fails: a
- * replacement that does not even load would otherwise read as a catch, a false
- * green in the very probe that looks for them.
- */
-async function verdict(root: string, core: string): Promise<Verdict> {
-  const report = join(core, 'report.json');
-  rmSync(report, { force: true });
-  const args = [join(core, 'node_modules/vitest/vitest.mjs'), 'run', '--bail=1', '--no-cache', '--reporter=json', `--outputFile=${report}`];
-  const run = await runProgram(root, process.execPath, args, { cwd: core, timeoutMs: 120_000 });
-  if (run.code === 0) return 'missed';
-  const result = existsSync(report) ? parseVitestJson(core, JSON.parse(readFileSync(report, 'utf8'))) : null;
-  return result?.tests.some((t) => t.status === 'failed') ? 'caught' : 'did not load';
-}
-
 async function falseGreenMutants(ctx: ProbeContext): Promise<ProbeOutcome> {
-  const cores = Array.from({ length: COPIES }, (_, k) => copyCore(ctx.root, join(ctx.tmp, `mutants-${k}`)));
-  const clean = await runProgram(ctx.root, process.execPath, [join(cores[0]!, 'node_modules/vitest/vitest.mjs'), 'run', '--no-cache', '--reporter=dot'], { cwd: cores[0]!, timeoutMs: 120_000 });
-  if (clean.code !== 0) return { skipped: `the core's tests fail on an unbroken copy: ${lastLine(clean.stderr || clean.stdout)}` };
-  const gone = FALSE_GREEN_MUTANTS.filter((m) => readFileSync(join(cores[0]!, 'src', m.file), 'utf8').split(m.find).length !== 2);
-  if (gone.length) return { skipped: `no longer applies to the code: ${gone.map((m) => m.id).join(', ')}` };
-  const queue = [...FALSE_GREEN_MUTANTS];
-  const verdicts = new Map<Mutant, Verdict>();
-  const started = performance.now();
-  await Promise.all(
-    cores.map(async (core) => {
-      for (let m = queue.shift(); m; m = queue.shift()) {
-        const file = join(core, 'src', m.file);
-        const original = readFileSync(file, 'utf8');
-        writeFileSync(file, original.replace(m.find, m.replace));
-        verdicts.set(m, await verdict(ctx.root, core));
-        writeFileSync(file, original);
-      }
-    }),
-  );
-  const unloaded = FALSE_GREEN_MUTANTS.filter((m) => verdicts.get(m) === 'did not load');
-  if (unloaded.length) return { skipped: `the break leaves code that does not load, which proves nothing: ${unloaded.map((m) => m.id).join(', ')}` };
-  const s = Math.round((performance.now() - started) / 100) / 10;
-  const missed = FALSE_GREEN_MUTANTS.filter((m) => verdicts.get(m) === 'missed');
-  const detail = missed.length ? `no test catches ${missed.map((m) => `${m.id} (${m.shows})`).join('; ')}` : `the core's tests catch all ${FALSE_GREEN_MUTANTS.length} breaks (${s} s)`;
+  const run = await runMutants(ctx, FALSE_GREEN_MUTANTS, 'mutants');
+  if ('skipped' in run) return run;
+  const { missed } = run;
+  const detail = missed.length ? `no test catches ${missed.map((m) => `${m.id} (${m.shows})`).join('; ')}` : `the core's tests catch all ${FALSE_GREEN_MUTANTS.length} breaks (${run.seconds} s)`;
   return { value: missed.length, detail };
 }
 

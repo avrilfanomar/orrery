@@ -51,6 +51,44 @@ export interface ViewOptions {
   now: string;
 }
 
+/**
+ * The refinement backlog below a node: every active node beneath it, through
+ * children and links, that nobody can observe yet. That is a measure without a
+ * judged reading (never measured, stale, or not comparable), or a stub with
+ * nothing beneath it. The backlog plus the node itself, when it is one, are
+ * exactly the leaves its coverage counts as unmeasured, so the two numbers
+ * the console shows never disagree.
+ */
+export function backlogBelow(view: UniverseView, id: string): NodeView[] {
+  const out = new Map<string, NodeView>();
+  const seen = new Set<string>();
+  const walk = (nid: string) => {
+    const n = view.nodes[nid];
+    if (seen.has(nid) || !n || n.lifecycle !== 'active') return;
+    seen.add(nid);
+    const inputs = [...n.childIds, ...n.linkedFromIds].filter((c) => view.nodes[c]?.lifecycle === 'active');
+    const m = n.evaluation.measurement;
+    if (nid !== id && (m ? m.status === 'unknown' : inputs.length === 0)) out.set(nid, n);
+    inputs.forEach(walk);
+  };
+  walk(id);
+  return [...out.values()];
+}
+
+/**
+ * The breadcrumb to a node: its primary parents from the top down, ending at
+ * its own parent. Links are other routes to a node, not the way back up.
+ */
+export function breadcrumbTo(view: UniverseView, id: string): NodeView[] {
+  const out: NodeView[] = [];
+  let cur: string | null = view.nodes[id]?.parentId ?? null;
+  while (cur && view.nodes[cur] && !out.some((n) => n.id === cur)) {
+    out.unshift(view.nodes[cur]!);
+    cur = view.nodes[cur]!.parentId;
+  }
+  return out;
+}
+
 function resolveAsOf(opts: ViewOptions): { asOf: string; live: boolean } {
   if (!opts.asOf || opts.asOf >= opts.now) return { asOf: opts.now, live: true };
   return { asOf: new Date(opts.asOf).toISOString(), live: false };

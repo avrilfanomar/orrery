@@ -13,6 +13,8 @@ import { DOGFOOD_MODEL, type ModelNode } from '../src/dogfood/model.js';
 import { licenceApproved } from '../src/dogfood/operability.js';
 import { judgeSuite, PROBE_SPECS, PROBES, type Probe, type ProbeContext } from '../src/dogfood/probes.js';
 import { FALSE_GREEN_MUTANTS } from '../src/dogfood/safety.js';
+import { CLAIM_MUTANTS, NEEDS } from '../src/dogfood/suitability.js';
+import { findSecrets, SECRET_SHAPES } from '../src/dogfood/security.js';
 import { injectTransport, runDogfood } from '../src/dogfood/runner.js';
 import { currentFromView, planSync, probeQuery, ReasonRequired, resolveReasons, type ProbeSpec } from '../src/dogfood/sync.js';
 import { repoRoot } from '../src/paths.js';
@@ -76,6 +78,19 @@ describe('the dogfood model and its probes', () => {
     const gone = FALSE_GREEN_MUTANTS.filter((m) => readFileSync(join(repoRoot, 'packages/core/src', m.file), 'utf8').split(m.find).length !== 2);
     expect(gone.map((m) => `${m.id}: its text no longer occurs exactly once in packages/core/src/${m.file}. Rewrite the break for the new code and bump false-green-mutants`)).toEqual([]);
     expect(new Set(FALSE_GREEN_MUTANTS.map((m) => m.id)).size).toBe(FALSE_GREEN_MUTANTS.length);
+  });
+
+  it('keeps every claim break applicable, apart from the false greens, and covers every need the README claims', () => {
+    const gone = CLAIM_MUTANTS.filter((m) => readFileSync(join(repoRoot, 'packages/core/src', m.file), 'utf8').split(m.find).length !== 2);
+    expect(gone.map((m) => `${m.id}: its text no longer occurs exactly once in packages/core/src/${m.file}. Rewrite the break for the new code and bump claim-mutants`)).toEqual([]);
+    const ids = [...FALSE_GREEN_MUTANTS, ...CLAIM_MUTANTS].map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const both = CLAIM_MUTANTS.filter((c) => FALSE_GREEN_MUTANTS.some((f) => f.file === c.file && f.find === c.find && f.replace === c.replace));
+    expect(both.map((m) => m.id)).toEqual([]);
+    const idea = readFileSync(join(repoRoot, 'README.md'), 'utf8').split('## The idea')[1]!.split('\n## ')[0]!;
+    const rows = [...idea.matchAll(/^\| ([^|]+?) \| /gm)].map((r) => r[1]).filter((r) => r !== 'Need' && !/^-+$/.test(r!));
+    expect(rows).toEqual([...NEEDS]);
+    expect(NEEDS.filter((n) => !CLAIM_MUTANTS.some((m) => m.need === n))).toEqual([]);
   });
 
   it('chooses the seed explicitly, so the dogfood log never gets the demo', () => {
@@ -210,6 +225,31 @@ describe('measurement helpers', () => {
     expect(scrub(src, true)).not.toMatch(/append|window|'fetch/);
     expect(scrub(src, true)).toContain('fetch(u)');
     expect(scrub(src, false)).toContain("'fetch(url)'");
+  });
+
+  it('find added lines shaped like a credential, naming the commit and file but never the value', () => {
+    // Built here, so the repository never holds a line its own probe would flag.
+    const fakes: Record<string, string> = {
+      'private key': `-----BEGIN ${'OPENSSH '}PRIVATE KEY-----`,
+      'AWS access key': `AKIA${'Q'.repeat(16)}`,
+      'GitHub token': `ghp_${'a1'.repeat(18)}`,
+      'Grafana token': `glsa_${'A'.repeat(32)}_${'0f'.repeat(4)}`,
+      'Slack token': `xoxb-${'1'.repeat(12)}`,
+      'Stripe live key': `sk_live_${'z'.repeat(24)}`,
+      'Google API key': `AIza${'x'.repeat(35)}`,
+      'npm token': `npm_${'n'.repeat(36)}`,
+      'Anthropic or OpenAI key': `sk-ant-${'k'.repeat(24)}`,
+      'JSON web token': `eyJ${'h'.repeat(12)}.eyJ${'p'.repeat(12)}.${'s'.repeat(12)}`,
+    };
+    expect(Object.keys(fakes).sort()).toEqual(SECRET_SHAPES.map((s) => s.id).sort());
+    const patch = (line: string, sign = '+') => `\0abc1234\ndiff --git a/x b/x\n--- a/src/x.ts\n+++ b/src/x.ts\n@@ -1 +1 @@\n${sign}const token = '${line}';\n`;
+    for (const [shape, value] of Object.entries(fakes)) {
+      const found = findSecrets(patch(value));
+      expect(found, shape).toEqual([{ shape, commit: 'abc1234', file: 'src/x.ts' }]);
+      expect(JSON.stringify(found)).not.toContain(value);
+      expect(findSecrets(patch(value, '-')), `${shape} removed`).toEqual([]); // the line that added it is what counts
+    }
+    for (const madeUp of ['glsa_secret_token_value', 'glsa_canary_9f8e7d6c5b4a', 's3cret-ingest-token', 'Bearer s3cret', 'sk_test_123']) expect(findSecrets(patch(madeUp)), madeUp).toEqual([]);
   });
 });
 

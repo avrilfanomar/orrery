@@ -45,7 +45,7 @@ describe('startup refusals explain themselves', () => {
   const READERS = { serverSettings, simulatorSettings, dogfoodSettings } as const;
   /** Every setting each reader takes. A setting read without a row here fails the completeness test below. */
   const SETTINGS: Record<keyof typeof READERS, string[]> = {
-    serverSettings: ['RU_DATA_FILE', 'RU_WEB_DIST', 'HOST', 'PORT', 'RU_SEED', 'RU_INGEST_TOKEN', 'RU_SOURCES_FILE', 'RU_ALLOW_REMOTE'],
+    serverSettings: ['RU_DATA_FILE', 'RU_WEB_DIST', 'HOST', 'PORT', 'RU_SEED', 'RU_INGEST_TOKEN', 'RU_SOURCES_FILE', 'RU_ALLOW_REMOTE', 'RU_ALLOWED_HOSTS'],
     simulatorSettings: ['HOST', 'PORT', 'RU_API', 'RU_SIM_TICK_MS', 'RU_INGEST_TOKEN'],
     dogfoodSettings: ['RU_DOGFOOD_FILE', 'RU_DOGFOOD_PORT', 'RU_DOGFOOD_URL', 'RU_PROBE_ENV', 'NO_COLOR'],
   };
@@ -56,6 +56,8 @@ describe('startup refusals explain themselves', () => {
     ['serverSettings', 'PORT', '4710.5'],
     ['serverSettings', 'RU_SEED', 'production'],
     ['serverSettings', 'RU_ALLOW_REMOTE', 'yes'],
+    ['serverSettings', 'RU_ALLOWED_HOSTS', 'https://ru.example.org'],
+    ['serverSettings', 'RU_ALLOWED_HOSTS', 'ru.example.org,,'],
     ['simulatorSettings', 'PORT', '-1'],
     ['simulatorSettings', 'RU_SIM_TICK_MS', 'abc'],
     ['simulatorSettings', 'RU_SIM_TICK_MS', '0'],
@@ -84,6 +86,7 @@ describe('startup refusals explain themselves', () => {
     ['serverSettings', 'RU_SOURCES_FILE', '/etc/ru/sources.json', 'sourcesFile', '/etc/ru/sources.json'],
     ['serverSettings', 'RU_ALLOW_REMOTE', '1', 'allowRemote', true],
     ['serverSettings', 'RU_ALLOW_REMOTE', '0', 'allowRemote', false],
+    ['serverSettings', 'RU_ALLOWED_HOSTS', 'RU.example.org, .internal', 'allowedHosts', ['ru.example.org', '.internal']],
     ['simulatorSettings', 'HOST', '::1', 'api', 'http://[::1]:4710'],
     ['simulatorSettings', 'PORT', '8080', 'api', 'http://127.0.0.1:8080'],
     ['simulatorSettings', 'RU_API', 'https://ru.example.org/', 'api', 'https://ru.example.org'],

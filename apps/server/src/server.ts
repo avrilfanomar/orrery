@@ -1,6 +1,7 @@
 // Starting the server: configuration is checked before anything is served —
 // a bad sources file is an operator mistake, refused like a corrupt log rather
 // than half-applied. Shared by the demo entry (main.ts) and the dogfood one.
+import { isIP } from 'node:net';
 import { constants } from 'node:os';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app.js';
@@ -22,7 +23,9 @@ export async function startServer(cfg: ServerSettings, env: Env = process.env): 
   }
 
   const collector = new Collector({ store, sources, log: (m) => console.warn(`collector: ${m}`) });
-  const app = await buildApp({ store, logger: true, ingestToken: cfg.ingestToken, webDist: cfg.webDist, collector });
+  // A server bound to a name answers to that name; a wildcard or an address adds none.
+  const allowedHosts = isIP(cfg.host) ? cfg.allowedHosts : [...cfg.allowedHosts, cfg.host.toLowerCase()];
+  const app = await buildApp({ store, logger: true, ingestToken: cfg.ingestToken, allowedHosts, webDist: cfg.webDist, collector });
   // Closing the app stops pulling and releases the log, so a clean stop leaves the next start nothing to clear (ADR 0008).
   app.addHook('onClose', async () => {
     collector.stop();

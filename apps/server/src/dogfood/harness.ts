@@ -1,5 +1,6 @@
 // The heavier machinery a few probes share: a scrubber for regex scans, the
-// week-of-live-signals workload, a real server process, and the smoke run.
+// week-of-live-signals workload, a real server process, and the browser runs
+// (the smoke test and the accessibility scan) against a demo server.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
@@ -102,12 +103,17 @@ export async function spawnServer(serverDir: string, env: Record<string, string 
   return { failed: out.trim() || 'no answer within 30 s' };
 }
 
-export async function smoke(ctx: ProbeContext): Promise<ProbeOutcome> {
+/**
+ * Starts the real server (src/main.ts) on a free port with a throwaway demo log
+ * and this run's fresh UI build, hands its address to `use`, and stops it after.
+ * `noServer` says what it means for this probe when the server does not start.
+ */
+export async function withDemoServer(ctx: ProbeContext, log: string, noServer: (why: string) => ProbeOutcome, use: (base: string) => Promise<ProbeOutcome>): Promise<ProbeOutcome> {
   const b = await ctx.build();
   if (isSkip(b)) return { skipped: `no UI build: ${b.skipped}` };
   const port = await freePort();
   const serverDir = resolve(ctx.root, 'apps/server');
-  const env = { ...process.env, PATH: binPath(ctx.root, serverDir), RU_DATA_FILE: join(ctx.tmp, 'smoke.jsonl'), PORT: String(port), HOST: '127.0.0.1', RU_SEED: 'demo', RU_WEB_DIST: b.outDir, RU_SOURCES_FILE: '' };
+  const env = { ...process.env, PATH: binPath(ctx.root, serverDir), RU_DATA_FILE: join(ctx.tmp, log), PORT: String(port), HOST: '127.0.0.1', RU_SEED: 'demo', RU_WEB_DIST: b.outDir, RU_SOURCES_FILE: '' };
   const server = spawn('tsx', ['src/main.ts'], { cwd: serverDir, env, stdio: ['ignore', 'ignore', 'pipe'] });
   let serverErr = '';
   let exited = false;
@@ -122,12 +128,36 @@ export async function smoke(ctx: ProbeContext): Promise<ProbeOutcome> {
       up = await fetch(`${base}/api/health`).then((r) => r.ok, () => false);
       if (!up) await new Promise((r) => setTimeout(r, 250));
     }
-    if (!up) return { value: 0, detail: `the server did not start: ${lastLine(serverErr) || 'no answer within 30 s'}` };
-    const res = await runProgram(ctx.root, 'node', [resolve(ctx.root, 'apps/web/e2e/smoke.mjs')], { cwd: ctx.tmp, env: { RU_URL: base }, timeoutMs: 180_000 });
-    if (res.code === 0) return { value: 1, detail: `${(res.stdout.match(/✓/g) ?? []).length} steps` };
-    if (res.stdout.includes('✓')) return { value: 0, detail: lastLine(res.stderr) || lastLine(res.stdout) };
-    return { skipped: `the browser could not start (${lastLine(res.stderr) || `exit ${res.code}`}) — set PW_CHROMIUM to a Chromium binary` };
+    if (!up) return noServer(lastLine(serverErr) || 'no answer within 30 s');
+    return await use(base);
   } finally {
     server.kill('SIGTERM');
   }
 }
+
+const NO_BROWSER = (stderr: string, code: number | null) => `the browser could not start (${lastLine(stderr) || `exit ${code}`}) — set PW_CHROMIUM to a Chromium binary`;
+
+export const smoke = (ctx: ProbeContext): Promise<ProbeOutcome> =>
+  withDemoServer(ctx, 'smoke.jsonl', (why) => ({ value: 0, detail: `the server did not start: ${why}` }), async (base) => {
+    const res = await runProgram(ctx.root, 'node', [resolve(ctx.root, 'apps/web/e2e/smoke.mjs')], { cwd: ctx.tmp, env: { RU_URL: base }, timeoutMs: 180_000 });
+    if (res.code === 0) return { value: 1, detail: `${(res.stdout.match(/✓/g) ?? []).length} steps` };
+    if (res.stdout.includes('✓')) return { value: 0, detail: lastLine(res.stderr) || lastLine(res.stdout) };
+    return { skipped: NO_BROWSER(res.stderr, res.code) };
+  });
+
+/**
+ * Runs apps/web/e2e/a11y.mjs against a demo server. Its value is the number of
+ * failed checks; anything short of its closing count is no reading, because a
+ * scan that did not finish found nothing either way.
+ */
+export const accessibility = (ctx: ProbeContext): Promise<ProbeOutcome> =>
+  withDemoServer(ctx, 'a11y.jsonl', (why) => ({ skipped: `the server did not start: ${why}` }), async (base) => {
+    const res = await runProgram(ctx.root, 'node', [resolve(ctx.root, 'apps/web/e2e/a11y.mjs')], { cwd: ctx.tmp, env: { RU_URL: base }, timeoutMs: 240_000 });
+    const count = /^a11y: (\d+) of (\d+) checks failed$/m.exec(res.stdout);
+    if (count) {
+      const failed = res.stdout.split('\n').filter((l) => l.trimStart().startsWith('✗')).map((l) => l.trim().slice(2));
+      return { value: Number(count[1]), detail: failed.length ? failed.slice(0, 3).join('; ') : `all ${count[2]} checks pass` };
+    }
+    if (res.stdout.includes('✓') || res.stdout.includes('✗')) return { skipped: `the scan did not finish: ${lastLine(res.stderr) || lastLine(res.stdout)}` };
+    return { skipped: NO_BROWSER(res.stderr, res.code) };
+  });

@@ -319,10 +319,11 @@ export const MAINTAINABILITY_PROBES: readonly Probe[] = [
   },
   {
     id: 'core-coverage',
-    version: 1,
-    since: V1,
+    version: 2,
+    since:
+      'vitest 4 (ADR 0010) maps V8 coverage back to statements through the syntax tree. On the same code (d338512) it counts 734 statements where vitest 3 counted 1,098, and reads 89.23% where vitest 3 read 93.44%, so the two are not comparable',
     method:
-      'vitest run in packages/core with the V8 coverage provider (@vitest/coverage-v8), instrumenting packages/core/src only and writing a json-summary report to a temp dir. The value is the share of statements the core’s own tests execute, in %; tests elsewhere that happen to run core code do not count. No reading when a test fails (vitest then writes no coverage) or the provider is not installed.',
+      'vitest run in packages/core with the V8 coverage provider (@vitest/coverage-v8, vitest 4, which maps coverage to statements through the syntax tree), instrumenting packages/core/src only and writing a json-summary report to a temp dir. The value is the share of statements the core’s own tests execute, in %; tests elsewhere that happen to run core code do not count. No reading when a test fails (vitest then writes no coverage) or the provider is not installed.',
     async measure(ctx) {
       const dir = join(ctx.tmp, 'coverage-core');
       const args = ['run', '--coverage.enabled=true', '--coverage.provider=v8', '--coverage.reporter=json-summary', `--coverage.reportsDirectory=${dir}`, '--coverage.include=src/**'];

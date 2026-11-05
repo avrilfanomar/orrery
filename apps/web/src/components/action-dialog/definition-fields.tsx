@@ -102,6 +102,7 @@ export function RollupFields({ value, onChange }: { value: RollupRule; onChange:
     <fieldset className="group">
       <legend>How contributors roll up</legend>
       <select
+        aria-label="Rollup rule"
         value={value.strategy}
         onChange={(e) => {
           const s = e.target.value as RollupRule['strategy'];
