@@ -8,13 +8,15 @@ import { fmtDateTime } from './bits.js';
 interface Props {
   range: { from: string; to: string };
   asOf: string | null;
+  /** The live view has stopped updating (App's useStalledSince): never call it live then. */
+  stalled?: boolean;
   changes: TimelineEntry[];
   onChange: (asOf: string | null) => void;
 }
 
 const HOUR = 3.6e6;
 
-export function TimeTravel({ range, asOf, changes, onChange }: Props) {
+export function TimeTravel({ range, asOf, stalled = false, changes, onChange }: Props) {
   const min = Date.parse(range.from);
   const max = Date.parse(range.to);
   const committed = asOf ? Math.min(max, Date.parse(asOf)) : max;
@@ -35,7 +37,7 @@ export function TimeTravel({ range, asOf, changes, onChange }: Props) {
   return (
     <div className={`timetravel${live ? ' is-live' : ''}`}>
       <span className="tt-label" aria-live="polite">
-        {live && draft >= max - HOUR ? 'Live' : fmtDateTime.format(new Date(draft))}
+        {live && draft >= max - HOUR ? (stalled ? 'Not live' : 'Live') : fmtDateTime.format(new Date(draft))}
       </span>
       <span className="tt-track">
         <input

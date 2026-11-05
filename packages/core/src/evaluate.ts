@@ -264,51 +264,74 @@ function withStatus(inputs: Input[], statuses: Status[]): string[] {
     .map((i) => i.id);
 }
 
-export function rollup(rule: RollupRule, inputs: Input[]): Pick<Evaluation, 'status' | 'reason' | 'drivers' | 'score'> {
+type Rolled = Pick<Evaluation, 'status' | 'reason' | 'drivers' | 'score'>;
+
+/**
+ * Combines a node's inputs by its rule. Whatever the rule (ADR 0009): no
+ * inputs is unknown, not a pass; a critical input in breach is a breach; a
+ * green stays green however its unknown inputs turn out; and an input reading
+ * worse never makes the result read better. `packages/core/test/safety.test.ts`
+ * checks each over every input up to four.
+ */
+export function rollup(rule: RollupRule, inputs: Input[]): Rolled {
   const counts = emptyCounts();
   for (const i of inputs) counts[i.status]++;
+  const tally = countsPhrase(counts, inputs.length);
+  // evaluateUniverse never asks about a node without inputs, but every other caller gets the same answer.
+  if (inputs.length === 0) return { status: 'unknown', reason: 'Nothing to roll up — it has no inputs', drivers: [], score: null };
+  if (rule.strategy === 'worst') return worstOf(inputs, tally);
+  if (rule.strategy === 'weighted') return weightedOf(rule, inputs, counts, tally);
+  return quorumOf(rule, inputs, counts, tally);
+}
+
+function worstOf(inputs: Input[], tally: string): Rolled {
   const n = inputs.length;
-  const tally = countsPhrase(counts, n);
+  const status = inputs.reduce<Status>((w, i) => (SEVERITY[i.status] > SEVERITY[w] ? i.status : w), 'ok');
+  const reason = status === 'ok' ? (n === 1 ? 'Its only input is on target' : `All ${n} inputs on target`) : `Worst of ${tally}`;
+  return { status, reason, drivers: status === 'ok' ? [] : withStatus(inputs, [status]), score: null };
+}
 
-  if (rule.strategy === 'worst') {
-    const status = inputs.reduce<Status>((w, i) => (SEVERITY[i.status] > SEVERITY[w] ? i.status : w), 'ok');
-    const reason = status === 'ok' ? (n === 1 ? 'Its only input is on target' : `All ${n} inputs on target`) : `Worst of ${tally}`;
-    return { status, reason, drivers: status === 'ok' ? [] : withStatus(inputs, [status]), score: null };
+/** A critical input in breach decides, whatever the score or the share: the rule cannot outvote it. */
+function vetoed(inputs: Input[], what: string, tally: string, score: number | null): Rolled | null {
+  const vetoes = inputs.filter((i) => i.critical && i.status === 'breach');
+  if (vetoes.length === 0) return null;
+  return { status: 'breach', reason: `A critical input is in breach, which overrides the ${what} (${tally})`, drivers: vetoes.map((i) => i.id), score };
+}
+
+function weightedOf(rule: Extract<RollupRule, { strategy: 'weighted' }>, inputs: Input[], counts: Record<Status, number>, tally: string): Rolled {
+  const known = inputs.filter((i): i is Input & { status: KnownStatus } => i.status !== 'unknown');
+  const totalW = known.reduce((s, i) => s + i.weight, 0);
+  const score = totalW > 0 ? known.reduce((s, i) => s + i.weight * SCORE[i.status], 0) / totalW : null;
+  const veto = vetoed(inputs, 'weighted score', tally, score);
+  if (veto) return veto;
+  if (score === null) {
+    return { status: 'unknown', reason: `Nothing measurable yet (${tally})`, drivers: withStatus(inputs, ['unknown']), score };
   }
-
-  if (rule.strategy === 'weighted') {
-    const vetoes = inputs.filter((i) => i.critical && i.status === 'breach');
-    const known = inputs.filter((i): i is Input & { status: KnownStatus } => i.status !== 'unknown');
-    const totalW = known.reduce((s, i) => s + i.weight, 0);
-    const score = totalW > 0 ? known.reduce((s, i) => s + i.weight * SCORE[i.status], 0) / totalW : null;
-    if (vetoes.length > 0) {
-      return { status: 'breach', reason: `A critical input is in breach, which overrides the weighted score (${tally})`, drivers: vetoes.map((i) => i.id), score };
-    }
-    if (score === null) {
-      return { status: 'unknown', reason: `Nothing measurable yet (${tally})`, drivers: withStatus(inputs, ['unknown']), score };
-    }
-    const byScore: KnownStatus = score >= rule.okAt ? 'ok' : score >= rule.warnAt ? 'warn' : 'breach';
-    const pctText = `Weighted score ${Math.round(score * 100)}%`;
-    if (byScore === 'ok' && counts.unknown > 0) {
-      return { status: 'unknown', reason: `${pctText}, but ${counts.unknown} input${counts.unknown === 1 ? ' is' : 's are'} unmeasured — unknown never rolls up as green`, drivers: withStatus(inputs, ['unknown']), score };
-    }
-    return { status: byScore, reason: `${pctText} across ${tally}`, drivers: byScore === 'ok' ? [] : withStatus(inputs, ['breach', 'warn']), score };
+  const byScore: KnownStatus = score >= rule.okAt ? 'ok' : score >= rule.warnAt ? 'warn' : 'breach';
+  const pctText = `Weighted score ${Math.round(score * 100)}%`;
+  if (byScore === 'ok' && counts.unknown > 0) {
+    return { status: 'unknown', reason: `${pctText}, but ${counts.unknown} input${counts.unknown === 1 ? ' is' : 's are'} unmeasured — unknown never rolls up as green`, drivers: withStatus(inputs, ['unknown']), score };
   }
+  return { status: byScore, reason: `${pctText} across ${tally}`, drivers: byScore === 'ok' ? [] : withStatus(inputs, ['breach', 'warn']), score };
+}
 
-  // quorum
-  const share = (c: number) => (n === 0 ? 0 : c / n);
+function quorumOf(rule: Extract<RollupRule, { strategy: 'quorum' }>, inputs: Input[], counts: Record<Status, number>, tally: string): Rolled {
+  const veto = vetoed(inputs, 'quorum', tally, null);
+  if (veto) return veto;
+  const n = inputs.length;
+  const share = (c: number) => c / n;
   const ok = counts.ok;
   const okText = `${ok} of ${n} input${n === 1 ? '' : 's'} on target; quorum needs ${Math.round(rule.okShare * 100)}%`;
-  if (share(ok) >= rule.okShare) return { status: 'ok', reason: okText, drivers: [], score: null };
-  if (share(ok + counts.unknown) >= rule.okShare) {
-    return { status: 'unknown', reason: `${okText} — undecided until the unknown inputs are measured`, drivers: withStatus(inputs, ['unknown']), score: null };
+  const undecided: Rolled = { status: 'unknown', reason: `${okText} — undecided until the unknown inputs are measured`, drivers: withStatus(inputs, ['unknown']), score: null };
+  if (share(ok) >= rule.okShare) {
+    // An unmeasured critical input could still turn out a breach, which no quorum outvotes.
+    const pending = inputs.filter((i) => i.critical && i.status === 'unknown');
+    if (pending.length === 0) return { status: 'ok', reason: okText, drivers: [], score: null };
+    return { status: 'unknown', reason: `${okText}, but a critical input is unmeasured and could still veto it`, drivers: pending.map((i) => i.id), score: null };
   }
-  if (share(ok + counts.warn) >= rule.warnShare) {
-    return { status: 'warn', reason: okText, drivers: withStatus(inputs, ['breach', 'warn']), score: null };
-  }
-  if (share(ok + counts.warn + counts.unknown) >= rule.warnShare) {
-    return { status: 'unknown', reason: `${okText} — undecided until the unknown inputs are measured`, drivers: withStatus(inputs, ['unknown']), score: null };
-  }
+  if (share(ok + counts.unknown) >= rule.okShare) return undecided;
+  if (share(ok + counts.warn) >= rule.warnShare) return { status: 'warn', reason: okText, drivers: withStatus(inputs, ['breach', 'warn']), score: null };
+  if (share(ok + counts.warn + counts.unknown) >= rule.warnShare) return undecided;
   return { status: 'breach', reason: okText, drivers: withStatus(inputs, ['breach', 'warn']), score: null };
 }
 

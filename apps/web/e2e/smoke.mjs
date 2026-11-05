@@ -1,7 +1,8 @@
 // End-to-end smoke test against a running app (default http://127.0.0.1:4710,
 // i.e. `pnpm start`). It walks the evolution loop through the real UI:
 // refine an unrefined stub into a KPI, record a reading, revise the target
-// (and check the reason is enforced), then find the change in the feed.
+// (and check the reason is enforced), then find the change in the feed. Last,
+// it stops the API's answers and checks the console stops calling itself live.
 // It writes to the event log — run `pnpm reset` afterwards for a clean demo.
 //
 //   pnpm --filter @ru/web e2e
@@ -62,6 +63,23 @@ try {
 
   assert.deepEqual(errors, [], 'no browser console errors');
   ok('no console errors');
+
+  // Last, because the requests it blocks log errors of their own. A console
+  // that keeps the last picture up under "Live" is how someone acts on a green
+  // that no longer holds (ADR 0009).
+  const notLive = page.getByRole('alert').filter({ hasText: 'Not live' });
+  await page.route('**/api/universe**', (route) => route.abort());
+  await notLive.waitFor({ timeout: 20_000 });
+  assert.equal(await page.locator('.tt-label').innerText(), 'Not live');
+  ok('when the server stops answering, the console says it is not live');
+  await page.unroute('**/api/universe**');
+  await notLive.waitFor({ state: 'detached', timeout: 20_000 });
+  ok('it says live again once answers return');
+  const hung = [];
+  await page.route('**/api/universe**', (route) => void hung.push(route));
+  await notLive.waitFor({ timeout: 30_000 });
+  ok('a server that accepts the request but never answers is not live either');
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
   console.log('smoke: passed');
 } catch (err) {
   await page.screenshot({ path: 'smoke-failure.png', fullPage: true }).catch(() => {});

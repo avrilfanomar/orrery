@@ -1,6 +1,7 @@
 # ADR 0001 — One contribution graph, explicit rollups, append-only evolution
 
-**Status:** Accepted (PoC) · **Date:** 2026-11-03
+**Status:** Accepted (PoC) · **Date:** 2026-11-03 · **Amended by:**
+[ADR 0009](0009-safety-no-one-acts-on-a-green-it-has-not-earned.md) (decision 3: the critical veto applies under every rule)
 
 ## Context
 

@@ -110,15 +110,15 @@ export function RollupFields({ value, onChange }: { value: RollupRule; onChange:
       >
         <option value="worst">Worst of — any problem below shows here</option>
         <option value="weighted">Priority-weighted score — critical breaches still veto</option>
-        <option value="quorum">Quorum — healthy when enough contributors are</option>
+        <option value="quorum">Quorum — healthy when enough contributors are; critical breaches still veto</option>
       </select>
       {value.strategy === 'weighted' && (
         <div className="grid-2">
           <Field label="On target from score (%)">
-            <input type="number" min={0} max={100} value={pct(value.okAt)} onChange={(e) => onChange({ ...value, okAt: Number(e.target.value) / 100 })} />
+            <input type="number" min={1} max={100} value={pct(value.okAt)} onChange={(e) => onChange({ ...value, okAt: Number(e.target.value) / 100 })} />
           </Field>
           <Field label="Warning from score (%)">
-            <input type="number" min={0} max={100} value={pct(value.warnAt)} onChange={(e) => onChange({ ...value, warnAt: Number(e.target.value) / 100 })} />
+            <input type="number" min={1} max={100} value={pct(value.warnAt)} onChange={(e) => onChange({ ...value, warnAt: Number(e.target.value) / 100 })} />
           </Field>
         </div>
       )}
@@ -128,7 +128,7 @@ export function RollupFields({ value, onChange }: { value: RollupRule; onChange:
             <input type="number" min={1} max={100} value={pct(value.okShare)} onChange={(e) => onChange({ ...value, okShare: Number(e.target.value) / 100 })} />
           </Field>
           <Field label="Warning when this share is (%)">
-            <input type="number" min={0} max={100} value={pct(value.warnShare)} onChange={(e) => onChange({ ...value, warnShare: Number(e.target.value) / 100 })} />
+            <input type="number" min={1} max={100} value={pct(value.warnShare)} onChange={(e) => onChange({ ...value, warnShare: Number(e.target.value) / 100 })} />
           </Field>
         </div>
       )}

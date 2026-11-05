@@ -33,7 +33,8 @@ How its efficiency is tested is in [ADR 0004](docs/adr/0004-efficiency-shape-in-
 how its flexibility is tested is in [ADR 0005](docs/adr/0005-flexibility-is-tested-as-promises.md),
 how its maintainability is tested is in [ADR 0006](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md),
 how its operability is tested is in [ADR 0007](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.md),
-and how its reliability is tested is in [ADR 0008](docs/adr/0008-reliability-what-it-acknowledged-survives.md).
+how its reliability is tested is in [ADR 0008](docs/adr/0008-reliability-what-it-acknowledged-survives.md),
+and how it keeps anyone from acting on a green it hasn't earned is in [ADR 0009](docs/adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.md).
 
 ## Run it
 
@@ -48,7 +49,7 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 
 ```bash
 pnpm start      # build the UI and serve everything from :4710
-pnpm reset      # re-seed the demo relative to now (stop the server first)
+pnpm reset      # re-seed the demo relative to now (stop the server first; the old log is kept as <log>.<instant>.bak)
 pnpm verify     # typecheck + unit/API tests + UI build
 pnpm --filter @ru/web e2e   # browser smoke test against a running app (writes to the log)
 pnpm dogfood    # measure this repository against its own requirements (see below)
@@ -88,11 +89,11 @@ readings come from versioned probes in
 [`probes.ts`](apps/server/src/dogfood/probes.ts).
 
 ```bash
-pnpm dogfood          # sync the model, measure, record, print the tree (~95 s)
+pnpm dogfood          # sync the model, measure, record, print the tree (~3 min)
 pnpm dogfood:serve    # the dogfood universe in the console on :4711
 ```
 
-The nine goals:
+The ten goals:
 
 | Goal | What it covers |
 |---|---|
@@ -103,6 +104,7 @@ The nine goals:
 | *It adapts, connects and outlasts its own versions* | frozen logs that must keep loading, the same answers in any time zone, two universes side by side, the README's API and settings as contracts, component seams, theme tokens |
 | *Whoever runs it can install, start, watch and recover it* | a fresh clone that installs, builds and serves, settings read only where they are checked, licences of what it ships; and, pinned by the suite, startup refusals that name what to fix, health and failures an operator can see, recovery after a restart or a source outage, an audit trail, docs that name real commands |
 | *What it acknowledges survives, and a fault stays where it happens* | acknowledged readings lost when a real server is killed mid-write, tests that fail only in a shuffled order; and, pinned by the suite, a failed write that changes nothing, one writer per log, faults that fail one request or one binding, a clean stop and a start after a kill |
+| *No one acts on a green it hasn't earned, and nothing it does destroys the record* | breaks of the core that would show a green nobody earned and that no test catches; the console saying when it has stopped being live; and, pinned by the suite, rollup rules checked over every input, a reset that keeps the log it replaced, a simulator that feeds only the demo |
 | *Running it exposes nothing it shouldn't* | source and pull guards, dependency advisories |
 | *People can follow it end to end* | the demo story, the browser smoke test against the real server, doc links |
 
@@ -152,6 +154,15 @@ How a measurement is kept consistent:
   stops cleanly and starts again after a kill. Probes kill a real server in
   the middle of writes and count what it lost, and run the suite in a
   shuffled order.
+- **Safety: no one acts on a green it hasn't earned** (ADR 0009). The suite
+  checks every rollup rule over every set of up to four inputs. No inputs
+  reads unknown. A green holds however its unknown inputs turn out. A worse
+  input never reads better. A critical breach is a breach under every rule.
+  A rule that could never read breach is refused. The suite also checks that
+  a reset keeps the log it replaced, and that the simulator feeds only the
+  demo. The browser smoke test blocks the API and expects the console to say
+  it is not live. A probe breaks the core on purpose in fifteen ways that
+  would show a false green, and counts the breaks no test catches.
 
 **To change the model**, edit `model.ts` and commit. `pnpm dogfood` turns the
 difference into reasoned commands. The reason is `--reason "…"`, or the model's
@@ -181,7 +192,9 @@ curl -X POST localhost:4710/api/readings -H 'content-type: application/json' \
 ```
 
 `observedAt` (ISO-8601) is optional and may be in the past; a batch is
-all-or-nothing. Set `RU_INGEST_TOKEN` to require `Authorization: Bearer …`.
+all-or-nothing. The simulator feeds only the demo: in a universe whose top
+level is not Larch Store, it says why and writes nothing, because its made-up
+readings would pass for real ones there. Set `RU_INGEST_TOKEN` to require `Authorization: Bearer …`.
 Readings can also be recorded by hand from any measured node.
 
 ### Pulling from Prometheus or Grafana
@@ -290,6 +303,8 @@ docs/adr        architecture decisions
   That's fine for thousands of events, not for millions of readings. The simulator
   adds ~17k readings a day while `pnpm dev` runs (6 fast signals every 30 s;
   `RU_SIM_TICK_MS` changes it), so `pnpm reset` now and then on a long-running demo.
+  Each reset keeps the log it replaced as a `.bak` file beside it (ADR 0009),
+  and nothing prunes them: delete the ones you no longer need.
 - **Integrations beyond Prometheus.** Prometheus (directly or through Grafana)
   can be pulled (ADR 0002). Datadog, SQL or analytics sources and alert webhooks
   are not built. CI reporters push into the webhook.

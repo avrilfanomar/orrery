@@ -5,8 +5,9 @@
 // passes the log contract (checkLogEntry); an event is remembered only once it
 // is written and flushed; a write that fails is cut back, so the file holds
 // exactly what was acknowledged; a seed or a reset replaces the file in one
-// step; and one process at a time writes a log.
-import { closeSync, existsSync, fsyncSync, ftruncateSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync, writeSync } from 'node:fs';
+// step; and one process at a time writes a log. A reset keeps the log it
+// replaces (ADR 0009): nothing it does destroys the record.
+import { closeSync, constants, copyFileSync, existsSync, fsyncSync, ftruncateSync, linkSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { checkLogEntry, type NewEvent, type RuEvent } from '@ru/core';
 
@@ -76,6 +77,25 @@ function syncDir(dir: string): void {
     // nothing more this platform offers
   } finally {
     if (fd !== null) closeSync(fd);
+  }
+}
+
+/**
+ * Keeps the file at `path` as `keep`: a second name for the same bytes, or a
+ * copy where the file system has no hard links. Never over an existing file.
+ */
+function keepAs(path: string, keep: string): void {
+  try {
+    linkSync(path, keep);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') throw err;
+    copyFileSync(path, keep, constants.COPYFILE_EXCL);
+    const fd = openSync(keep, 'r');
+    try {
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
   }
 }
 
@@ -217,9 +237,11 @@ export class EventStore {
   /**
    * Replaces the whole log — only for seeding an empty or reset store. It is
    * written beside the log and renamed over it, so a crash leaves the old log
-   * or the new one, never part of one.
+   * or the new one, never part of one. With `keep`, a log that holds anything
+   * stays at that path; the result says whether one was kept.
    */
-  replaceAll(events: readonly RuEvent[]): void {
+  replaceAll(events: readonly RuEvent[], keep?: string): { kept: string | null } {
+    let kept: string | null = null;
     const next = checked(events, undefined, (i) => `Refused to write event ${i + 1} of a new log`);
     if (this.file) {
       this.assertWritable();
@@ -230,6 +252,10 @@ export class EventStore {
         writeAll(fd, data);
         fsyncSync(fd);
         closeSync(fd);
+        if (keep && existsSync(this.file) && statSync(this.file).size > 0) {
+          keepAs(this.file, keep);
+          kept = keep;
+        }
         renameSync(tmp, this.file);
       } catch (err) {
         try {
@@ -247,6 +273,7 @@ export class EventStore {
     }
     this.events = next;
     this.replacing = false;
+    return { kept };
   }
 
   /** Releases the file and the writer's lock. Reads still answer; writes are refused. */

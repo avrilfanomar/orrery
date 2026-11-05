@@ -5,6 +5,8 @@ data/*.jsonl
 # a running writer's lock, and a new log before it is renamed into place (ADR 0008)
 data/*.lock
 data/*.tmp
+# the log a reset replaced (ADR 0009)
+data/*.bak
 *.log
 .DS_Store
 .vite/

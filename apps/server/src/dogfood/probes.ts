@@ -30,6 +30,7 @@ import { FLEXIBILITY_PROBES } from './flexibility.js';
 import { MAINTAINABILITY_PROBES } from './maintainability.js';
 import { OPERABILITY_PROBES } from './operability.js';
 import { RELIABILITY_PROBES } from './reliability.js';
+import { SAFETY_PROBES } from './safety.js';
 import { scrub, smoke, withLiveWeek } from './harness.js';
 import type { ProbeSpec } from './sync.js';
 
@@ -73,6 +74,7 @@ const V5 = 'First version of this method (ADR 0005)';
 const V6 = 'First version of this method (ADR 0006)';
 const V7 = 'First version of this method (ADR 0007)';
 const V8 = 'First version of this method (ADR 0008)';
+const V9 = 'First version of this method (ADR 0009)';
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 export function createContext(root: string, tmp: string): ProbeContext {
@@ -359,6 +361,10 @@ export const PROBES: readonly Probe[] = [
   suite('suite-contained', [{ file: `${SERVER}/reliability.test.ts`, describe: ['faults stay contained'] }], V8),
   suite('suite-restart', [{ file: `${SERVER}/reliability.test.ts`, describe: ['stops and restarts cleanly'] }], V8),
   ...RELIABILITY_PROBES,
+  suite('suite-rules-proven', [{ file: `${CORE}/safety.test.ts`, describe: ['rollup rules, checked over every input', 'evidence it does not have never reads green'] }], V9),
+  suite('suite-reset-keeps', [{ file: `${SERVER}/safety.test.ts`, describe: ['a reset keeps what it replaced'] }], V9),
+  suite('suite-sim-demo-only', [{ file: `${SERVER}/safety.test.ts`, describe: ['the simulator feeds only the demo'] }], V9),
+  ...SAFETY_PROBES,
   suite('suite-sources', [{ file: `${CORE}/sources.test.ts` }, { file: `${SERVER}/sources.test.ts` }]),
   {
     id: 'audit-high',
@@ -382,10 +388,10 @@ export const PROBES: readonly Probe[] = [
   suite('suite-demo-story', [{ file: `${SERVER}/app.test.ts`, describe: ['the demo universe'] }]),
   {
     id: 'ui-smoke',
-    version: 1,
-    since: V1,
+    version: 2,
+    since: 'The smoke test now also blocks the API’s answers, refused and then hung, and checks the console says it is not live, then live again (ADR 0009)',
     method:
-      'Starts the real server (src/main.ts) on a free port with a throwaway demo log and this run’s fresh UI build, then runs apps/web/e2e/smoke.mjs against it. Pass on exit 0; fail when a step after the browser started fails, or the server does not start; no reading when the browser cannot start (set PW_CHROMIUM).',
+      'Starts the real server (src/main.ts) on a free port with a throwaway demo log and this run’s fresh UI build, then runs apps/web/e2e/smoke.mjs against it: the evolution loop, then the API’s answers refused, restored and hung. Pass on exit 0; fail when a step after the browser started fails, or the server does not start; no reading when the browser cannot start (set PW_CHROMIUM).',
     measure: smoke,
   },
   {

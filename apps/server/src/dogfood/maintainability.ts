@@ -202,7 +202,7 @@ export function duplicatedLines(files: ReadonlyMap<string, string>): { duplicate
 export const SANCTIONED_CLOCKS: Readonly<Record<string, number>> = {
   'apps/server/src/app.ts': 1, // the default of the injectable clock
   'apps/server/src/sources/collector.ts': 1, // the same, for pulls
-  'apps/server/src/server.ts': 1, // seeding an empty log at start
+  'apps/server/src/server.ts': 3, // seeding an empty log at start; timing a repeated stop signal (ADR 0008)
   'apps/server/src/reset.ts': 1, // re-seeding while the server is stopped
   'apps/server/src/simulate.ts': 4, // the simulator plays live time
 };
@@ -301,8 +301,8 @@ export const MAINTAINABILITY_PROBES: readonly Probe[] = [
   },
   {
     id: 'hidden-inputs',
-    version: 1,
-    since: V1,
+    version: 2,
+    since: 'The allowlist grants server.ts two more reads: performance.now() times a repeated stop signal, at the entry point (ADR 0008). ADR 0009 found them unlisted',
     method: `Counts reads of the system clock or a random source — Date.now(), new Date() without arguments, performance.now(), Math.random(), crypto.randomUUID() and crypto.getRandomValues() — outside comments and strings in tracked packages/*/src and apps/server/src (*.ts), apps/server/src/dogfood excepted (it times things on purpose), beyond the allowlist ${Object.entries(SANCTIONED_CLOCKS)
       .map(([f, n]) => `${f.replace('apps/server/src/', '')} ×${n}`)
       .join(', ')}. Everything else takes the time and any randomness as arguments.`,

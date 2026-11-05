@@ -3,7 +3,7 @@
 // exports would. It first backfills any gap since the last reading (so a
 // restarted demo is not stale), then keeps the fast signals moving.
 import type { UniverseView } from '@ru/core';
-import { clampRound, jitter, mulberry32, PROFILES, type Profile } from './demo.js';
+import { clampRound, jitter, mulberry32, PROFILES, simulatorRefusal, type Profile } from './demo.js';
 import { simulatorSettings } from './settings.js';
 
 const { api: API, tickMs: TICK_MS, ingestToken } = simulatorSettings(process.env);
@@ -55,8 +55,12 @@ function next(l: Live, at: number): number {
   return clampRound(l.p, l.value + (toward - l.value) * 0.08 + l.p.noise * 0.35 * jitter(rnd));
 }
 
+// It stays up feeding nothing rather than exit: `pnpm dev` runs it under `concurrently -k`, which would stop the server too.
+const refusal = simulatorRefusal(universe.rootIds);
+if (refusal) console.error(`sim: feeding nothing — ${refusal}`);
+
 const live: Live[] = [];
-for (const p of PROFILES) {
+for (const p of refusal ? [] : PROFILES) {
   const n = universe.nodes[p.id];
   if (!n?.definition.measure || n.lifecycle !== 'active') continue;
   // A metric the server pulls itself must not be fed from both sides (ADR 0002).

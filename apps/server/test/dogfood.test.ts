@@ -12,6 +12,7 @@ import { cognitiveComplexity, duplicatedLines, importCycles, majorBehind, parseS
 import { DOGFOOD_MODEL, type ModelNode } from '../src/dogfood/model.js';
 import { licenceApproved } from '../src/dogfood/operability.js';
 import { judgeSuite, PROBE_SPECS, PROBES, type Probe, type ProbeContext } from '../src/dogfood/probes.js';
+import { FALSE_GREEN_MUTANTS } from '../src/dogfood/safety.js';
 import { injectTransport, runDogfood } from '../src/dogfood/runner.js';
 import { currentFromView, planSync, probeQuery, ReasonRequired, resolveReasons, type ProbeSpec } from '../src/dogfood/sync.js';
 import { repoRoot } from '../src/paths.js';
@@ -69,6 +70,12 @@ describe('the dogfood model and its probes', () => {
     expect(ev.get('k-core-coverage')!.status).toBe('unknown'); // defined, not yet measured
     expect(ev.get('ru')!.status).toBe('unknown'); // nothing measured yet is never green
     expect(u.nodes.get('k-start-week')!.links).toEqual(['r-recovers']); // restart time evidences recovery too
+  });
+
+  it('keeps every false-green break applicable to the code, so a refactor cannot retire one quietly', () => {
+    const gone = FALSE_GREEN_MUTANTS.filter((m) => readFileSync(join(repoRoot, 'packages/core/src', m.file), 'utf8').split(m.find).length !== 2);
+    expect(gone.map((m) => `${m.id}: its text no longer occurs exactly once in packages/core/src/${m.file}. Rewrite the break for the new code and bump false-green-mutants`)).toEqual([]);
+    expect(new Set(FALSE_GREEN_MUTANTS.map((m) => m.id)).size).toBe(FALSE_GREEN_MUTANTS.length);
   });
 
   it('chooses the seed explicitly, so the dogfood log never gets the demo', () => {

@@ -14,7 +14,9 @@ decisions everything rests on.
    (existence, cycles, required reasons, valid measures) lives in
    `packages/core/src/decide.ts`; the API, the seed and any importer go through it.
 3. **Unknown never rolls up as green.** Any change to `rollup()` or
-   `evaluateUniverse()` must keep the tests in `packages/core/test/evaluate.test.ts` passing.
+   `evaluateUniverse()` must keep the tests in `packages/core/test/evaluate.test.ts`
+   and `safety.test.ts` passing. A new rollup strategy joins the grid in
+   `safety.test.ts` and keeps every promise there (ADR 0009).
 4. **Readings are judged against the definition in force when observed**
    (`definitionAt`). Never evaluate history against the current definition.
 5. **`packages/core` stays pure** — no Node or DOM APIs, so the UI can import it.
@@ -70,6 +72,16 @@ pnpm dogfood:serve               # that universe in the UI on :4711
   `apps/server/src/store.ts` writes a log file (ADR 0008). Open a log you only
   read with `{ readOnly: true }`; a writer holds `<log>.lock` until `close()`. The store may cut back a write that failed, which was never
   acknowledged, but never rewrites an acknowledged line.
+- Nothing the repository runs destroys a log. An operation that replaces or
+  removes one keeps what it replaces (`replaceAll(events, keep)`, ADR 0009).
+- Made-up readings (the simulator) feed only the demo universe
+  (`simulatorRefusal` in `apps/server/src/demo.ts`).
+- `FALSE_GREEN_MUTANTS` in `apps/server/src/dogfood/safety.ts` quotes
+  `packages/core/src` verbatim. If you change quoted text, rewrite the break
+  for the new code and bump `false-green-mutants`; `dogfood.test.ts` names it.
+- The console warns when its live view stops updating (`useStalledSince` in
+  `apps/web/src/App.tsx`). The smoke test checks it in its last steps, after the
+  console-error check, because the requests it blocks log errors.
 - Background work (timers, the collector) never lets a promise reject
   unhandled: a failure fails its own binding or tick, not the process.
 - A test that starts real processes, or works for seconds, sets an explicit

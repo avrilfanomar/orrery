@@ -96,6 +96,17 @@ export const RollupRuleSchema = z
   });
 export type RollupRule = z.infer<typeof RollupRuleSchema>;
 
+/**
+ * A rule a caller sets. A warning threshold of 0 is met by every score and
+ * every share, so the rule could never read breach: every input in breach would
+ * read warning, or on target when the on-target threshold is 0 as well
+ * (ADR 0009). Stored rules may hold one, so a log written before keeps loading.
+ */
+const RollupRuleInputSchema = RollupRuleSchema.refine(
+  (r) => !(r.strategy === 'weighted' && r.warnAt === 0) && !(r.strategy === 'quorum' && r.warnShare === 0),
+  'With a warning threshold of 0 it could never read breach, even with every input in breach: give it one above 0',
+);
+
 // ---------------------------------------------------------------------------
 // Event payloads — the append-only log is the source of truth (ADR 0001, decision 4).
 // ---------------------------------------------------------------------------
@@ -196,7 +207,7 @@ export const CommandSchema = z.discriminatedUnion('type', [
       dimensions: DimensionsSchema.default([]),
       owner: OwnerSchema.default(null),
       measure: MeasureSpecSchema.nullable().default(null),
-      rollup: RollupRuleSchema.default({ strategy: 'worst' }),
+      rollup: RollupRuleInputSchema.default({ strategy: 'worst' }),
       scenario: ScenarioSpecSchema.nullable().default(null),
       binding: BindingSchema.nullable().default(null),
       dashboardUrl: HttpUrlSchema.nullable().default(null),
@@ -204,7 +215,7 @@ export const CommandSchema = z.discriminatedUnion('type', [
     }),
   }),
   z.object({ type: z.literal('node.edit'), data: NodeEditedData }),
-  z.object({ type: z.literal('node.redefine'), data: NodeRedefinedData }),
+  z.object({ type: z.literal('node.redefine'), data: NodeRedefinedData.extend({ rollup: RollupRuleInputSchema.optional() }) }),
   z.object({ type: z.literal('node.reprioritize'), data: NodeReprioritizedData }),
   z.object({ type: z.literal('node.move'), data: NodeMovedData }),
   z.object({ type: z.literal('node.link'), data: NodeLinkData }),

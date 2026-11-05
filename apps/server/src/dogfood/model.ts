@@ -68,7 +68,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     scenario: { stimulus: 'Commands with no reason, a cycle, a reading without a measure, an out-of-range timestamp', environment: 'Unit tests', response: 'Each is refused with the matching error code' },
   },
   {
-    id: 'r-unknown', kind: 'requirement', parentId: 'g-truth', title: 'Unknown never rolls up as green', priority: 'critical', dimensions: ['suitable'],
+    id: 'r-unknown', kind: 'requirement', parentId: 'g-truth', links: ['r-earned'], title: 'Unknown never rolls up as green', priority: 'critical', dimensions: ['suitable'],
     description: 'CLAUDE.md invariant 3; ADR 0001 decision 2.',
   },
   {
@@ -406,6 +406,39 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     reason: 'Baseline 0. Before the slowest tests had explicit timeouts, seed 1 failed two of them on vitest’s 5 s default',
   },
 
+  // --- no one acts on a green it hasn't earned (ADR 0009) -------------------
+  {
+    id: 'g-harmless', kind: 'goal', parentId: 'ru', title: 'No one acts on a green it hasn’t earned, and nothing it does destroys the record', priority: 'high', dimensions: ['safe'], owner: OWNER,
+    description:
+      'ADR 0009: fail safe, hazard warning, safe integration and provability. People decide on what the console shows, so the harm is a green nobody earned, a picture that stopped updating, a made-up reading taken for a real one, or a log a reset wiped. The suite proves the rollup rules over every input and pins the reset and the simulator; the browser smoke test stops the API; the dogfood breaks the core on purpose and counts what no test catches. Worst-of, so one hazard shows.',
+  },
+  {
+    id: 'r-earned', kind: 'requirement', parentId: 'g-harmless', title: 'A green is earned under every rule, and evidence it lacks never reads green', priority: 'critical', dimensions: ['safe', 'reliable'],
+    description: 'Fail safe and provability. The invariant that unknown never rolls up as green stays under the model telling the truth, and is linked here.',
+  },
+  {
+    id: 's-rules-proven', kind: 'scenario', parentId: 'r-earned', title: 'The rollup rules keep their safety properties over every input up to four', priority: 'critical', dimensions: ['safe'], measure: pass, probe: 'suite-rules-proven',
+    scenario: { stimulus: 'Every multiset of up to four inputs, each status at each priority, under 30 rules that include the edges 0 and 1; a cycle; a reading after the moment', environment: 'packages/core/test/safety.test.ts', response: 'No inputs reads unknown; a green holds however its unknown inputs turn out; a worse input never reads better; a critical breach is a breach; a rule a caller sets can read breach; a cycle and a later reading never read green' },
+  },
+  {
+    id: 'k-false-green-mutants', kind: 'kpi', parentId: 'r-earned', title: 'Deliberate false-green breaks of the core that no test catches', priority: 'high', dimensions: ['safe', 'maintainable'], measure: zero('breaks'), probe: 'false-green-mutants',
+    reason: 'Baseline 0 of 15. Before ADR 0009 added two tests, no test caught a cycle reading green or a past moment judged by a later reading',
+  },
+  {
+    id: 'r-not-live', kind: 'requirement', parentId: 'g-harmless', title: 'A console that has stopped updating says so', priority: 'high', dimensions: ['safe', 'usable'],
+    description: 'Hazard warning. Kept data looks exactly like fresh data, so the console warns once a refresh fails or hangs. The browser smoke test is linked here.',
+  },
+  { id: 'r-record-kept', kind: 'requirement', parentId: 'g-harmless', title: 'Nothing it does destroys the record', priority: 'critical', dimensions: ['safe', 'reliable'] },
+  {
+    id: 's-reset-keeps', kind: 'scenario', parentId: 'r-record-kept', title: 'A reset keeps the log it replaced', priority: 'critical', dimensions: ['safe'], measure: pass, probe: 'suite-reset-keeps',
+    scenario: { stimulus: '`pnpm reset` on a log that holds events', environment: 'The real reset script on a temp log', response: 'The old log stays beside the new one byte for byte, named for the moment, and the message says how to undo; a kept log is never written over' },
+  },
+  { id: 'r-no-fabrication', kind: 'requirement', parentId: 'g-harmless', title: 'Made-up readings never pass for real ones', priority: 'high', dimensions: ['safe'] },
+  {
+    id: 's-sim-demo-only', kind: 'scenario', parentId: 'r-no-fabrication', title: 'The simulator feeds only the demo', priority: 'high', dimensions: ['safe'], measure: pass, probe: 'suite-sim-demo-only',
+    scenario: { stimulus: 'The simulator started against a universe that shares the demo’s ids but is not the demo', environment: 'The real simulator against an in-process server', response: 'It says why and writes nothing, and stays up so `pnpm dev` keeps running' },
+  },
+
   { id: 'g-safe', kind: 'goal', parentId: 'ru', title: 'Running it exposes nothing it shouldn’t', priority: 'high', dimensions: ['secure'], owner: OWNER },
   {
     id: 'c-secrets', kind: 'constraint', parentId: 'g-safe', title: 'No secret enters the log, and no caller chooses the address', priority: 'critical', dimensions: ['secure'],
@@ -437,8 +470,8 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
     scenario: { stimulus: 'The README’s five-minute tour', environment: 'The seeded demo, pinned by apps/server/test/app.test.ts', response: 'Every status the tour promises is the one the model reports' },
   },
   {
-    id: 's-smoke', kind: 'scenario', parentId: 'g-usable', title: 'The evolution loop works in a real browser', priority: 'high', dimensions: ['usable'], measure: pass, probe: 'ui-smoke',
-    scenario: { stimulus: 'Refine a stub into a KPI, record a reading, revise its target with and without a reason', environment: 'Headless Chromium against a throwaway demo server running the fresh build', response: 'Each step lands, the reason is enforced, the change heads the feed, no console errors' },
+    id: 's-smoke', kind: 'scenario', parentId: 'g-usable', links: ['r-not-live'], title: 'The evolution loop works in a real browser', priority: 'high', dimensions: ['usable', 'safe'], measure: pass, probe: 'ui-smoke',
+    scenario: { stimulus: 'Refine a stub into a KPI, record a reading, revise its target with and without a reason; then the API refuses, recovers and hangs', environment: 'Headless Chromium against a throwaway demo server running the fresh build', response: 'Each step lands, the reason is enforced, the change heads the feed, no console errors; the console says it is not live while the API fails or hangs, and live again once it answers' },
   },
   {
     id: 'k-links', kind: 'kpi', parentId: 'g-usable', title: 'Broken relative links in Markdown docs', priority: 'low', dimensions: ['usable'], measure: zero('links'), probe: 'doc-links',

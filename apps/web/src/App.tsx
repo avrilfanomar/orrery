@@ -1,5 +1,6 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import type { UniverseView } from '@ru/core';
 import { api } from './api.js';
 import { ActionDialog, type Action } from './components/ActionDialog.js';
 import { ChangeFeed } from './components/ChangeFeed.js';
@@ -10,6 +11,63 @@ import { TimeTravel } from './components/TimeTravel.js';
 import { useRoute, useStoredState } from './route.js';
 
 const LIVE_REFRESH_MS = 5000;
+/** A refresh still unanswered after this long counts as no answer: `fetch` itself never gives up on a server that hangs. */
+const HUNG_AFTER_MS = 10_000;
+
+/**
+ * When the live view stopped being live: the time of the last answer, once a
+ * refresh has failed or hung; else null. Kept data looks exactly like fresh
+ * data, so without this a server that stops answering leaves the last picture
+ * up under a "Live" label (ADR 0009).
+ */
+function useStalledSince(query: UseQueryResult, live: boolean): number | null {
+  const [now, setNow] = useState(() => performance.now());
+  const fetchingSince = useRef<number | null>(null);
+  if (query.isFetching) fetchingSince.current ??= performance.now();
+  else fetchingSince.current = null;
+  useEffect(() => {
+    if (!live) return;
+    const t = window.setInterval(() => setNow(performance.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [live]);
+  const hung = fetchingSince.current !== null && now - fetchingSince.current > HUNG_AFTER_MS;
+  return live && query.dataUpdatedAt > 0 && (query.isError || hung) ? query.dataUpdatedAt : null;
+}
+
+interface BannersProps {
+  view: UniverseView;
+  stalledSince: number | null;
+  error: Error | null;
+  missing: string | null;
+  onLive: () => void;
+}
+
+/** What the view in front of you is not: the present, a picture the server still answers for, or the node you asked for. */
+function Banners({ view, stalledSince, error, missing, onLive }: BannersProps) {
+  return (
+    <>
+      {!view.live && (
+        <div className="past-banner" role="status">
+          Viewing the universe as it was known on <strong>{fmtDateTime.format(new Date(view.asOf))}</strong> — with the targets and priorities in force then.
+          <button type="button" className="btn btn-small" onClick={onLive}>
+            Back to live
+          </button>
+        </div>
+      )}
+      {stalledSince !== null && (
+        <div className="stalled-banner" role="alert">
+          <strong>Not live.</strong> The server has not answered since {fmtDateTime.format(new Date(stalledSince))}
+          {error ? ` (${error.message})` : ''}. Every status here is what it reported then, and may no longer hold.
+        </div>
+      )}
+      {missing && (
+        <div className="past-banner" role="status">
+          “{missing}” did not exist at this moment — showing the top level instead.
+        </div>
+      )}
+    </>
+  );
+}
 
 export function App() {
   const [route, navigate] = useRoute();
@@ -23,6 +81,7 @@ export function App() {
     refetchInterval: route.asOf ? false : LIVE_REFRESH_MS,
     placeholderData: keepPreviousData,
   });
+  const stalledSince = useStalledSince(universe, !route.asOf);
   const changes = useQuery({
     queryKey: ['changes', universe.data?.stats.changes ?? 0],
     queryFn: () => api.changes(null),
@@ -53,7 +112,7 @@ export function App() {
   const focus = (id: string) => navigate({ focus: id });
 
   return (
-    <div className={`app${view.live ? '' : ' is-past'}${universe.isPlaceholderData ? ' is-refetching' : ''}`}>
+    <div className={`app${view.live ? '' : ' is-past'}${universe.isPlaceholderData ? ' is-refetching' : ''}${stalledSince ? ' is-stalled' : ''}`}>
       <header className="topbar">
         <button type="button" className="brand" onClick={() => rootId && focus(rootId)}>
           <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
@@ -77,7 +136,7 @@ export function App() {
             <Coverage {...root.evaluation.coverage} />
           </div>
         )}
-        <TimeTravel range={view.range} asOf={route.asOf} changes={changes.data ?? []} onChange={(asOf) => navigate({ asOf }, { replace: true })} />
+        <TimeTravel range={view.range} asOf={route.asOf} stalled={stalledSince !== null} changes={changes.data ?? []} onChange={(asOf) => navigate({ asOf }, { replace: true })} />
         <button type="button" className={`btn btn-small${changesOpen ? ' is-on' : ''}`} onClick={() => setChangesOpen((o) => !o)} aria-expanded={changesOpen}>
           Changes {view.stats.changes > 0 && <span className="pill">{view.stats.changes}</span>}
         </button>
@@ -87,19 +146,13 @@ export function App() {
         </label>
       </header>
 
-      {!view.live && (
-        <div className="past-banner" role="status">
-          Viewing the universe as it was known on <strong>{fmtDateTime.format(new Date(view.asOf))}</strong> — with the targets and priorities in force then.
-          <button type="button" className="btn btn-small" onClick={() => navigate({ asOf: null }, { replace: true })}>
-            Back to live
-          </button>
-        </div>
-      )}
-      {missing && (
-        <div className="past-banner" role="status">
-          “{route.focus}” did not exist at this moment — showing the top level instead.
-        </div>
-      )}
+      <Banners
+        view={view}
+        stalledSince={stalledSince}
+        error={universe.error}
+        missing={missing ? route.focus : null}
+        onLive={() => navigate({ asOf: null }, { replace: true })}
+      />
 
       <div className={`body${changesOpen ? ' with-drawer' : ''}`}>
         {focusId && <Outline view={view} focusId={focusId} onFocus={focus} />}

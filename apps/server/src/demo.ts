@@ -52,6 +52,20 @@ export interface Profile {
 
 /** Hours the seeded incident keeps going after the seed moment before it recovers. */
 export const INCIDENT_TAIL_HOURS = 3;
+
+/** The demo's top-level product: the only universe the simulator feeds. */
+export const DEMO_PRODUCT = 'larch-store';
+
+/**
+ * Why the simulator must not feed a universe with these top-level nodes, or
+ * null for the demo. Its readings are made up, under the names of real systems
+ * (prometheus, ci); in any other universe they would pass for measurements
+ * (ADR 0009). A node id is not enough to tell: `k-p95` is a name anyone picks.
+ */
+export function simulatorRefusal(rootIds: readonly string[]): string | null {
+  if (rootIds.length === 1 && rootIds[0] === DEMO_PRODUCT) return null;
+  return `this universe is not the demo (its top level is ${rootIds.length ? rootIds.join(', ') : 'empty'}, not ${DEMO_PRODUCT}), and made-up readings would pass for real ones there`;
+}
 const incident = (h: number) => h < 6 && h > -INCIDENT_TAIL_HOURS;
 const days = (h: number) => h / 24;
 
@@ -120,9 +134,9 @@ type CreateData = Extract<CommandInput, { type: 'node.create' }>['data'];
 const create = (daysAgo: number, actor: string, data: CreateData): Step => ({ daysAgo, actor, cmd: { type: 'node.create', data } });
 
 const STRUCTURE: Step[] = [
-  create(30, 'product-owner', { id: 'larch-store', kind: 'product', title: 'Larch Store', priority: 'critical', owner: 'Head of Product', description: 'A fictional online shop for outdoor gear — web storefront, checkout API, search and back office. Demo data for the proof of concept.' }),
+  create(30, 'product-owner', { id: DEMO_PRODUCT, kind: 'product', title: 'Larch Store', priority: 'critical', owner: 'Head of Product', description: 'A fictional online shop for outdoor gear — web storefront, checkout API, search and back office. Demo data for the proof of concept.' }),
 
-  create(30, 'product-owner', { id: 'g-buy', kind: 'goal', parentId: 'larch-store', title: 'Customers find and buy what they want, quickly', priority: 'critical', dimensions: ['business', 'usable'], owner: 'Product', rollup: { strategy: 'weighted', okAt: 0.9, warnAt: 0.6 }, description: 'The commercial heart of the shop. Rolled up by priority-weighted score: a critical breach anywhere below still turns it red.' }),
+  create(30, 'product-owner', { id: 'g-buy', kind: 'goal', parentId: 'larch-store', title: 'Customers find and buy what they want, quickly', priority: 'critical', dimensions: ['business', 'usable'], owner: 'Product', rollup: { strategy: 'weighted', okAt: 0.9, warnAt: 0.6 }, description: 'The commercial heart of the shop. Rolled up by priority-weighted score: a critical input in breach still turns it red.' }),
   create(30, 'product-owner', { id: 'r-checkout', kind: 'requirement', parentId: 'g-buy', title: 'Checkout is short and dependable', priority: 'high', dimensions: ['suitable', 'usable'], owner: 'Checkout team' }),
   create(30, 'product-owner', { id: 'k-conversion', kind: 'kpi', parentId: 'r-checkout', title: 'Checkout conversion rate', priority: 'critical', dimensions: ['business'], measure: m('%', 'higher', 3.2, 2.8, 18), description: 'Share of sessions with a cart that end in a placed order, rolling 24 h.' }),
   create(30, 'product-owner', { id: 'k-abandonment', kind: 'kpi', parentId: 'r-checkout', title: 'Cart abandonment rate', priority: 'medium', dimensions: ['business', 'usable'], measure: m('%', 'lower', 65, 70, 18) }),
