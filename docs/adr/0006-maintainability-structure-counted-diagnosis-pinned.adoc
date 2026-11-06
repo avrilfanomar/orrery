@@ -1,0 +1,76 @@
+[[adr-0006]]
+=== ADR 0006 — Maintainability: structure is counted, diagnosis is pinned
+
+Date:: 2026-11-04
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-clear>>, <<qg-change>>
+
+[.triggers]
+baseline:: 2026-11-04
+on time.elapsed:: every P6M
+
+==== Context
+
+Changeability was measured (<<adr-0003,ADR 0003>>) and evolvability was
+covered (<<adr-0005,ADR 0005>>). Five areas had no measure:
+
+* *analysability*: the product exists to answer "why is this red?", but
+  nothing checked across a whole universe that each status leads to its cause;
+* *testability*: time is injected, but nothing stopped a new hidden clock read;
+* *test coverage*: there was no coverage tool;
+* *modularity*: cycles and copied code inside a component went uncounted;
+* *updateability*: nothing checked that each package declares what it imports,
+  or how far the dependencies trail.
+
+==== Decision
+
+===== 1. The suite pins what must always hold
+
+* *Statuses explain themselves.* Across every node of the demo on every day,
+  each status has a reason, and following its drivers ends at a measurement or
+  a stub, never at something on target.
+* *Refusals explain themselves.* A bad request gets the status its fault maps
+  to, and a message naming the node, field or rule. The log stays unchanged.
+* *No hidden inputs.* With the system clock and `Math.random` faked, every
+  answer is byte-identical.
+* *Declared dependencies.* Every import is declared in its own package's
+  manifest, and the lockfile matches the manifests.
+
+===== 2. The dogfood counts what makes the code harder to keep
+
+Functions above cognitive complexity 15, import cycles at run time, duplicated
+lines, clock and random reads outside the composition roots, the core's
+statement coverage, and the share of dependencies a major version or more
+behind.
+
+Complexity is cognitive, not cyclomatic, so a reducer that switches over event
+types grows with nesting, not with the number of types. The probe counts
+functions over the limit rather than taking the maximum, so one reducer cannot
+hide every other function.
+
+===== 3. The model gains a goal and refines a stub
+
+_Its code stays easy to read, test and update_ rolls up worst-of, beside the
+quorum goal. The coverage stub gets its measure, the core's statement
+coverage, under _Changing it stays safe and cheap_.
+
+==== Consequences
+
+* New functions are written at or under the complexity limit. An existing one
+  is split when it is being changed anyway, never just to move the number.
+* A new clock or random read needs to be added to the allowlist, with a
+  version bump.
+* Upgrades (React, vite, TypeScript, zod) are each a migration. The KPI says
+  how far behind the repository is, not which upgrade comes first.
+
+==== Revisit when
+
+* TypeScript moves to a new major: check that the complexity and cycle probes
+  still parse;
+* vitest moves: move its coverage provider with it;
+* the console gains unit tests: extend hidden inputs and coverage to it;
+* a new composition root appears: add it to the allowlist.

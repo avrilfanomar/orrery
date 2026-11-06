@@ -1,0 +1,70 @@
+[[adr-0011]]
+=== ADR 0011 — Usability: everyone can read and operate the console
+
+Date:: 2026-11-05
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-usable>>
+
+[.triggers]
+baseline:: 2026-11-05
+on time.elapsed:: every P6M
+
+==== Context
+
+Most usable qualities already had a home in earlier decisions. What was left
+was the person at the console: can they read it, reach every control, and
+operate it? The usability goal held the tour, the smoke test and the docs'
+links, and none of those ask that question.
+
+An automated WCAG 2.2 scan of the built console, in both colour schemes,
+failed most of its checks. Secondary text and the primary buttons had too
+little contrast, and some targets were under 24 px. The code also showed a
+tree role that offered none of the keyboard behaviour the role promises.
+
+==== Decision
+
+===== 1. The console meets WCAG 2.2 AA wherever a scan can tell
+
+A browser scan, run by the dogfood against a running app, checks every view
+and dialog in both schemes. It also checks two things the scanner cannot: a
+visible focus ring on every tab stop, and no sideways scrolling at 320 px. It
+counts failing checks, not elements, so the number does not drift with the
+demo's content. It only reads.
+
+===== 2. Colours are checked at the token
+
+A suite test reads the theme tokens and holds every text colour to 4.5:1 on
+every surface it can be drawn on, in both schemes. The two declarations of the
+dark scheme must stay identical. So a token edit that breaks contrast fails
+before anything is built.
+
+===== 3. A role only with its behaviour
+
+Targets are at least 24 px. A control gets a role only with the keyboard
+behaviour that role promises. The outline became nested lists of honestly
+named buttons, instead of a tree with no tree keys.
+
+==== Consequences
+
+* The console looks slightly different: darker secondary text in the light
+  scheme, and a deeper accent.
+* No conformance is claimed. Machine checks are not an audit
+  (<<td-a11y,§11>>).
+* The scanner is a development dependency under a licence that is not on the
+  approved list. That is allowed because it never ships.
+
+Not decided here: a manual audit, arrow keys for the outline, other languages,
+and a scheme switch.
+
+==== Revisit when
+
+* a view or dialog is added: add it to the scan;
+* a colour is added or changed: it goes through a token, and the contrast test
+  decides;
+* the scanner is upgraded: read what changed before reading the number as a
+  regression;
+* a control needs a new role.

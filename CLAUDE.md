@@ -3,8 +3,9 @@
 A PoC platform: requirements, constraints and business/quality KPIs as one
 contribution graph with rolled-up status, progressive disclosure and
 append-only evolution. Read [README.md](README.md) for the tour and
-[ADR 0001](docs/adr/0001-one-graph-append-only-evolution.md) for the four
-decisions everything rests on.
+[ADR 0001](docs/adr/0001-one-graph-append-only-evolution.adoc) for the four
+decisions everything rests on. The whole architecture is in
+[docs/architecture.adoc](docs/architecture.adoc) (arc42).
 
 ## Invariants
 
@@ -117,6 +118,19 @@ ask first.
   an example: build it at runtime, or the dogfood harvests it. A real tag must
   name a node in `model.ts`; `references-dangling` counts any that don't, and
   every reference `model.ts` declares must resolve (`dogfood.test.ts`).
+- Decisions are `docs/adr/NNNN-*.adoc`, included in §9 of
+  `docs/architecture.adoc` (arc42 with the links and triggers extensions). A new
+  one takes the next number, a `[.links]` block (`owned-by`, plus `addresses` a
+  need or `orr:upholds` a quality goal), a `[.triggers]` block whose `baseline`
+  is its date, and an `include::` line. Code cites "ADR 0002, decision 4", so
+  never renumber a decision or its numbered parts. A later decision that changes
+  one `orr:amends` it, and the old text stays. An ADR holds context, decision,
+  consequences and revisit triggers. Test lists, baselines and break tables
+  belong in the tests and the dogfood. Check with
+  `arc42ext validate docs/architecture.adoc`. `arc42ext` is the reference checker in
+  extensions-for-arc42 (`implementations/reference-checker`): Python 3.10+,
+  standard library only, `pip install` it into a venv. `.adoc` files are scanned for
+  tags, so write no literal tag, and the custom namespace stays `orr:`.
 - References are inert: nothing in `evaluate.ts` may read `refs`. A reference
   needs no reason, and each importer reconciles only its own origin (the tag
   scan harvested references, the dogfood sync hand ones).

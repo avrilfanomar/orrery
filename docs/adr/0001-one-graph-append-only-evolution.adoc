@@ -1,0 +1,111 @@
+[[adr-0001]]
+=== ADR 0001 — One contribution graph, explicit rollups, append-only evolution
+
+Date:: 2026-11-03
+
+Status:: Accepted (PoC). Decision 3 is amended by <<adr-0009,ADR 0009>>.
+
+[.links]
+owned-by:: <<sh-maintainer>>
+addresses:: <<need-model>>, <<need-kpis>>, <<need-monitoring>>, <<need-disclosure>>, <<need-refinement>>, <<need-evolution>>
+orr:upholds:: <<qg-truth>>
+
+[.triggers]
+baseline:: 2026-11-03
+on time.elapsed:: every P6M
+
+==== Context
+
+The platform has to hold the requirements, constraints and business and
+quality KPIs of a piece of software. It has to show their state from the very
+top, and let a person dive one level at a time down to raw readings.
+
+The model is built iteratively: a one-line goal today, measurable scenarios
+next month. It also has to survive changing underneath it, as targets are
+tightened, priorities shift, and requirements move, split or retire.
+
+Four decisions carry the design. Each is cheap to get right on day one and
+expensive to retrofit.
+
+==== Decision
+
+===== 1. One recursive node type, in a contribution graph
+
+Every element is a *node* with a `kind` label: `product`, `goal`,
+`requirement`, `constraint`, `kpi` or `scenario`. Kinds are vocabulary, not
+schema. Any node may contribute to any other, and the UI only _suggests_
+typical children.
+
+A node has one *primary parent*, the path that progressive disclosure walks.
+It may also have any number of *links*: further parents it contributes to,
+because one KPI often evidences several requirements. The edges form a DAG,
+and `decide` refuses any change that would make a node contribute to itself.
+
+A node _may_ carry its own *measure*: unit, direction, target, warning
+threshold and staleness. A pass/fail check is a measure too. A quality
+scenario may also carry the stimulus, environment and response of an
+ATAM-style scenario. Quality dimensions are the nine of the arc42 Quality
+Model, plus `business`, cited by name rather than copied in.
+
+===== 2. "Unknown" is a status in its own right and never rolls up as green
+
+A status is `ok`, `warn`, `breach` or `unknown`. A node is unknown in three
+cases:
+
+* its measure has never had a reading;
+* its latest reading is older than its staleness;
+* nothing is beneath it yet, as with an unrefined stub.
+
+No rollup rule lets unknown pass for on target. That is what makes iterative
+refinement honest. A stub is legitimate and visible, sits in the "Not yet
+observable" backlog of everything above it, and every node reports
+*coverage*: how many of its observable endpoints are actually measured.
+
+===== 3. Rollup rules are explicit data on each node
+
+How contributors combine is stored on the node and versioned with it, never
+implied by code:
+
+* `worst`: the worst input decides;
+* `weighted`: a priority-weighted score against thresholds, where any
+  *critical* input in breach vetoes to breach;
+* `quorum`: on target when a share of the inputs is.
+
+Every evaluation returns a one-sentence *reason* and its *drivers*, the
+inputs that decided it. "Why is this red?" is then answered as a path, which
+the UI follows as _Follow the signal_.
+
+===== 4. Evolution never rewrites history
+
+The only state is an *append-only event log*. Everything else is a
+projection. As a result:
+
+* A change to a measure, a rollup or a scenario appends a new *definition
+  version*, effective from that moment. A reading is always judged against
+  the version in force when it was observed. Tightening a target re-zones the
+  chart from that day on, and earlier readings keep their colour.
+* A change of priority, place, link, lifecycle or definition *requires a
+  reason*. The timeline keeps who, when and why.
+* *Time travel* projects the log to an earlier moment: the model as it was
+  known then, with the targets and priorities in force then.
+* Deprecation retires a node from its parent's rollup without deleting it.
+
+==== Consequences
+
+* The domain core is pure and synchronous. Projection, evaluation, rollup,
+  history and the command gate are plain functions, tested without I/O. The
+  server is a thin shell.
+* Projection is recomputed for each request. That is fine at PoC scale, but a
+  high reading volume needs snapshots, or a definition log beside a
+  time-series store (<<td-projection,§11>>).
+* Readings are events too, so "what did we know at T" can be answered. The
+  recording time and the observation time are kept apart, so a late reading
+  lands in its place.
+* There is no authentication, and callers name themselves. That is acceptable
+  only for a PoC (<<risk-identity,§11>>).
+
+==== Revisit when
+
+* the reading volume makes projection for each request too slow;
+* several products or teams need isolation (tenancy, permissions);
+* definitions should live as code in the target repository.

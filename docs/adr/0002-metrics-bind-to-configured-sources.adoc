@@ -1,0 +1,129 @@
+[[adr-0002]]
+=== ADR 0002 — A metric binds to a configured source; the platform pulls, the log keeps the binding
+
+Date:: 2026-11-04
+
+Status:: Accepted (PoC). Amended by <<adr-0013,ADR 0013>>, which moves source kinds and query languages into modules.
+
+[.links]
+owned-by:: <<sh-maintainer>>
+addresses:: <<need-kpis>>, <<need-monitoring>>
+
+[.triggers]
+baseline:: 2026-11-04
+on time.elapsed:: every P6M
+
+==== Context
+
+Nothing in the model said where a number comes from. A person looking at a KPI
+could not see the query that produces it, or jump to the dashboard the on-call
+team watches. If nobody wired up a pusher, the KPI just went stale. Most teams
+already have these numbers in Prometheus, usually viewed through Grafana.
+
+"Linking a metric to its source" covers three separate needs:
+
+* *provenance*: which query defines the number;
+* *drill-out*: where a person goes to look at it;
+* *pull*: the platform runs the query on a schedule and records the answers.
+
+Four facts constrain the shape:
+
+* the log is permanent (<<adr-0001,ADR 0001>>, decision 4);
+* commands are unauthenticated in the PoC;
+* the core must stay pure, and `decide` is the only gate;
+* a reading is judged by the definition in force when it was observed, which
+  includes what the number meant then.
+
+==== Decision
+
+===== 1. Three pieces, kept apart: source, binding, dashboard link
+
+* *A source* is a connection the operator configures in a file: where to
+  fetch, an optional public URL people may be sent to, a token named by its
+  environment variable, and a pull cadence. None of it ever enters the log.
+* *A binding* is part of a node's definition. It names a source id, a query
+  language and a query. A binding with no source is provenance only: it
+  documents the query behind a pushed KPI, and nothing pulls it.
+* *A dashboard link* is ordinary node metadata. Renaming a dashboard does not
+  change what a number means, so it needs no new version.
+
+Grafana is a route to Prometheus, not a second kind of source. Because a
+binding names only a source id, switching between direct access and Grafana
+changes configuration, never history.
+
+This split keeps every secret out of the log, and stops any caller from
+pointing the server at an address of its choosing. A binding can only choose
+among the configured sources.
+
+===== 2. The binding is versioned with the measure, and a new query is a new yardstick
+
+A query _is_ the meaning of the number. Changing it is a redefinition with a
+required reason, and starts a new definition version. If the language or the
+query changed after the latest reading, that reading is *not comparable*, and
+the node reads unknown until a reading arrives under the new query. Changing
+only the source keeps the readings comparable, because the quantity is the
+same.
+
+===== 3. Pulled readings are a reserved namespace, guarded by `decide`
+
+A reading's source is a free string, so provenance that rests on it proves
+nothing. Pulled readings therefore carry a reserved `pull:` source, and
+`decide` refuses one unless the caller is the server's own collector. For
+those, `decide` also checks that:
+
+* the node's current binding names that source;
+* the reading was observed no earlier than the start of that binding, so a
+  catch-up never runs today's query for a time when another was in force;
+* no reading for the same node, source and instant exists yet.
+
+`decide` always receives the catalogue of configured sources, and refuses a
+new binding to a source that is unknown or cannot run its language. A binding
+left unchanged is not checked again, so a source dropped from configuration
+never blocks revising a threshold. The collector reports that binding as not
+configured instead. A pass/fail reading that is not exactly 0 or 1 is refused.
+
+===== 4. The collector: settled instants, all-or-nothing chunks, never a guess
+
+The collector lives in the server, never in the core. It runs one loop per
+source and one pull at a time per binding. It asks for a fixed grid of
+instants that ends a little before now, so a half-filled window is never
+recorded. Each chunk goes through `decide` against a fresh projection.
+
+*A failed or ambiguous pull writes nothing.* An unreachable source, an error,
+an empty answer, more than one series and a non-finite value all count. The
+node goes stale and reads unknown. The pull's outcome is operational state,
+served by the API with an error category and never upstream text. It is not a
+fact about the requirement.
+
+===== 5. Configuration fails fast; a missing token fails closed
+
+A malformed sources file stops the server at start. A source whose token is
+missing is never queried, and the server still runs. With sources configured,
+the server refuses to listen beyond loopback unless the operator allows it
+explicitly. Anyone who can bind a query could otherwise use the server's
+token as an oracle whose answers land in the log for good.
+
+===== 6. The UI shows provenance and drills out
+
+A bound node shows its query and language, its source, the latest pull
+status, and a link into the source's own UI built from the public URL.
+
+==== Consequences
+
+* A KPI can be observed with no code outside the platform.
+* Readings grow by one per binding per step, which brings ADR 0001's volume
+  trigger closer.
+* Configuration becomes a deliberate second source of truth beside the log.
+  It holds only how to reach a system, never what the model says.
+* The binding carries no unit, so a query in the wrong unit cannot be caught
+  (<<risk-unit-mismatch,§11>>).
+
+Not decided here: alert webhooks (an alert is an event, not a value), and
+several server processes on one log.
+
+==== Revisit when
+
+* commands get authentication, so bindings can be trusted against shared
+  monitoring without the loopback guard;
+* a second source kind or query language is needed (done in ADR 0013);
+* the reading volume from pulls makes projection slow.

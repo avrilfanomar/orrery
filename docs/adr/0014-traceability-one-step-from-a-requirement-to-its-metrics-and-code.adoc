@@ -1,0 +1,178 @@
+[[adr-0014]]
+=== ADR 0014 — Traceability: one step from a requirement to its metrics and its code, and back
+
+Date:: 2026-11-06
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+addresses:: <<need-traceability>>
+orr:upholds:: <<qg-clear>>, <<qg-fit>>
+
+[.triggers]
+baseline:: 2026-11-06
+on time.elapsed:: every P6M
+
+==== Context
+
+A person reading a universe moves between four kinds of thing:
+
+* *requirements*: goals, requirements and constraints;
+* *metrics*: KPIs and scenarios, and the query behind each;
+* *code*: the files and tests that implement or verify a requirement;
+* *everything else*: tickets, documents, decisions, runbooks, dashboards.
+
+From any one of them they should reach the others in one step, and get back.
+Only the first two were in the graph, and those were joined one level at a
+time. A KPI two levels down showed only by drilling. Nothing led from a node
+to its code or back, and the dogfood kept its file paths as prose.
+
+*Words.* A *link* is a contribution edge, and it rolls up. A pointer from a
+node to something outside the graph is a *reference*.
+
+Three constraints apply. The log is permanent, so a pointer that changes often
+would add events to it for ever. A stub stays unknown until something observes
+it, and code that exists observes nothing. Core names no integration, and a
+code host is one.
+
+==== Decision
+
+===== 1. The navigation contract
+
+The acceptance check is that each of these is one step, from the focus view
+or from a single search:
+
+* from a requirement: every metric beneath it at any depth, its code, and its
+  references;
+* from a metric: everything it counts toward at any depth, its code, and its
+  query;
+* from a file or a URL: its own page, listing every node that references it.
+
+*Jump to* finds a node by title, id or description, a metric by the text of
+its query, and a file by path.
+
+===== 2. Three kinds of edge, one rule each
+
+* A *link* joins two nodes, rolls up, and needs a reason.
+* A *reference* joins a node to a place outside the graph. It never rolls up,
+  and a reason is optional.
+* A *tag* is written in the code and names nodes. A scan turns it into a
+  reference.
+
+*References are inert.* They change no status, coverage, backlog, signal or
+ribbon. A stub with ten code references is still unknown, because implemented
+is not observed. Evidence arrives only as readings.
+
+*Code does not become nodes.* A node with nothing to measure is a stub, and a
+stub keeps everything above it from reading green. Code has no status here. It
+has a place.
+
+===== 3. What a reference is
+
+A reference has a kind, a target, an optional label, and an origin: added by
+hand or harvested from a tag. The kind is an open id that decides only how a
+reference is grouped and labelled, never what it does. Core suggests a few
+kinds, and a team can use its own.
+
+The target is either a path in a named repository, optionally with a symbol,
+or an http(s) URL.
+
+* *No line numbers.* Lines move with every edit, so a stored line would either
+  add an event for each edit or go stale. A path and a symbol survive a
+  refactor, and both can be checked.
+* *The repository need not be configured.* An unknown repository still says
+  where the code is. It just has no link out.
+* *A reference is not part of the definition*, so no reading is judged
+  differently because one changed.
+
+Identity is a tuple computed in memory and never stored, so changing how it is
+computed leaves every logged event replayable. A harvested reference and a
+hand reference to the same file are two references, so a vanished tag never
+removes what a person added.
+
+===== 4. Events and the gate
+
+Separate *referenced* and *unreferenced* events, not a list on an edit. A
+person and the tag scan could each write a full list and overwrite each other.
+Separate events give the same result in either order. `decide` refuses an
+unknown node, a duplicate, a missing reference and too many on one node. The
+origin of a harvested reference cannot be enforced without authentication, so
+the console never sends it, and never offers to remove a harvested reference.
+
+===== 5. Tags: the reference written next to the code
+
+A tag is the token `orrery:` immediately followed by one or more node ids,
+separated by commas. It moves with the code and is reviewed with it. The
+scanner does not parse comments, so it works the same in every language.
+
+* *What a tag records*: one reference per node and file, of kind `test` when
+  the path looks like a test, else `code`.
+* *What it scans*: one repository's tracked text files at a committed
+  revision, minus exclusions. Markdown and frozen logs are excluded by default.
+* *Which revision*: the scan writes only from the tip of the repository's
+  configured branch, on a clean tree. Anything else is a dry run, or CI on
+  every branch would churn the permanent log.
+* *Each importer owns one origin.* The tag scan reconciles harvested references
+  only, and the dogfood sync reconciles hand references only. Neither ever
+  removes the other's.
+* *Strict*: a tag naming no node fails the whole scan, which writes nothing.
+
+===== 6. References that rot are counted
+
+Tags cannot dangle unnoticed, because the scan refuses them. Hand references
+into a repository are checked where the code is: the path must exist, and the
+symbol must occur in the file. URLs are never fetched. For this repository, a
+dogfood probe counts dangling references and tags. The dogfood run harvests
+tags as part of its sync. It leaves out a tag naming no node and counts it
+there, instead of stopping, so a dangling tag shows as a breach and the run
+still records its readings.
+
+===== 7. Where references resolve
+
+Repositories are server settings, like sources: an id, a branch, and a browse
+template with one `\{path}` slot. Core builds the link and returns it only if
+it is http(s). So no `javascript:` URL gets in from the log, the template or
+the substitution. Core names no code host, because GitHub, GitLab and Gitea
+differ only in the template.
+
+===== 8. What the console shows
+
+The logic lives in core, with tests there, and the console only renders it.
+
+* *Connections* in the focus view: what this node counts toward, every metric
+  beneath it, its implementation, and its other references. Crossing levels is
+  one click, and the focus view still shows one level.
+* The metrics beneath agree with coverage and the backlog by construction.
+* *The reference page* for a file, a directory or a URL is a permalink that a
+  code review, a ticket or a CI job can link to.
+* *Jump to* is a combobox that does what its role promises.
+* Time travel shows the references known then.
+
+===== 9. The demo and the dogfood adopt it
+
+The demo's fictional shop gets a fictional repository, referenced from the
+checkout KPI and requirement, so the tour can step from a KPI to its code and
+back. The dogfood declares its file and decision references in its model,
+turns suite selectors into test references, and harvests this repository's
+tags on the same terms as its readings.
+
+==== Consequences
+
+* Both directions work, with no new kind of node and no change to evaluation.
+* The log gains two event types, and older frozen logs load unchanged.
+* References ride every universe poll. That is negligible at PoC scale, and
+  the efficiency suite counts the growth.
+* The tag scan is a second importer beside the dogfood sync. Both go through
+  `decide`.
+
+Not decided here: line anchors and code as it was at a past moment, editor
+links, checking URLs, non-rolling relations between nodes, harvesting from
+tickets or commits, and the scan as a package for other repositories.
+
+==== Revisit when
+
+* a product's CI runs the scan: package it, and version the grammar;
+* people need line anchors, or the code as it was;
+* references per node grow enough to matter in the universe answer;
+* a code host needs more than a template.

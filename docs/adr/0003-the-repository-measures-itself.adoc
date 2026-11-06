@@ -1,0 +1,97 @@
+[[adr-0003]]
+=== ADR 0003 — The repository measures itself: definitions as code, probes as versioned yardsticks
+
+Date:: 2026-11-04
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+relates-to:: <<need-evolution>>
+
+[.triggers]
+baseline:: 2026-11-04
+on time.elapsed:: every P6M
+
+==== Context
+
+The platform models other products' requirements, but not its own. Its own
+claims sat in prose: the invariants, the decisions, the README's numbers.
+Nothing checked that they still hold. `pnpm verify` says the tests pass. It
+does not say whether a contract is really enforced, whether the view is still
+fast after a week of live data, or whether a dependency has a known advisory.
+
+Four facts constrain dogfooding:
+
+* the log is permanent, so a wrong definition or a made-up reading can be
+  superseded but never removed;
+* changing what a number means needs a new version (<<adr-0002,ADR 0002>>,
+  decision 2);
+* the demo has to stay untouched;
+* there is no CI yet, so measurement runs on a developer's machine.
+
+==== Decision
+
+===== 1. The model is code; the log is its history
+
+The repository's requirements are a second universe, written as code beside
+the code they describe (`apps/server/src/dogfood/model.ts`). A sync turns the
+difference between that file and the log into ordinary commands, sent through
+the API and so through `decide`. A change of meaning, place or lifecycle
+carries a reason: one given explicitly, the probe's own reason for a new
+version, or the last commit subject. With none of those, the sync writes
+nothing.
+
+The file wins. An edit made in the console is drift, and the next run reverts
+it. The run refuses to explain that revert with a commit older than the edit.
+The author either carries the edit into the file, or reverts it on purpose
+with a reason.
+
+This is a first slice of "requirements as code". Definitions live beside the
+code, and readings stay in the platform.
+
+===== 2. A probe is a provenance-only binding, and `id@version` is the yardstick
+
+Each measured node binds to a probe through a query language, `probe`, that no
+source runs. The query is a stable identifier, `<probe-id>@<version>`, never
+prose. Changing how a probe measures means bumping its version with a reason.
+By ADR 0002's rule, the node then reads unknown until a reading arrives under
+the new method, and history is never re-judged.
+
+===== 3. The measurement contract
+
+* *One instant per run*, so a run is a coherent snapshot.
+* *Provenance names the commit*, and whether the tree had uncommitted changes.
+* *Committed code only* by default. On a dirty tree the run measures but
+  writes nothing.
+* *Not measured is not a value.* A probe that cannot measure records nothing,
+  and the node goes stale. A failed check is a value: 0.
+* *Fixed workloads and repeatable timings.* Timings belong to one machine, and
+  are compared only within it.
+* *Where a claim is about behaviour, the probe exercises the code path that
+  enforces it*, not just a helper's test.
+
+===== 4. Its own log, its own port, the same server
+
+The dogfood universe has its own log and its own port, served by the same
+server with no simulator. An empty log is seeded only by an explicit choice,
+so pointing the server at the dogfood log never plants the demo.
+
+==== Consequences
+
+* The first run was not green, and was not meant to be. It found a contract
+  the store did not enforce, dependency advisories and an oversized module,
+  none of which the tests had noticed. `docs/dogfood.md` records them.
+* The probe registry is a second vocabulary to keep in step with the model. A
+  test holds the two one to one.
+* Each run adds a handful of readings, which is negligible next to the
+  simulator.
+
+Not decided here: committing the dogfood log, backfilling past commits, and
+whether a breach should fail the shell.
+
+==== Revisit when
+
+* the dogfood runs in CI, or on more than one machine;
+* a second repository wants the same setup, so the model format becomes a
+  product feature rather than a file in this repository.

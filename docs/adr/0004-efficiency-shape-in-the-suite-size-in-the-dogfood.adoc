@@ -1,0 +1,75 @@
+[[adr-0004]]
+=== ADR 0004 — Efficiency is tested twice: its shape in the suite, its size in the dogfood
+
+Date:: 2026-11-04
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-fast>>
+
+[.triggers]
+baseline:: 2026-11-04
+on time.elapsed:: every P6M
+
+==== Context
+
+Projecting the whole log for each request is linear by design
+(<<adr-0001,ADR 0001>>). The dogfood timed the view, but several costs went
+unmeasured: the write path, a restart, memory, the size of each answer, and,
+above all, how cost _scales_. Nothing would notice a second pass over the log
+per node, per day or per reading.
+
+Two constraints shape the answer:
+
+* *Timings belong to a machine* (<<adr-0003,ADR 0003>>). In the suite a timing
+  budget is either flaky or too loose to catch anything.
+* *A probe's version pins its method, not its workload.* An edit to the demo
+  changes every timing, and nothing said so.
+
+==== Decision
+
+===== 1. The suite pins the shape, without a clock
+
+The suite counts and compares, and never times. It checks that:
+
+* reads per stored event stay the same with ten times the nodes, more ribbon
+  days or bigger batches;
+* the universe answer keeps its size as readings grow;
+* a batch at the documented limit is accepted whole, and one more is refused.
+
+The property is that the count does not change, whatever the constant. Another
+pass over the whole log is allowed. A pass per node, per day or per reading
+fails.
+
+===== 2. The dogfood measures the size, after a week of live signals
+
+Dogfood probes time a write, a restart, the heap held and the size of the
+answer. They run against a fixed workload: a week of the simulator's signals.
+Every target sits well above its baseline, so a regression shows and noise
+does not.
+
+===== 3. The workload is part of the yardstick
+
+A timing probe declares the fixed workload it measures. The suite pins the
+size of each workload by its event counts, not by a hash. A reworded demo
+keeps timings comparable, but a new node, signal or cadence changes the counts.
+That fails the suite and names every probe to bump.
+
+==== Consequences
+
+* An edit to the demo that changes the workload's size means bumping every
+  timing probe. That is the point: readings before and after are different
+  quantities.
+* Jitter, energy, cost and distribution are left out on purpose. They need a
+  load test, a meter or business data, or contradict the single-process design.
+* Each open console costs a full projection every 5 s, whether or not anything
+  changed (<<td-projection,§11>>).
+
+==== Revisit when
+
+* snapshots or incremental projection land, since the pass counts then pin a
+  different shape;
+* the dogfood runs in CI, where heap and timings need their own environment
+  name.

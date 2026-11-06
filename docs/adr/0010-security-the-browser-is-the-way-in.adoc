@@ -1,0 +1,100 @@
+[[adr-0010]]
+=== ADR 0010 — Security: the operator's browser is the way in, and nothing secret comes out
+
+Date:: 2026-11-05
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-safe>>
+
+[.triggers]
+baseline:: 2026-11-05
+on time.elapsed:: every P6M
+
+==== Context
+
+Commands are unauthenticated. <<adr-0002,ADR 0002>> made the server listen
+only on loopback when sources are configured, assuming that only the operator
+can reach a loopback server. That assumption is false. The operator's own
+browser reaches it, and so does every page the operator opens:
+
+* *DNS rebinding* points a name the attacker controls at 127.0.0.1, so the
+  page gets the server's own origin and can read and write;
+* *cross-site writes* can be sent by any page, even though it cannot read the
+  answers.
+
+So the browser is the way in. A review reproduced each of these against a
+running server:
+
+* any Host was answered;
+* writes from other origins were refused only by accident;
+* there were no security headers;
+* the ingest token guarded one route instead of guarding readings;
+* one oversized request could stall the server;
+* dependencies had known high advisories;
+* a refusal left no trace.
+
+==== Decision
+
+===== 1. A web page cannot act through the API
+
+Every request passes one guard, before its body is read:
+
+* *It answers only to names that no one else's DNS can point here*: IP
+  addresses, `localhost`, and names the operator lists. Any other Host gets
+  a 403.
+* *A write from another origin is refused.* The console's own writes carry its
+  origin. Clients such as curl and CI send none.
+* *Every answer carries the security headers.* The content policy allows only
+  the console's own files, with no inline script and no `eval`.
+
+===== 2. A reading needs the ingest token, by any route
+
+When an ingest token is set, every route that records a reading needs it. The
+token guards readings, not the model. Guarding the model is the identity
+question, still open. Callers may not sign as the server's own writers, and
+the token is compared in constant time.
+
+===== 3. A refusal leaves a trace
+
+Each refusal is logged under the request id, saying what was refused and from
+where, and never including the credentials offered.
+
+===== 4. Dependencies without known high advisories
+
+The packages behind the advisories were upgraded across majors, and the
+suites passed unchanged.
+
+===== 5. Nothing secret comes out
+
+A canary test has an upstream echo the server's token back in every way it
+can. The token appears in no event, answer or log line. A dogfood probe reads
+every line ever added in the repository's history, and counts the lines shaped
+like a credential. It reports where, never the value.
+
+==== Consequences
+
+* A request to a name the server does not answer to gets a 403, and the
+  operator lists any extra names in a setting.
+* With an ingest token set, the console cannot record a reading by hand.
+* No stored event and no past status changed.
+* The open risks: there is no identity, reads are open, the server speaks
+  plain HTTP, and nothing limits the request rate (<<risk-identity,§11>>,
+  <<risk-open-reads,§11>>). The log cannot forget personal data
+  (<<risk-no-erasure,§11>>).
+
+Not decided here: tamper evidence for the log, rate limiting, and TLS in the
+server itself.
+
+==== Revisit when
+
+* a route, port or socket is added: it passes the guard, and a route that
+  records a reading checks the token;
+* the console needs something from elsewhere: change the policy deliberately,
+  not to quiet a test;
+* a body parser is added;
+* identity lands: the ingest token becomes one credential among several;
+* a secret is found in history: rotate it first, because rewriting history
+  does not reach existing clones.

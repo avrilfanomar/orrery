@@ -1,0 +1,93 @@
+[[adr-0013]]
+=== ADR 0013 — Modules bring what core does not know: query languages and source kinds
+
+Date:: 2026-11-05
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+addresses:: <<need-kpis>>
+orr:upholds:: <<qg-flex>>, <<qg-clear>>
+orr:amends:: <<adr-0002>>, <<adr-0005>>
+
+[.triggers]
+baseline:: 2026-11-05
+on time.elapsed:: every P6M
+
+==== Context
+
+<<adr-0002,ADR 0002>> drew a seam between the collector and a source adapter,
+and named "a second source kind or query language is needed" as a reason to
+revisit it. The seam held for the collector, but everything around it still
+knew Prometheus by name. Core held closed lists of kinds and languages that
+the event schema used. The server checked one schema for every source. The
+console built Prometheus and Grafana links itself.
+
+So adding a second system would have meant editing core, its event schema, the
+server's configuration and the console, all in step.
+
+==== Decision
+
+===== 1. Core names no kind and no language
+
+A binding's language is an open, well-formed id, so every log written so far
+still loads. `decide` learns from the catalogue of configured sources which
+languages each one runs. A binding that names a source must use one of them.
+A binding with no source only documents where a number comes from, so it may
+use any language, even one no module provides.
+
+===== 2. A module implements the kit
+
+`@orrery/module-kit` is the contract. A module may bring query languages and
+source kinds. A source kind declares its own settings, an allowlisted public
+view of them, a range query, and optionally a link into the system's own UI.
+Only the range query is handed the token and the internal URL. Everything that
+feeds the public API gets the settings with credentials stripped, so a kind
+cannot leak a credential it was never given.
+
+===== 3. Prometheus is a module; the dogfood brings `probe`
+
+Prometheus, with Grafana as one of its routes, is a package that implements
+the kit. The dogfood's `probe` language comes from the dogfood itself, because
+it measures this repository and lives with it.
+
+===== 4. One registry
+
+The server installs modules in one file and nowhere else. The registry refuses
+two modules claiming one language or one kind, and a kind that runs a
+language nobody declares.
+
+===== 5. The shared settings and their checks stay with the server
+
+The fields every source has, and their checks, stay in the server so no kind
+can loosen them. These cover the URL rules, the token named by its
+environment variable, the timeout and the loopback guard. A kind declares only
+its own fields. What leaves the server about a source is two allowlists, never
+a copy of its configuration.
+
+===== 6. The console loads no module
+
+The console learns from `GET /api/sources` which languages are installed, how
+to label them, and where each live binding's drill-out link goes. It loads no
+module code. A language picker appears only when more than one language is
+on offer.
+
+==== Consequences
+
+* A new source kind is a package plus one registry line. Core, the event
+  schema and the console stay as they are.
+* The event schema no longer refuses an unknown language, so a hand-edited log
+  can name one. Nothing pulls it unless a source runs it.
+* `GET /api/sources` changed shape.
+* The seam rules now say which package may load which, and the dogfood counts
+  every import that breaks them.
+
+Not decided here: the demo and the dogfood as packages, tests that ship with a
+module, and loading modules from configuration.
+
+==== Revisit when
+
+* a second source kind or query language lands;
+* the demo or the dogfood has to run without the server package;
+* someone outside this repository writes a module, so the kit needs a version.

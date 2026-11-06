@@ -1,0 +1,107 @@
+[[adr-0009]]
+=== ADR 0009 — Safety: no one acts on a green it hasn't earned, and nothing it does destroys the record
+
+Date:: 2026-11-05
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-harmless>>
+orr:amends:: <<adr-0001>>
+
+[.triggers]
+baseline:: 2026-11-05
+on time.elapsed:: every P6M
+
+==== Context
+
+People make decisions on this console. Because it said green, a release ships,
+an incident is not escalated, a target is relaxed. So it can do harm through
+those decisions, and the harm starts in one of two places:
+
+* a status that isn't true, or a picture that is no longer current;
+* an operation that destroys the record a status was built from.
+
+A hazard review found several of each, and reproduced every one before fixing
+it. A critical breach could be outvoted under `quorum`. Some thresholds could
+never read breach. A rule with no inputs read as a pass. A console whose
+server had stopped still said "Live". `pnpm reset` threw the old log away. The
+simulator's made-up readings could enter a real universe.
+
+==== Decision
+
+===== 1. Every rule keeps the same promises
+
+Every rollup rule promises the same things:
+
+* no inputs reads unknown, not a pass;
+* a critical input in breach makes its parent a breach;
+* a green stays green however its unknown inputs turn out;
+* an input reading worse never makes the result read better;
+* any rule a caller can set is able to read breach. A command that sets a
+  threshold of 0 is refused. The stored-event schema still accepts one, so a
+  log that holds one keeps loading.
+
+*This amends <<adr-0001,ADR 0001>>, decision 3.* The critical veto now applies under
+every rule, not only under `weighted`. ADR 0001's text stays as it was written.
+The veto still looks at *direct* inputs only. Priority says how much a node
+matters to its parent, so a critical KPI under a `high` requirement reaches
+the goal through that requirement's status.
+
+Before the change, the old and the new rules were compared on every log at
+hand, at every event and every hour. No status in the past changed.
+
+===== 2. The console says when it has stopped being live
+
+The console warns when a refresh fails, or when one has gone unanswered for
+10 s. The warning names the time of the last answer, and the statuses fade so
+nobody reads them as current. The warning clears as soon as answers come back.
+A hidden tab pauses its refreshes and is not flagged.
+
+===== 3. Nothing it does destroys the record
+
+An operation that replaces a log keeps the one it replaced beside it. The
+store makes that copy, because only the store writes a log. It never writes
+over an earlier copy, and no moment exists without a log.
+
+===== 4. Made-up readings stay in the demo
+
+The simulator feeds a universe only when its top level is the demo's product.
+Anywhere else it says why and feeds nothing.
+
+===== 5. How it is held
+
+* A suite check runs every rule over every combination of up to four inputs,
+  and holds each promise of decision 1. A new rollup strategy joins that grid.
+* A dogfood probe, `false-green-mutants`, breaks the core in each way that
+  would show someone a green nobody earned. It counts the breaks that no test
+  catches.
+* The browser smoke test blocks the API and expects the not-live warning.
+
+==== Consequences
+
+* Under `quorum`, a critical input in breach now reads breach. A quorum that is
+  met while a critical input is unmeasured reads unknown.
+* No status in the past changed.
+* Each reset leaves a backup file, and nothing prunes them.
+* The not-live warning is held only by a browser test, because the console has
+  no unit tests (<<td-console-tests,§11>>).
+* Three hazards are left open: the server's clock (<<risk-server-clock,§11>>), a
+  query in the wrong unit (<<risk-unit-mismatch,§11>>), and a status turned green
+  by a change rather than by the system (<<risk-moved-yardstick,§11>>).
+
+Not decided here:
+
+* a *deep veto*, where a critical node anywhere below vetoes every ancestor. It
+  would override every priority set in between;
+* checking the server's clock against an outside source;
+* pruning the backups `reset` keeps.
+
+==== Revisit when
+
+* a rollup strategy is added or changed;
+* another operation replaces or removes a log, such as a compaction;
+* another source of made-up data appears;
+* the console gets unit tests;
+* there are owners to warn when a node goes stale.

@@ -87,14 +87,19 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 
 ## Why it is built this way
 
+The architecture is written up in [arc42](docs/architecture.adoc), with the
+[links and triggers extensions](https://github.com/avrilfanomar/extensions-for-arc42).
+Every decision there names the need or quality goal it serves, who owns it, and
+when it is next due for review. The decisions:
+
 | ADR | Decision |
 |---|---|
-| [0001](docs/adr/0001-one-graph-append-only-evolution.md) | One graph, append-only evolution: the four decisions everything rests on |
-| [0002](docs/adr/0002-metrics-bind-to-configured-sources.md) | Metrics bind to configured Prometheus and Grafana sources |
-| [0003](docs/adr/0003-the-repository-measures-itself.md) | The repository measures itself |
-| 0004–0012 | How each quality is tested: [efficiency](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md), [flexibility](docs/adr/0005-flexibility-is-tested-as-promises.md), [maintainability](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md), [operability](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.md), [reliability](docs/adr/0008-reliability-what-it-acknowledged-survives.md), [safety](docs/adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.md), [security](docs/adr/0010-security-the-browser-is-the-way-in.md), [usability](docs/adr/0011-usability-everyone-can-read-and-operate-it.md), and [suitability](docs/adr/0012-suitability-it-does-what-the-readme-says.md) (it does what this README says) |
-| [0013](docs/adr/0013-modules-bring-what-core-does-not-know.md) | Modules bring what core does not know: query languages and source kinds. Prometheus is one |
-| [0014](docs/adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.md) | Traceability: one step from a requirement to its metrics and its code, and back |
+| [0001](docs/adr/0001-one-graph-append-only-evolution.adoc) | One graph, append-only evolution: the four decisions everything rests on |
+| [0002](docs/adr/0002-metrics-bind-to-configured-sources.adoc) | Metrics bind to configured Prometheus and Grafana sources |
+| [0003](docs/adr/0003-the-repository-measures-itself.adoc) | The repository measures itself |
+| 0004–0012 | How each quality is tested: [efficiency](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.adoc), [flexibility](docs/adr/0005-flexibility-is-tested-as-promises.adoc), [maintainability](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.adoc), [operability](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.adoc), [reliability](docs/adr/0008-reliability-what-it-acknowledged-survives.adoc), [safety](docs/adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.adoc), [security](docs/adr/0010-security-the-browser-is-the-way-in.adoc), [usability](docs/adr/0011-usability-everyone-can-read-and-operate-it.adoc), and [suitability](docs/adr/0012-suitability-it-does-what-the-readme-says.adoc) (it does what this README says) |
+| [0013](docs/adr/0013-modules-bring-what-core-does-not-know.adoc) | Modules bring what core does not know: query languages and source kinds. Prometheus is one |
+| [0014](docs/adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.adoc) | Traceability: one step from a requirement to its metrics and its code, and back |
 
 ## The repository measures itself
 
@@ -197,7 +202,7 @@ ORRERY_SOURCES_FILE=sources.json pnpm dev
 <summary><b>What keeps a web page out</b></summary>
 
 Commands carry no credentials, so the operator's own browser is the way in for
-anyone else ([ADR 0010](docs/adr/0010-security-the-browser-is-the-way-in.md)).
+anyone else ([ADR 0010](docs/adr/0010-security-the-browser-is-the-way-in.adoc)).
 
 - **Names.** The server answers only to IP addresses, `localhost`, the name in
   `HOST` and the names in `ORRERY_ALLOWED_HOSTS`. Any other `Host` gets a 403, so a
@@ -291,7 +296,7 @@ apps/server           Fastify shell, append-only JSONL event store, demo seed, s
                       the installed modules (src/modules.ts), source settings and the pull collector (src/sources),
                       the dogfood model, probes and runner (src/dogfood), the tag scan (src/tags)
 apps/web              React + TanStack Query UI — outline, focus view, chart, dialogs, time travel
-docs/adr              architecture decisions
+docs/architecture.adoc the architecture, in arc42; docs/adr holds its decisions
 ```
 
 A system to pull from, or a language a binding is written in, is a module: a

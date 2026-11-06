@@ -27,14 +27,14 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
     id: 'orrery', kind: 'product', title: 'Orrery', priority: 'critical', owner: OWNER,
     description: 'This repository, measured by itself. Definitions live in apps/server/src/dogfood/model.ts; readings come from `pnpm dogfood` (ADR 0003).',
-    refs: [{ kind: 'code', target: { repo: 'orrery', path: 'apps/server/src/dogfood/model.ts' } }, { kind: 'code', target: { repo: 'orrery', path: 'apps/server/src/dogfood/probes.ts' } }, { kind: 'adr', target: { repo: 'orrery', path: 'docs/adr/0003-the-repository-measures-itself.md' } }],
+    refs: [{ kind: 'code', target: { repo: 'orrery', path: 'apps/server/src/dogfood/model.ts' } }, { kind: 'code', target: { repo: 'orrery', path: 'apps/server/src/dogfood/probes.ts' } }, { kind: 'adr', target: { repo: 'orrery', path: 'docs/adr/0003-the-repository-measures-itself.adoc' } }],
   },
 
   // --- the model tells the truth ------------------------------------------
   {
     id: 'g-truth', kind: 'goal', parentId: 'orrery', title: 'The model tells the truth', priority: 'critical', dimensions: ['reliable', 'suitable'], owner: OWNER,
     description: 'The four invariants every view rests on (CLAUDE.md 1–4, ADR 0001). If one breaks, every status above it is suspect.',
-    refs: [{ kind: 'adr', target: { repo: 'orrery', path: 'docs/adr/0001-one-graph-append-only-evolution.md' } }, { kind: 'doc', target: { repo: 'orrery', path: 'CLAUDE.md', symbol: 'Invariants' } }],
+    refs: [{ kind: 'adr', target: { repo: 'orrery', path: 'docs/adr/0001-one-graph-append-only-evolution.adoc' } }, { kind: 'doc', target: { repo: 'orrery', path: 'CLAUDE.md', symbol: 'Invariants' } }],
   },
   {
     id: 'c-log', kind: 'constraint', parentId: 'g-truth', title: 'The event log is the only state, and its contract holds', priority: 'critical', dimensions: ['reliable'],
@@ -143,7 +143,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
     id: 'r-modular', kind: 'requirement', parentId: 'g-clear', title: 'Dependencies point one way, and each piece of logic lives in one place', priority: 'medium', dimensions: ['maintainable'],
     description: 'Modularity and loose coupling. A cycle means no module in it can be understood, tested or replaced without the others; a copied block is a fix that has to be made twice.',
-    refs: [{ kind: 'adr', target: { repo: 'orrery', path: 'docs/adr/0013-modules-bring-what-core-does-not-know.md' } }],
+    refs: [{ kind: 'adr', target: { repo: 'orrery', path: 'docs/adr/0013-modules-bring-what-core-does-not-know.adoc' } }],
   },
   {
     id: 'k-cycles', kind: 'kpi', parentId: 'r-modular', title: 'Import cycles among source modules', priority: 'medium', dimensions: ['maintainable'], measure: zero('cycles'), probe: 'import-cycles',
@@ -156,7 +156,7 @@ export const DOGFOOD_MODEL: readonly ModelNode[] = [
   {
     id: 'r-traceable', kind: 'requirement', parentId: 'g-clear', title: 'Every claim leads to the code behind it, and the code back to its claims', priority: 'medium', dimensions: ['maintainable', 'suitable'],
     description: 'Traceability (ADR 0014): a node names the files, tests and decisions behind it, and a tag in the code names the node it serves. Both directions only help while they point at something.',
-    refs: [{ kind: 'adr', target: { repo: 'orrery', path: 'docs/adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.md' } }, { kind: 'code', target: { repo: 'orrery', path: 'packages/core/src/references.ts' } }, { kind: 'code', target: { repo: 'orrery', path: 'apps/server/src/tags/' } }],
+    refs: [{ kind: 'adr', target: { repo: 'orrery', path: 'docs/adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.adoc' } }, { kind: 'code', target: { repo: 'orrery', path: 'packages/core/src/references.ts' } }, { kind: 'code', target: { repo: 'orrery', path: 'apps/server/src/tags/' } }],
   },
   {
     id: 'k-refs-dangling', kind: 'kpi', parentId: 'r-traceable', title: 'References and tags that point at nothing', priority: 'medium', dimensions: ['maintainable'], measure: zero('references'), probe: 'references-dangling',

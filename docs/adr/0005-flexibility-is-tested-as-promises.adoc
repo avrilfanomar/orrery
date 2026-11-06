@@ -1,0 +1,70 @@
+[[adr-0005]]
+=== ADR 0005 — Flexibility is tested as promises the repository makes
+
+Date:: 2026-11-04
+
+Status:: Accepted (PoC). Amended by <<adr-0013,ADR 0013>>, which redraws the seams around module packages.
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-flex>>
+
+[.triggers]
+baseline:: 2026-11-04
+on time.elapsed:: every P6M
+
+==== Context
+
+Flexibility has no natural unit. "How portable is it?" has no number the way
+"how fast is it?" does. But the repository already made concrete promises
+about flexibility, and each could be checked. Several did not hold:
+
+* code said a frozen old log must keep loading, but the file did not exist;
+* the README's API table and its list of settings were incomplete;
+* an answer depended on the server's time zone, since a time given without a
+  zone was read in local time.
+
+==== Decision
+
+===== 1. The suite pins each promise as a contract
+
+* *Frozen history.* Logs written in each past shape are committed, pinned by
+  their hash, and must load and project as they did when they were written. A
+  new event type or format gets a new frozen file. An old one is never edited.
+* *Time zones.* The seeded demo and the API answers are byte-identical in
+  several zones and across clock changes. An instant without a zone is refused.
+* *Co-existence.* Two universes in one process stay independent, and the demo
+  and the dogfood default to different logs and ports.
+* *The documented API.* The README's API table and command list are exactly
+  what the server serves.
+
+===== 2. The dogfood counts what breaks a promise
+
+Static, machine-independent counts over the tracked files:
+
+* settings the code reads that the README does not document;
+* imports and network calls that cross a component boundary, where a component
+  stops being replaceable on its own;
+* colours outside the theme tokens.
+
+===== 3. The model gains a goal
+
+_It adapts, connects and outlasts its own versions_ rolls up worst-of. It sits
+beside the quorum goal _Changing it stays safe and cheap_ rather than under it,
+so adding children does not shift that goal's verdict.
+
+==== Consequences
+
+* An instant that crosses the API must name its zone. A time without one,
+  which used to be read in the server's local time, now gets a 400.
+* A new event type now needs a new frozen log that holds it.
+* Internationalization and installability are left out: the console is in
+  English only, and a frozen install needs the registry.
+
+==== Revisit when
+
+* the event format changes: add a frozen log;
+* a second source kind lands, so the seam rules must stop naming Prometheus
+  (done in ADR 0013);
+* the console gains unit tests, so the theme check can move into the suite;
+* internationalization becomes a requirement.

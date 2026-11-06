@@ -1,0 +1,88 @@
+[[adr-0008]]
+=== ADR 0008 — Reliability: what it acknowledged survives, and a fault stays where it happens
+
+Date:: 2026-11-05
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-rely>>, <<qg-truth>>
+
+[.triggers]
+baseline:: 2026-11-05
+on time.elapsed:: every P6M
+
+==== Context
+
+This is about what happens when something goes wrong: a crash, a full disk, a
+second writer, a failing pull, input nobody expected. Each problem below was
+reproduced before it was fixed.
+
+* *The store never applied the log contract.* It checked only the schema, so
+  it loaded logs with gaps and reordering. The dogfood had flagged this since
+  <<adr-0003,ADR 0003>>.
+* *A failed write was served anyway*, because events reached memory before the
+  disk. A write cut off partway left a fragment that the next write carried on
+  from.
+* *Seeding and reset were not atomic*, and reset deleted the old log first.
+* *Two writers on one log were prevented only by convention.*
+* *A failed pull stopped the server* through an unhandled rejection.
+* *An out-of-range UTC offset answered 500.*
+* *Nothing handled signals and nothing flushed*, so an acknowledged write
+  could be lost.
+
+==== Decision
+
+===== 1. The store keeps what it acknowledged
+
+* It holds every line to the contract, on load and before every write, so it
+  never writes a line it would refuse at its next start.
+* It writes, flushes to disk, then remembers. Only then is a request
+  acknowledged.
+* A failed write is cut back to the last acknowledged byte. If that also
+  fails, the store refuses further writes until a restart, and reads go on.
+* A new log is written beside the old one and renamed over it, so a crash
+  leaves one or the other, never part of one.
+* A writer holds `<log>.lock`. A second writer, whether a server, a reset or
+  the dogfood, is refused, and a lock left by a dead process is taken over.
+  Anything that only reads opens the log read-only.
+
+===== 2. Faults stay contained
+
+* A pull that fails inside the server fails its own binding, never the process.
+  Background work never lets a promise reject unhandled.
+* Hostile input gets a refusal with a reason, never a 500.
+* SIGINT and SIGTERM let requests in flight finish, stop the collector,
+  release the log and exit cleanly.
+
+===== 3. How it is held
+
+The suite checks the store against broken logs and a log cut at every byte,
+a real server under a file-size limit, the lock, contained faults, and clean
+stops and restarts. Dogfood probes kill a server mid-write and count
+acknowledged readings lost, and run the suites in a shuffled order and count
+tests that fail only then.
+
+==== Consequences
+
+* A log that breaks the contract now stops the server at start, naming the
+  line. Every log at hand passed.
+* Each write costs a flush.
+* A webhook batch is all-or-nothing only up to a crash
+  (<<td-batch-atomicity,§11>>), and the lock has limits
+  (<<risk-lock,§11>>).
+* No test can cut the power, so the flush is held only by the order of
+  operations a process can observe.
+
+Not decided here: backups, replication and an availability target, or
+retrying a failed pull before its next tick.
+
+==== Revisit when
+
+* the log moves to a database, where transactions replace the lock, the
+  truncation and the rename;
+* more than one machine writes: replace the pid lock with a lease the storage
+  enforces;
+* a command writes more than one event: decide on a commit marker first;
+* a new place writes the log.

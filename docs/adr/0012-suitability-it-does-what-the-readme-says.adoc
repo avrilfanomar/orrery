@@ -1,0 +1,62 @@
+[[adr-0012]]
+=== ADR 0012 — Suitability: it does what the README says, and a test would notice if it stopped
+
+Date:: 2026-11-05
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-fit>>
+
+[.triggers]
+baseline:: 2026-11-05
+on time.elapsed:: every P6M
+
+==== Context
+
+The product states its claims in one place: the README's _The idea_ table.
+<<adr-0009,ADR 0009>> asked whether the tests would notice a false green.
+Nothing asked the same of the other claims: a wrong answer that is not a
+green, or a promise quietly dropped.
+
+The maintainer wrote deliberate breaks of written claims against the core.
+Examples: a ribbon that ends a day early, a reason that quotes the wrong
+threshold, a past view that shows nodes created later. Several got past every
+test. The refinement backlog and the breadcrumb were computed in the console,
+which has no unit tests, so nothing would have noticed either stop being right.
+
+==== Decision
+
+===== 1. Every need in _The idea_ has breaks the core's tests must catch
+
+A list of claim breaks names, for each one, the need it breaks and what a
+person would be shown if it shipped. A dogfood probe applies each break to a
+copy of the core and counts those that no test catches. A break is kept only
+when it breaks something written down: the README, a decision, or a doc
+comment the console shows.
+
+The suite keeps the list honest. Every break still applies to the code
+exactly once. The README's rows are exactly the list's needs, and every need
+has at least one break.
+
+===== 2. What the console shows is decided in core
+
+The backlog, the breadcrumb, the signal and the ribbon are computed in core,
+where they have tests, and the console only renders them. New tests pin each
+claim that a break got past.
+
+==== Consequences
+
+* No behaviour changed.
+* The breaks reach only the core. The console's own share of each claim is
+  checked by nothing but the smoke test (<<td-console-tests,§11>>).
+* A hand-written list shows only the claims someone thought to break. It is
+  not a mutation score.
+
+==== Revisit when
+
+* a row is added to _The idea_: add its need and at least one break that
+  leaves it unmet;
+* the code a break quotes changes: rewrite the break, and bump the probe;
+* a claim's logic moves into core: give it a break.

@@ -1,0 +1,236 @@
+= Orrery architecture
+:toc: macro
+:toclevels: 2
+
+The architecture of Orrery, in the https://arc42.org[arc42] template, with the
+https://github.com/avrilfanomar/extensions-for-arc42[links and triggers extensions]
+so that every decision names what it serves, who owns it and when it is due
+for another look. The decisions themselves live one per file in
+link:adr/[`docs/adr`] and are included in §9.
+
+Sections 3 to 8, 10 and 12 are left out. The README covers the context, the
+layout and the runtime story. The dogfood model
+(`apps/server/src/dogfood/model.ts`) states every quality requirement as a
+measured node, so it is the record of §10.
+
+toc::[]
+
+[[section-introduction-and-goals]]
+== 1. Introduction and goals
+
+Extensions used: links v0.1.0, triggers v0.1.0
+
+[.vocabulary]
+|===
+|Type |Name |Prefix |From |To |Description
+
+|link
+|orr:upholds
+|
+|decision
+|quality-goal
+|The decision is how the system keeps the quality goal. The dogfood model places the measures it introduced under that goal.
+
+|link
+|orr:amends
+|
+|decision
+|decision
+|The decision changes part of the target decision. The rest of the target still stands, and its text is never rewritten.
+|===
+
+Orrery holds requirements, constraints and business and quality KPIs as one
+living, observable graph. It is a proof of concept.
+
+=== 1.1 Requirements overview
+
+The needs it answers. How the PoC answers each is in the README's
+link:../README.md#the-idea[_The idea_] table, which the suitability check
+(<<adr-0012>>) holds to the code.
+
+* [[need-model]]**Build and manage requirements & constraints**
+* [[need-kpis]]**Business + quality KPIs**
+* [[need-monitoring]]**High-level monitoring**
+* [[need-disclosure]]**Progressive disclosure**
+* [[need-refinement]]**Iterative refinement**
+* [[need-evolution]]**Dynamic evolution**
+* [[need-traceability]]**Traceability**
+
+=== 1.2 Quality goals
+
+The repository measures itself against these goals (<<adr-0003>>). Each one
+is a goal node in the dogfood model, where its requirements and measures sit
+beneath it.
+
+[options="header",cols="3,2,1"]
+|===
+|Goal |arc42 quality |Priority
+| [[qg-truth]]The model tells the truth | reliable, suitable | critical
+| [[qg-change]]Changing it stays safe and cheap | maintainable, flexible | high
+| [[qg-clear]]Its code stays easy to read, test and update | maintainable | medium
+| [[qg-fast]]The console stays fast and frugal at realistic scale | efficient | high
+| [[qg-flex]]It adapts, connects and outlasts its own versions | flexible | medium
+| [[qg-operate]]Whoever runs it can install, start, watch and recover it | operable | medium
+| [[qg-rely]]What it acknowledges survives, and a fault stays where it happens | reliable | high
+| [[qg-harmless]]No one acts on a green it hasn't earned, and nothing it does destroys the record | safe | high
+| [[qg-safe]]Running it exposes nothing it shouldn't | secure | high
+| [[qg-usable]]Everyone can read, operate and follow it end to end | usable | medium
+| [[qg-fit]]It does what the README says it does | suitable | high
+|===
+
+=== 1.3 Stakeholders
+
+[options="header",cols="1,1,3"]
+|===
+|Role/Name|Contact|Expectations
+| [[sh-maintainer]]Maintainer | the repository | Owns the model, the decisions and the dogfood. Wants every claim the repository makes to be measured.
+| [[sh-operator]]Operator | — | Installs, configures and runs a server. Wants it to refuse a bad setting at start, show when it is unhealthy, and never lose an acknowledged change.
+| [[sh-reader]]Console reader | — | Decides on releases, escalations and targets from what the console shows. Wants a status that is true and current, with a reason.
+| [[sh-integrator]]Integrator | — | Feeds readings from CI or a webhook, adds a source module, or tags code. Wants documented contracts that stay put.
+| [[sh-contributor]]Contributor | — | Changes the code, by hand or as a coding agent. Wants the invariants stated in one place and enforced by tests.
+|===
+
+[.links]
+|===
+|Source |owned-by
+
+|<<qg-truth>> |<<sh-maintainer>>
+|<<qg-change>> |<<sh-maintainer>>
+|<<qg-clear>> |<<sh-maintainer>>
+|<<qg-fast>> |<<sh-maintainer>>
+|<<qg-flex>> |<<sh-maintainer>>
+|<<qg-operate>> |<<sh-maintainer>>
+|<<qg-rely>> |<<sh-maintainer>>
+|<<qg-harmless>> |<<sh-maintainer>>
+|<<qg-safe>> |<<sh-maintainer>>
+|<<qg-usable>> |<<sh-maintainer>>
+|<<qg-fit>> |<<sh-maintainer>>
+|===
+
+[[section-architecture-constraints]]
+== 2. Architecture constraints
+
+The invariants. `CLAUDE.md` restates them for contributors, and the suites
+named there enforce them.
+
+* [[con-log-is-state]]**The event log is the only state.** A stored event is never changed. A correction is a new event, and every projection can be thrown away.
+* [[con-decide-gate]]**`decide` is the only gate.** Every rule that protects the model lives in one pure function, and the API, the seed and every importer go through it.
+* [[con-unknown-not-green]]**Unknown never rolls up as green.** No rule and no rollup strategy may turn missing evidence into a pass.
+* [[con-definition-in-force]]**A reading is judged against the definition in force when it was observed.** History is never re-judged by today's definition.
+* [[con-core-pure]]**The domain core is pure.** It uses no Node or browser API, so the server and the console run the same code.
+* [[con-core-no-integration]]**Core names no integration.** A query language, a source kind or a code host is a module, installed in one place.
+* [[con-one-process]]**One process, one local log.** The PoC is a single server writing a single JSONL file. There is no cluster, database or tenancy.
+
+[.links]
+|===
+|Source |owned-by
+
+|<<con-log-is-state>> |<<sh-maintainer>>
+|<<con-decide-gate>> |<<sh-maintainer>>
+|<<con-unknown-not-green>> |<<sh-maintainer>>
+|<<con-definition-in-force>> |<<sh-maintainer>>
+|<<con-core-pure>> |<<sh-maintainer>>
+|<<con-core-no-integration>> |<<sh-maintainer>>
+|<<con-one-process>> |<<sh-maintainer>>
+|===
+
+[[section-design-decisions]]
+== 9. Architecture decisions
+
+Each decision keeps its number for good, because code and probes cite it as
+"ADR 0002, decision 4". A later decision that changes an earlier one
+`orr:amends` it, and the earlier text stays as it was written.
+
+Every decision is due for a scheduled look six months after its date (the
+`time.elapsed` subscription). Its own _Revisit when_ list names the events
+that should bring that look forward.
+
+include::adr/0001-one-graph-append-only-evolution.adoc[]
+
+include::adr/0002-metrics-bind-to-configured-sources.adoc[]
+
+include::adr/0003-the-repository-measures-itself.adoc[]
+
+include::adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.adoc[]
+
+include::adr/0005-flexibility-is-tested-as-promises.adoc[]
+
+include::adr/0006-maintainability-structure-counted-diagnosis-pinned.adoc[]
+
+include::adr/0007-operability-what-whoever-runs-it-can-rely-on.adoc[]
+
+include::adr/0008-reliability-what-it-acknowledged-survives.adoc[]
+
+include::adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.adoc[]
+
+include::adr/0010-security-the-browser-is-the-way-in.adoc[]
+
+include::adr/0011-usability-everyone-can-read-and-operate-it.adoc[]
+
+include::adr/0012-suitability-it-does-what-the-readme-says.adoc[]
+
+include::adr/0013-modules-bring-what-core-does-not-know.adoc[]
+
+include::adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.adoc[]
+
+=== Revisit Triggers
+
+Nothing has fallen due yet. To find out what has, run the reference checker
+from the extensions repository:
+`arc42ext status docs/architecture.adoc`. To record a revisit, append the event
+and the revisit it opens to these tables.
+
+==== Events
+
+[.triggers-events]
+|===
+|ID |Date |Type |Subject |Payload |Published by
+|===
+
+==== Revisits
+
+[.triggers-revisits]
+|===
+|ID |Event |Subscriber |Scope |Responsible |Opened |Due |Outcome |Closed |Rationale
+|===
+
+[[section-technical-risks]]
+== 11. Risks and technical debt
+
+Known and accepted for a PoC. Each one leads to the decision that took it on.
+
+=== Risks
+
+* [[risk-identity]]**No identity.** Anyone who can reach the API can change the model. Authors name themselves, and a request without one is signed "you", so the audit trail is only as good as the header and nothing is non-repudiable. The ingest token guards readings only.
+* [[risk-open-reads]]**Reads are open, and the server speaks plain HTTP.** Anyone who can reach it reads the whole universe, binding queries included. Nothing limits the request rate. With remote access allowed, the query oracle is back for that network, by design.
+* [[risk-no-erasure]]**The log cannot forget.** An append-only log can never erase a name or a typed value. Removable personal data would need encryption per subject, or a log that keeps references instead of values.
+* [[risk-server-clock]]**Staleness trusts the server's clock.** A clock that runs behind makes stale readings look fresh. A clock that runs ahead errs safe.
+* [[risk-unit-mismatch]]**A query in the wrong unit reads in that unit.** A ratio bound to a percentage target reads a hundred times too good, and nothing can check that in general.
+* [[risk-moved-yardstick]]**Moving the yardstick can turn a status green.** Relaxing a target or deprecating a node in breach needs a reason and shows in the change feed. Nothing marks that the change, not the system, made it green.
+* [[risk-lock]]**One writer per log rests on a pid lock.** Taking over a stale lock can race, a reused pid can make a dead writer look alive, and the lock means nothing across machines or on a network file system.
+
+=== Technical debt
+
+* [[td-projection]]**Every request re-projects the whole log.** That holds for thousands of events, not millions of readings. Each open console also costs a full projection every 5 s, changed or not.
+* [[td-batch-atomicity]]**A webhook batch is not atomic across a crash.** A kill partway through can leave part of a batch that was never acknowledged. Closing it needs a commit marker, which is a new event format.
+* [[td-console-tests]]**The console has no unit tests.** Its share of each README claim (drill-down, one level below the focus) and the not-live warning are held only by the browser smoke test.
+* [[td-a11y]]**Accessibility is checked by machine only.** Nobody has used the console with a screen reader, by keyboard alone or with magnification. The outline has no arrow keys, and the chart has no text form.
+* [[td-observability]]**No access logs, metrics endpoint or readiness check.** The server logs warnings and errors only, and exposes nothing for Prometheus to scrape.
+
+[.links]
+|===
+|Source |owned-by |relates-to
+
+|<<risk-identity>> |<<sh-maintainer>> |<<adr-0010>>
+|<<risk-open-reads>> |<<sh-operator>> |<<adr-0002>>, <<adr-0010>>
+|<<risk-no-erasure>> |<<sh-maintainer>> |<<adr-0001>>, <<adr-0010>>
+|<<risk-server-clock>> |<<sh-operator>> |<<adr-0009>>
+|<<risk-unit-mismatch>> |<<sh-maintainer>> |<<adr-0002>>
+|<<risk-moved-yardstick>> |<<sh-maintainer>> |<<adr-0009>>
+|<<risk-lock>> |<<sh-operator>> |<<adr-0008>>
+|<<td-projection>> |<<sh-maintainer>> |<<adr-0001>>, <<adr-0004>>
+|<<td-batch-atomicity>> |<<sh-maintainer>> |<<adr-0008>>
+|<<td-console-tests>> |<<sh-maintainer>> |<<adr-0009>>, <<adr-0012>>
+|<<td-a11y>> |<<sh-maintainer>> |<<adr-0011>>
+|<<td-observability>> |<<sh-operator>> |<<adr-0007>>
+|===

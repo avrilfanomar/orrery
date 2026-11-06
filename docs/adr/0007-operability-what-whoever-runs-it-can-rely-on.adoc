@@ -1,0 +1,79 @@
+[[adr-0007]]
+=== ADR 0007 — Operability: what whoever runs it can rely on
+
+Date:: 2026-11-04
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-operate>>
+
+[.triggers]
+baseline:: 2026-11-04
+on time.elapsed:: every P6M
+
+==== Context
+
+An operator meets the system when installing it, starting it, checking
+whether it is healthy, recovering it, and asking "who changed this?". Each
+problem below was reproduced before it was fixed.
+
+* *Settings* were read in many files, each parsing its own. An empty value was
+  misread in several dangerous ways: as "bind every interface", "a random
+  port" or "keep the log in memory". A malformed value failed with a message
+  that did not name the variable.
+* *A log cut short by a crash* was refused without naming the file or the line.
+* *An internal error* was logged without the request id, and the caller got
+  no id to quote.
+* *Health* reported only a count of events.
+* *Recovery, audit and licences* were never checked.
+
+==== Decision
+
+===== 1. One settings module, one rule
+
+One module reads every setting, and only entry points call it, never at import
+time.
+
+* *An empty value means unset*, as `${VAR:-default}` does in a shell.
+* *Anything else must parse*, or the process stops before it opens or serves
+  anything, naming the variable and the value.
+* *A relative path is read from where the command was typed*, not from the
+  package pnpm runs the command in.
+
+===== 2. Failures are visible from outside
+
+* A damaged log is refused naming the file and the line, with what to do. The
+  store does not delete the line itself, because removing data is the
+  operator's call.
+* An internal error is logged under the request id, and the 500 carries that
+  id and no detail.
+* Health reports when the last event landed, so an operator can tell whether
+  data is still arriving, not just whether the server is up.
+
+===== 3. How it is held
+
+The suite checks that startup refusals name what to fix, that failures are
+visible, that the server recovers after a restart or a source outage, that
+every change is on the record, and that every documented command exists.
+Dogfood probes clone the repository fresh and serve it, count settings read
+outside the settings module, and count shipped dependencies under a licence
+that is not approved.
+
+==== Consequences
+
+* Values that used to start the server now stop it, naming the variable.
+* The audit trail is only as good as the author header, because there is no
+  identity (<<risk-identity,§11>>).
+* There are no access logs, metrics endpoint or readiness check
+  (<<td-observability,§11>>).
+* DORA metrics and uptime are left out, because nothing here is deployed.
+
+==== Revisit when
+
+* the probes run on every merge: read change failure rate and time to restore
+  from the dogfood log;
+* identity exists: require authors;
+* a setting or an entry point is added: read it in the settings module;
+* the Node floor moves: move every place that states it together.

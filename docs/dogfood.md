@@ -1,7 +1,7 @@
 # The repository measures itself
 
 The platform's own requirements form a second universe, kept apart from the
-demo ([ADR 0003](adr/0003-the-repository-measures-itself.md)). Its definitions
+demo ([ADR 0003](adr/0003-the-repository-measures-itself.adoc)). Its definitions
 are code, in [`apps/server/src/dogfood/model.ts`](../apps/server/src/dogfood/model.ts).
 Its readings come from versioned probes in
 [`probes.ts`](../apps/server/src/dogfood/probes.ts).
@@ -55,35 +55,35 @@ keeps the top level from reading green until it is refined.
 Each quality has an ADR. Broadly, the suite pins *shape* (what must always
 hold, without a clock), and probes measure *size* on this machine.
 
-- **Efficiency is tested twice** ([ADR 0004](adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md)).
+- **Efficiency is tested twice** ([ADR 0004](adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.adoc)).
   The suite pins how cost scales (reads of the log per request, answer size,
   the batch limit) without a clock. The probes measure how big each cost is.
-- **Flexibility is tested as promises** ([ADR 0005](adr/0005-flexibility-is-tested-as-promises.md)).
+- **Flexibility is tested as promises** ([ADR 0005](adr/0005-flexibility-is-tested-as-promises.adoc)).
   The suite holds the repository to what it claims: old logs load, time zones
   don't matter, the README's API is the API. Static probes count undocumented
   settings, imports across component seams and colours outside the theme.
-- **Maintainability: structure is counted, diagnosis is pinned** ([ADR 0006](adr/0006-maintainability-structure-counted-diagnosis-pinned.md)).
+- **Maintainability: structure is counted, diagnosis is pinned** ([ADR 0006](adr/0006-maintainability-structure-counted-diagnosis-pinned.adoc)).
   The suite checks that every status leads to its cause and every refusal
   names what is wrong, that no answer depends on the system clock, and that
   every package declares and locks what it imports. Probes count functions
   over cognitive complexity 15, import cycles, copied blocks and clock reads
   outside the composition roots. They also measure the core's test coverage
   and how many dependencies are a major version behind.
-- **Operability: what whoever runs it can rely on** ([ADR 0007](adr/0007-operability-what-whoever-runs-it-can-rely-on.md)).
+- **Operability: what whoever runs it can rely on** ([ADR 0007](adr/0007-operability-what-whoever-runs-it-can-rely-on.adoc)).
   The suite checks that a bad setting or a damaged log stops the server at
   start and names what to fix, that health and internal errors leave a trail,
   that a restart or a source outage heals by itself, that every change says
   who, when and why, and that the docs name commands that exist. Probes
   install, build and serve a fresh clone, count settings read past their
   checks, and check the licences of what it ships.
-- **Reliability: what it acknowledged survives** ([ADR 0008](adr/0008-reliability-what-it-acknowledged-survives.md)).
+- **Reliability: what it acknowledged survives** ([ADR 0008](adr/0008-reliability-what-it-acknowledged-survives.adoc)).
   The suite checks that the store writes only what it would load, that a write
   the disk refuses changes nothing, that one process writes a log, that
   hostile input, a failing pull or a hanging source fails only itself, and
   that the server stops cleanly and starts again after a kill. Probes kill a
   real server in the middle of writes and count what it lost, and run the
   suite in a shuffled order.
-- **Safety: no one acts on a green it hasn't earned** ([ADR 0009](adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.md)).
+- **Safety: no one acts on a green it hasn't earned** ([ADR 0009](adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.adoc)).
   The suite checks every rollup rule over every set of up to four inputs. No
   inputs reads unknown. A green holds however its unknown inputs turn out. A
   worse input never reads better. A critical breach is a breach under every
@@ -92,7 +92,7 @@ hold, without a clock), and probes measure *size* on this machine.
   the demo. The browser smoke test blocks the API and expects the console to
   say it is not live. A probe breaks the core on purpose in fifteen ways that
   would show a false green, and counts the breaks no test catches.
-- **Security: the browser is the way in** ([ADR 0010](adr/0010-security-the-browser-is-the-way-in.md)).
+- **Security: the browser is the way in** ([ADR 0010](adr/0010-security-the-browser-is-the-way-in.adoc)).
   The suite checks that the server answers only to names nobody else's DNS can
   point at it, takes no write from another origin, and forbids framing and
   foreign code. It also checks that a reading needs the ingest token by either
@@ -101,12 +101,12 @@ hold, without a clock), and probes measure *size* on this machine.
   that an oversized request is refused at its limit. Probes count advisories
   in the dependencies and anything shaped like a credential in the whole git
   history.
-- **Usability: everyone can read and operate it** ([ADR 0011](adr/0011-usability-everyone-can-read-and-operate-it.md)).
+- **Usability: everyone can read and operate it** ([ADR 0011](adr/0011-usability-everyone-can-read-and-operate-it.adoc)).
   The suite checks that every text colour reads at 4.5:1 on every surface, in
   both schemes. A probe runs axe-core on eight views of the real console,
   light and dark, and checks focus rings and reflow at 320 px, counting the
   checks that fail.
-- **Suitability: it does what the README says** ([ADR 0012](adr/0012-suitability-it-does-what-the-readme-says.md)).
+- **Suitability: it does what the README says** ([ADR 0012](adr/0012-suitability-it-does-what-the-readme-says.adoc)).
   The suite checks that the backlog lists every gap and agrees with coverage,
   that the breadcrumb climbs every primary parent, that the ribbon ends at the
   moment shown, that the past holds nothing from after it, that reasons name
@@ -127,8 +127,8 @@ explain the revert. Either carry the edit into `model.ts`, or pass `--reason`.
 
 ## What the first run found
 
-The first run (2026-11-04) found three real problems, recorded in
-[ADR 0003 → Consequences](adr/0003-the-repository-measures-itself.md#consequences):
+The first run (2026-11-04) found three real problems, none of which the tests
+had noticed ([ADR 0003](adr/0003-the-repository-measures-itself.adoc)):
 
 - the store loads logs that break the contract (fixed in ADR 0008);
 - dependencies have critical advisories;
