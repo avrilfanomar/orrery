@@ -1,0 +1,8 @@
+[
+  {
+    "id": "larch-shop",
+    "label": "Larch shop",
+    "branch": "main",
+    "browse": "https://git.larch.example/larch/shop/src/branch/main/{path}"
+  }
+]

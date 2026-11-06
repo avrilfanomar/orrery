@@ -34,6 +34,8 @@ describe('frozen history', () => {
     'events.v1.jsonl': '8eb73ac6ae78c6aa3f867884db07ae4c396a96d7960506bd12f4a5bcae79ff7c',
     // As of ADR 0003: bindings with and without a source, dashboard links set and cleared, a binding removed, a pulled reading.
     'events.v2.jsonl': '1a9443c0d5ab658f2060f7fa3f0d43b15b942705c5acacf89fde9ce62cc97241',
+    // As of ADR 0014: references on create, a harvested one, one of a team's own kind, one removed with its label.
+    'events.v3.jsonl': '5fe2490da3ce691e87c536fa005fb514cc3fef17d6367dca73d851c5717908a6',
   };
   const lines = (f: string) => readFileSync(join(dir, f), 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l) as unknown);
 
@@ -101,6 +103,22 @@ describe('frozen history', () => {
       [520, 'warn', 2],
     ]);
     expect(events.find((e) => e.type === 'reading.recorded' && e.data.source === 'pull:prom')).toBeDefined();
+  });
+
+  it('reads v3 as it read when written: references kept, the removed one gone, none of them judged', () => {
+    const events = EventStore.open(join(dir, 'events.v3.jsonl'), { readOnly: true }).all();
+    const view = buildUniverseView(events, { now: '2026-11-06T10:00:00.000Z' });
+    expect(view.nodes.shop!.refs).toEqual([
+      { kind: 'code', target: { repo: 'shop', path: 'services/' } },
+      { kind: 'ticket', target: { url: 'https://tracker.example/browse/SHOP-1' }, label: 'SHOP-1' },
+    ]);
+    expect(view.nodes['k-errors']!.refs).toEqual([
+      { kind: 'test', target: { repo: 'shop', path: 'services/checkout/test/pay.test.ts' }, origin: 'tag' },
+      { kind: 'incident', target: { url: 'https://status.example/incidents/42' } },
+    ]);
+    expect(view.nodes['k-errors']!.evaluation.status).toBe('ok');
+    const feed = buildNodeDetail(events, 'k-errors', { now: '2026-11-06T10:00:00.000Z' })!.timeline.map((t) => t.summary);
+    expect(feed[0]).toBe('“Checkout errors” no longer references code shop:services/checkout/src/pay.ts › charge');
   });
 });
 

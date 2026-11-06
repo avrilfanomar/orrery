@@ -100,3 +100,47 @@ describe('history', () => {
     expect(h.get('b')).toEqual([null, 'unknown']);
   });
 });
+
+describe('references', () => {
+  const code_ = (path: string, extra: Record<string, unknown> = {}) => ({ kind: 'code', target: { repo: 'shop', path }, ...extra });
+
+  it('refuses what would break a node’s references, and only that', () => {
+    const log = tree();
+    expect(code(() => log.run({ type: 'node.reference', data: { id: 'nope', ref: code_('src/a.ts') } }))).toBe('not_found');
+    expect(code(() => log.run({ type: 'node.reference', data: { id: 'r', ref: code_('src/a.ts') } }))).toBe('accepted');
+    expect(code(() => log.run({ type: 'node.reference', data: { id: 'r', ref: code_('src/a.ts', { label: 'renamed' }) } }))).toBe('conflict');
+    expect(code(() => log.run({ type: 'node.unreference', data: { id: 'r', ref: code_('src/b.ts') } }))).toBe('conflict');
+    expect(code(() => log.run({ type: 'node.reference', data: { id: 'r', ref: { kind: 'ticket', target: { url: 'javascript:alert(1)' } } } }))).toBe('invalid');
+    expect(code(() => log.run({ type: 'node.create', data: { kind: 'goal', title: 'Twice', refs: [code_('x.ts'), code_('x.ts', { label: 'again' })] } }))).toBe('invalid');
+  });
+
+  it('keeps a harvested and a hand reference to one file apart, and removes one by its key whatever its label', () => {
+    const log = tree();
+    log.run({ type: 'node.reference', data: { id: 'r', ref: code_('src/a.ts', { label: 'Payments' }), reason: 'Where the charge happens' } });
+    log.run({ type: 'node.reference', data: { id: 'r', ref: code_('src/a.ts', { origin: 'tag' }) } });
+    expect(log.u.nodes.get('r')!.refs).toHaveLength(2);
+    const [removed] = log.run({ type: 'node.unreference', data: { id: 'r', ref: code_('src/a.ts') } });
+    // The event records what was held, label included.
+    expect(removed).toMatchObject({ type: 'node.unreferenced', data: { ref: { label: 'Payments' }, reason: null } });
+    expect(log.u.nodes.get('r')!.refs).toEqual([code_('src/a.ts', { origin: 'tag' })]);
+  });
+
+  it('accepts a reference on a deprecated node, and refuses the one past the limit', () => {
+    const log = tree();
+    log.run({ type: 'node.deprecate', data: { id: 'r', reason: 'Superseded' } });
+    for (let i = 0; i < 100; i++) log.run({ type: 'node.reference', data: { id: 'r', ref: code_(`src/f${i}.ts`) } });
+    expect(code(() => log.run({ type: 'node.reference', data: { id: 'r', ref: code_('src/one-more.ts') } }))).toBe('invalid');
+  });
+
+  it('writes a create without references as it was written before references existed, and tells the timeline what changed', () => {
+    const log = tree();
+    const charge = { kind: 'code', target: { repo: 'shop', path: 'src/pay.ts', symbol: 'charge' } };
+    expect('refs' in log.events[0]!.data).toBe(false);
+    log.run({ type: 'node.create', data: { id: 'k', kind: 'kpi', title: 'Errors', parentId: 'r', refs: [charge] } });
+    expect(log.u.nodes.get('k')!.refs).toEqual([charge]);
+    log.run({ type: 'node.reference', data: { id: 'k', ref: { kind: 'runbook', target: { url: 'https://wiki.example/runbooks/errors' } } } });
+    expect(log.u.timeline.at(-1)!.summary).toBe('“Errors” now references runbook https://wiki.example/runbooks/errors');
+    log.run({ type: 'node.unreference', data: { id: 'k', ref: charge, reason: 'Moved to the gateway' } });
+    expect(log.u.timeline.at(-1)).toMatchObject({ summary: '“Errors” no longer references code shop:src/pay.ts › charge', reason: 'Moved to the gateway' });
+  });
+});

@@ -1,6 +1,6 @@
 // The storage contract of the event log. One check serves both directions:
 // the store runs it before writing an event and again when loading the log,
-// so the server can never write a line it would later refuse.
+// so the server can never write a line it would later refuse. Tag: orrery:c-log
 //
 // The contract is strict on purpose (ADR 0001, decision 4): a log that breaks
 // it is refused, never repaired in place. Tightening a rule here can strand an

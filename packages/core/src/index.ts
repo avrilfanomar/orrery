@@ -8,3 +8,4 @@ export * from './decide.js';
 export * from './history.js';
 export * from './log.js';
 export * from './views.js';
+export * from './references.js';

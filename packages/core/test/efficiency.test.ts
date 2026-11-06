@@ -3,7 +3,7 @@
 // Each request re-projects the whole log by design (ADR 0001); what must not
 // happen is a second fold per node, per ribbon day or per reading.
 import { describe, expect, it } from 'vitest';
-import { buildChangeFeed, buildNodeDetail, buildUniverseView, type OrreryEvent } from '../src/index.js';
+import { buildChangeFeed, buildNodeDetail, buildUniverseView, referencedBy, type OrreryEvent } from '../src/index.js';
 import { makeLog, msLower } from './helpers.js';
 
 const START = '2026-01-01T00:00:00.000Z';
@@ -80,5 +80,33 @@ describe('answer size', () => {
     expect(h.events.length).toBeGreaterThan(7000);
     expect(detail.series!.length).toBeLessThanOrEqual(360);
     expect(buildChangeFeed(h.events, { now: h.now, limit: 60 }).length).toBeLessThanOrEqual(60);
+  });
+});
+
+describe('references cost what they weigh (ADR 0014)', () => {
+  /** A goal over `kpis` nodes, each holding `refs` references. */
+  const referenced = (kpis: number, refs: number) => {
+    const log = makeLog(START);
+    log.run({ type: 'node.create', data: { id: 'g', kind: 'goal', title: 'Goal' } });
+    for (let k = 0; k < kpis; k++) {
+      const list = Array.from({ length: refs }, (_, r) => ({ kind: 'code', target: { repo: 'shop', path: `src/k${String(k).padStart(3, '0')}/f${String(r).padStart(3, '0')}.ts` } }));
+      log.run({ type: 'node.create', data: { id: `k${k}`, kind: 'kpi', title: `KPI ${k}`, parentId: 'g', refs: list } });
+    }
+    return buildUniverseView(log.events, { now: log.now() });
+  };
+
+  it('grows the universe view by the same amount for every reference added', () => {
+    const size = (refs: number) => JSON.stringify(referenced(10, refs)).length;
+    const perRef = (size(20) - size(10)) / 100;
+    expect(perRef).toBeGreaterThan(0);
+    expect((size(40) - size(20)) / 200).toBeCloseTo(perRef, 5);
+  });
+
+  it('reads every node’s references once to answer what references a file, whatever it finds', () => {
+    const view = referenced(30, 20);
+    let reads = 0;
+    const counted = { ...view, nodes: Object.fromEntries(Object.entries(view.nodes).map(([id, n]) => [id, new Proxy(n, { get: (t, k, r) => (k === 'refs' && reads++, Reflect.get(t, k, r)) })])) };
+    expect(referencedBy(counted, { repo: 'shop', path: 'src/k007/' })).toHaveLength(20);
+    expect(reads).toBe(Object.keys(view.nodes).length);
   });
 });

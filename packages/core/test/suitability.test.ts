@@ -4,7 +4,7 @@
 // (CLAIM_MUTANTS in apps/server/src/dogfood/suitability.ts) and checks each
 // still turns a test red.
 import { describe, expect, it } from 'vitest';
-import { backlogBelow, breadcrumbTo, buildUniverseView, evaluateUniverse, readingSeries, signalPath } from '../src/index.js';
+import { backlogBelow, breadcrumbTo, ancestorDirectories, buildUniverseView, countsToward, describeTarget, evaluateUniverse, metricsBelow, readingSeries, referenceHref, referencedBy, referencesBelow, referencesOn, searchUniverse, signalPath, splitReferences, type UniverseView } from '../src/index.js';
 import { makeLog, msLower } from './helpers.js';
 
 const kpi = (id: string, parentId: string, staleAfterHours = 24) => ({ type: 'node.create' as const, data: { id, kind: 'kpi' as const, title: id, parentId, measure: msLower(500, 700, staleAfterHours) } });
@@ -127,5 +127,123 @@ describe('the breadcrumb climbs back to the top', () => {
     const view = buildUniverseView(log.events, { now: log.now() });
     expect(breadcrumbTo(view, 'k').map((n) => n.id)).toEqual(['p', 'g', 'r']);
     expect(breadcrumbTo(view, 'p')).toEqual([]);
+  });
+});
+
+/**
+ * A requirement whose metrics sit at every depth: one two levels down, one
+ * linked in from another goal, and one measured node with an unrefined child
+ * (its own measurement known, its rolled-up status not). References lead to a
+ * file, the directory above it, a ticket and a file elsewhere.
+ */
+function traceUniverse(): UniverseView {
+  const log = makeLog('2026-04-01T00:00:00.000Z');
+  const pay = { kind: 'code', target: { repo: 'shop', path: 'services/checkout/pay.ts', symbol: 'charge' } };
+  log.run({ type: 'node.create', data: { id: 'p', kind: 'product', title: 'Shop' } });
+  log.run({ type: 'node.create', data: { id: 'g', kind: 'goal', title: 'Customers buy', parentId: 'p', refs: [{ kind: 'ticket', target: { url: 'https://tracker.example/T-1' } }] } });
+  log.run({ type: 'node.create', data: { id: 'r', kind: 'requirement', title: 'Pay at checkout', parentId: 'g', refs: [{ kind: 'code', target: { repo: 'shop', path: 'services/checkout/' } }] } });
+  log.run({ type: 'node.create', data: { id: 's', kind: 'scenario', title: 'Card declined', parentId: 'r' } });
+  log.run({ type: 'node.create', data: { id: 'k1', kind: 'kpi', title: 'Checkout errors', parentId: 's', measure: msLower(500, 700), binding: { sourceId: null, language: 'promql', query: 'rate(http_requests_total[5m])' }, refs: [pay, { ...pay, origin: 'tag' }] } });
+  log.run({ type: 'reading.record', data: { nodeId: 'k1', value: 400 } });
+  log.run({ type: 'node.create', data: { id: 'kself', kind: 'kpi', title: 'Payment time', parentId: 'r', measure: msLower(500, 700) } });
+  log.run({ type: 'reading.record', data: { nodeId: 'kself', value: 450 } });
+  log.run({ type: 'node.create', data: { id: 'kself-stub', kind: 'scenario', title: 'Slow bank', parentId: 'kself' } });
+  log.run({ type: 'node.create', data: { id: 'dep', kind: 'kpi', title: 'Old metric', parentId: 'r', measure: msLower(500, 700) } });
+  log.run({ type: 'node.deprecate', data: { id: 'dep', reason: 'Superseded' } });
+  log.run({ type: 'node.create', data: { id: 'g2', kind: 'goal', title: 'Customers find', parentId: 'p' } });
+  log.run({ type: 'node.create', data: { id: 'k5', kind: 'kpi', title: 'Search latency', parentId: 'g2', links: ['r'], measure: msLower(500, 700), description: 'Slow search costs checkout too', refs: [{ kind: 'code', target: { repo: 'shop', path: 'services/search/find.ts' } }] } });
+  return buildUniverseView(log.events, { now: log.now() });
+}
+
+const ids = (nodes: { id: string }[]) => nodes.map((n) => n.id).sort();
+
+describe('every connection of a node is one step away', () => {
+  it('lists a requirement’s metrics at every depth, through links, without the deprecated', () => {
+    const view = traceUniverse();
+    expect(ids(metricsBelow(view, 'r'))).toEqual(['k1', 'k5', 'kself']);
+    expect(ids(metricsBelow(view, 'p'))).toEqual(['k1', 'k5', 'kself']);
+    expect(metricsBelow(view, 'k1')).toEqual([]);
+  });
+
+  it('agrees with coverage and the backlog on every node, judged on each node’s own measurement', () => {
+    for (const view of [traceUniverse(), gapsUniverse()]) {
+      for (const n of Object.values(view.nodes).filter((x) => x.lifecycle === 'active')) {
+        const known = (x: typeof n) => x.evaluation.measurement !== null && x.evaluation.measurement.status !== 'unknown';
+        const metrics = metricsBelow(view, n.id);
+        expect(metrics.filter(known).length + (known(n) ? 1 : 0), n.id).toBe(n.evaluation.coverage.measured);
+        const backlog = new Set(backlogBelow(view, n.id).map((x) => x.id));
+        for (const m of metrics.filter((x) => !known(x))) expect(backlog.has(m.id), `${n.id} → ${m.id}`).toBe(true);
+      }
+    }
+    // The case the promise is stated for: a known measurement under an unknown rollup.
+    const view = traceUniverse();
+    expect(view.nodes.kself!.evaluation.status).toBe('unknown');
+    expect(view.nodes.kself!.evaluation.measurement!.status).toBe('ok');
+  });
+
+  it('lists everything a metric counts toward, nearest first, through every parent and link', () => {
+    const view = traceUniverse();
+    expect(countsToward(view, 'k5').map((c) => [c.node.id, c.via, c.depth])).toEqual([
+      ['g2', 'parent', 1],
+      ['r', 'link', 1],
+      ['p', 'parent', 2],
+      ['g', 'parent', 2],
+    ]);
+    expect(countsToward(view, 'p')).toEqual([]);
+  });
+
+  it('leads from a file, a directory or a URL back to every node that references it', () => {
+    const view = traceUniverse();
+    const by = (target: Parameters<typeof referencedBy>[1]) => referencedBy(view, target).map((r) => [r.node.id, r.match, r.ref.origin ?? 'hand']);
+    expect(by({ repo: 'shop', path: 'services/checkout/pay.ts' })).toEqual([['k1', 'exact', 'hand'], ['k1', 'exact', 'tag'], ['r', 'directory', 'hand']]);
+    expect(by({ repo: 'shop', path: 'services/checkout/' })).toEqual([['r', 'exact', 'hand'], ['k1', 'file', 'hand'], ['k1', 'file', 'tag']]);
+    expect(by({ url: 'https://tracker.example/T-1' })).toEqual([['g', 'exact', 'hand']]);
+    expect(by({ repo: 'other', path: 'services/checkout/pay.ts' })).toEqual([]);
+  });
+
+  it('groups the references on and beneath a node by place, a harvested and a hand one as one row', () => {
+    const view = traceUniverse();
+    expect(referencesOn(view, 'k1')).toMatchObject([{ kinds: ['code'], tagged: true, byHand: true, holders: ['k1'] }]);
+    const below = referencesBelow(view, 'g').map((g) => [g.target, g.holders]);
+    expect(below).toEqual([
+      [{ repo: 'shop', path: 'services/checkout/' }, ['r']],
+      [{ repo: 'shop', path: 'services/checkout/pay.ts', symbol: 'charge' }, ['k1']],
+      [{ repo: 'shop', path: 'services/search/find.ts' }, ['k5']],
+    ]);
+  });
+
+  it('shows code and tests under Implementation and everything else under References, code winning a tie', () => {
+    const view = traceUniverse();
+    const { implementation, other } = splitReferences(referencesBelow(view, 'p'));
+    expect(implementation.map((g) => describeTarget(g.target))).toEqual(['shop:services/checkout/', 'shop:services/checkout/pay.ts › charge', 'shop:services/search/find.ts']);
+    expect(other.map((g) => describeTarget(g.target))).toEqual(['https://tracker.example/T-1']);
+    const both = { target: { repo: 'shop', path: 'README.md' }, kinds: ['doc', 'code'], label: null, tagged: false, byHand: true, holders: ['p'] };
+    expect(splitReferences([both]).implementation).toEqual([both]);
+  });
+
+  it('climbs a file page’s crumbs one directory at a time, never naming the page itself', () => {
+    expect(ancestorDirectories('services/checkout/src/pay.ts')).toEqual(['services/', 'services/checkout/', 'services/checkout/src/']);
+    expect(ancestorDirectories('services/checkout/')).toEqual(['services/']);
+    expect(ancestorDirectories('README.md')).toEqual([]);
+  });
+
+  it('finds a node by id, title, query or description, and a place by path, best first', () => {
+    const view = traceUniverse();
+    const find = (q: string) => searchUniverse(view, q).map((h) => (h.type === 'node' ? h.id : describeTarget(h.target).split(' › ')[0]!));
+    expect(find('k1')[0]).toBe('k1');
+    expect(find('checkout')).toEqual(['k1', 'r', 'shop:services/checkout/', 'shop:services/checkout/pay.ts', 'k5']);
+    expect(find('http_requests_total')).toEqual(['k1']);
+    expect(find('find.ts')).toEqual(['shop:services/search/find.ts']);
+    expect(find('  ')).toEqual([]);
+  });
+
+  it('builds a link out only to http(s), encoding every path segment', () => {
+    const repos = [{ id: 'shop', label: 'Shop', branch: 'main', browse: 'https://git.example/shop/blob/main/{path}' }];
+    expect(referenceHref({ repo: 'shop', path: 'src/a b/#1?.ts' }, repos)).toBe('https://git.example/shop/blob/main/src/a%20b/%231%3F.ts');
+    expect(referenceHref({ repo: 'shop', path: 'services/checkout/' }, repos)).toBe('https://git.example/shop/blob/main/services/checkout/');
+    expect(referenceHref({ repo: 'nowhere', path: 'a.ts' }, repos)).toBeNull();
+    expect(referenceHref({ repo: 'shop', path: 'a.ts' }, [{ ...repos[0]!, browse: 'javascript:alert(1)//{path}' }])).toBeNull();
+    expect(referenceHref({ url: 'javascript:alert(1)' }, repos)).toBeNull();
+    expect(referenceHref({ url: 'https://tracker.example/T-1' }, repos)).toBe('https://tracker.example/T-1');
   });
 });

@@ -1,6 +1,6 @@
 // The projected state: what the event log means at one moment in time.
 import type { Dimension, NodeKind, Priority } from './constants.js';
-import type { Binding, MeasureSpec, RollupRule, ScenarioSpec } from './schema.js';
+import type { Binding, MeasureSpec, Reference, RollupRule, ScenarioSpec } from './schema.js';
 
 /**
  * One version of a node's evaluable definition. Versions are never edited:
@@ -35,6 +35,8 @@ export interface NodeState {
   owner: string | null;
   /** Where a person looks at this node (a dashboard panel, say). Navigation, not meaning — so it is metadata, not definition. */
   dashboardUrl: string | null;
+  /** Pointers to places outside the graph: code, tests, documents, tickets (ADR 0014). Navigation, not meaning, and never evaluated. */
+  refs: Reference[];
   lifecycle: Lifecycle;
   createdAt: string;
   updatedAt: string;

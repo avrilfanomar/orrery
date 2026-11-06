@@ -30,8 +30,30 @@ const VIEWS = [
   { name: 'the record dialog', open: (p) => dialog(p, 'k-p95', 'Record reading') },
   { name: 'the revise dialog', open: (p) => dialog(p, 'k-p95', 'Revise definition') },
   { name: 'the change feed', open: (p) => p.goto(`${BASE}/`).then(() => p.getByRole('button', { name: /Changes/ }).click()).then(() => p.locator('.drawer .change-summary').first().waitFor()) },
+  { name: 'connections, opened', open: (p) => openConnections(p, 'k-5xx') },
+  { name: 'a file’s page', open: (p) => p.goto(`${BASE}/?repo=larch-shop&path=${encodeURIComponent('services/checkout/src/payments.ts')}`).then(() => p.locator('.referrers li').first().waitFor()) },
+  { name: 'jump to, open', open: (p) => p.goto(`${BASE}/`).then(() => p.getByRole('combobox', { name: /Jump to/ }).fill('checkout')).then(() => p.getByRole('option').first().waitFor()) },
+  { name: 'the reference dialog', open: (p) => dialog(p, 'k-5xx', '+ Reference') },
+  {
+    name: 'the remove-reference dialog',
+    open: (p) =>
+      p
+        .goto(`${BASE}/?focus=k-5xx`)
+        .then(() => p.locator('.conn summary', { hasText: 'References' }).click())
+        .then(() => p.getByRole('button', { name: /Remove the reference to .*checkout-5xx/ }).click())
+        .then(() => p.locator('dialog[open]').waitFor()),
+  },
   { name: 'a past day', open: (p) => p.goto(`${BASE}/?asOf=${encodeURIComponent(PAST)}`).then(() => p.locator('.past-banner').first().waitFor()) },
 ];
+
+async function openConnections(page, focus) {
+  await page.goto(`${BASE}/?focus=${focus}`);
+  await page.locator('.connections').waitFor();
+  for (const section of ['Counts toward', 'Metrics beneath', 'Implementation', 'References']) {
+    const summary = page.locator('.conn summary', { hasText: section });
+    if (await summary.count()) await summary.click();
+  }
+}
 
 async function dialog(page, focus, button) {
   await page.goto(`${BASE}/?focus=${focus}`);

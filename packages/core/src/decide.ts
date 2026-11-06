@@ -1,11 +1,13 @@
 // Commands in, events out. Every rule that protects the model's integrity
 // lives here, so the API, the seed and any future importer share one gate.
+// Tag: orrery:c-gate
 import { ZodError } from 'zod';
-import { PASS_FAIL_UNIT, PULL_SOURCE_PREFIX } from './constants.js';
+import { MAX_REFERENCES, PASS_FAIL_UNIT, PULL_SOURCE_PREFIX } from './constants.js';
 import { bindingSince, currentDefinition, contributesTo } from './evaluate.js';
 import { isCanonicalInstant } from './log.js';
 import type { NodeState, Universe } from './model.js';
-import { CommandSchema, type Binding, type Command, type MeasureSpec, type NewEvent } from './schema.js';
+import { describeTarget, refKey } from './references.js';
+import { CommandSchema, type Binding, type Command, type MeasureSpec, type NewEvent, type Reference } from './schema.js';
 
 export type DomainErrorCode = 'invalid' | 'not_found' | 'conflict';
 
@@ -131,6 +133,25 @@ function checkPulled(u: Universe, n: NodeState, source: string, observedAt: stri
   if (hasReading(u, n.id, source, observedAt)) throw new DomainError('conflict', `“${n.title}” already has a ${source} reading at ${observedAt}`);
 }
 
+/**
+ * Adding or removing a reference (ADR 0014). Neither needs a reason: a
+ * reference moves no status and no yardstick. A removal records the reference
+ * as it was held, label included, so the log says exactly what was removed.
+ */
+function decideReference(u: Universe, cmd: Extract<Command, { type: 'node.reference' | 'node.unreference' }>) {
+  const n = requireNode(u, cmd.data.id);
+  const key = refKey(cmd.data.ref);
+  const held = n.refs.find((r) => refKey(r) === key);
+  const data = (ref: Reference) => ({ id: n.id, ref, reason: cmd.data.reason || null });
+  if (cmd.type === 'node.unreference') {
+    if (!held) throw new DomainError('conflict', `“${n.title}” has no such reference to ${describeTarget(cmd.data.ref.target)}`);
+    return { type: 'node.unreferenced' as const, data: data(held) };
+  }
+  if (held) throw new DomainError('conflict', `“${n.title}” already references ${describeTarget(cmd.data.ref.target)}`);
+  if (n.refs.length >= MAX_REFERENCES) throw new DomainError('invalid', `“${n.title}” already has ${MAX_REFERENCES} references, the most a node may hold`);
+  return { type: 'node.referenced' as const, data: data(cmd.data.ref) };
+}
+
 export function decide(u: Universe, cmd: Command, ctx: DecideContext): NewEvent[] {
   const at = new Date(ctx.now).toISOString();
   const meta = { at, actor: ctx.actor };
@@ -147,8 +168,11 @@ export function decide(u: Universe, cmd: Command, ctx: DecideContext): NewEvent[
         if (t === d.parentId) throw new DomainError('invalid', 'A node cannot link to its own parent');
       }
       checkBinding(d.binding, d.measure, ctx.sources);
+      const { refs, ...rest } = d;
+      if (new Set(refs.map(refKey)).size !== refs.length) throw new DomainError('invalid', 'The same reference is listed twice');
       // A brand-new node has no contributors yet, so it cannot close a cycle.
-      return [{ ...meta, type: 'node.created', data: { ...d, id, links } }];
+      // No references stays no field, so a create looks as it did before ADR 0014.
+      return [{ ...meta, type: 'node.created', data: { ...rest, id, links, ...(refs.length ? { refs } : {}) } }];
     }
 
     case 'node.edit': {
@@ -227,6 +251,10 @@ export function decide(u: Universe, cmd: Command, ctx: DecideContext): NewEvent[
       if (n.lifecycle === 'active') throw new DomainError('conflict', `“${n.title}” is already active`);
       return [{ ...meta, type: 'node.reactivated', data: cmd.data }];
     }
+
+    case 'node.reference':
+    case 'node.unreference':
+      return [{ ...meta, ...decideReference(u, cmd) }];
 
     case 'reading.record': {
       const d = cmd.data;

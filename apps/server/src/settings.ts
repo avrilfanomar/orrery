@@ -83,6 +83,8 @@ export interface ServerSettings {
   seed: SeedKind;
   ingestToken: string | null;
   sourcesFile: string | null;
+  /** The repositories references lead into (ADR 0014). */
+  reposFile: string | null;
   allowRemote: boolean;
   /** Names besides loopback and IP addresses that a request may address the server by (ADR 0010). */
   allowedHosts: string[];
@@ -97,6 +99,7 @@ export function serverSettings(env: Env): ServerSettings {
     seed: seedKindFrom(env.ORRERY_SEED),
     ingestToken: given(env.ORRERY_INGEST_TOKEN) ?? null,
     sourcesFile: pathOf(env.ORRERY_SOURCES_FILE, env),
+    reposFile: pathOf(env.ORRERY_REPOS_FILE, env),
     allowRemote: flagOf('ORRERY_ALLOW_REMOTE', env.ORRERY_ALLOW_REMOTE),
     allowedHosts: hostNamesOf('ORRERY_ALLOWED_HOSTS', env.ORRERY_ALLOWED_HOSTS),
   };
@@ -116,6 +119,19 @@ export function simulatorSettings(env: Env): SimulatorSettings {
     tickMs: whole('ORRERY_SIM_TICK_MS', env.ORRERY_SIM_TICK_MS, 30_000, 1_000, 86_400_000),
     ingestToken: given(env.ORRERY_INGEST_TOKEN) ?? null,
   };
+}
+
+export interface TagSettings {
+  /** The server whose universe the scan reconciles. */
+  api: string;
+  /** Where the command was typed: the repository scanned unless `--root` says otherwise. */
+  cwd: string;
+}
+
+/** `pnpm tags` (ADR 0014): it talks to a running server, as the simulator does. */
+export function tagSettings(env: Env): TagSettings {
+  const { host, port } = listenOn(env);
+  return { api: urlOf('ORRERY_API', env.ORRERY_API, baseUrl(host, port)), cwd: resolve(given(env.INIT_CWD) ?? process.cwd()) };
 }
 
 export interface DogfoodSettings {

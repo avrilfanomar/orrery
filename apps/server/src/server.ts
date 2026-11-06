@@ -5,6 +5,7 @@ import { isIP } from 'node:net';
 import { constants } from 'node:os';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app.js';
+import { loadRepos } from './repos.js';
 import { seedEvents } from './seeds.js';
 import type { Env, ServerSettings } from './settings.js';
 import { Collector } from './sources/collector.js';
@@ -15,6 +16,7 @@ import { EventStore } from './store.js';
 export async function startServer(cfg: ServerSettings, env: Env = process.env): Promise<FastifyInstance> {
   const sources = loadSources(cfg.sourcesFile, env);
   assertSafeToServe(sources, cfg.host, cfg.allowRemote);
+  const repos = loadRepos(cfg.reposFile);
 
   const store = EventStore.open(cfg.dataFile);
   if (store.isEmpty) {
@@ -25,7 +27,7 @@ export async function startServer(cfg: ServerSettings, env: Env = process.env): 
   const collector = new Collector({ store, sources, log: (m) => console.warn(`collector: ${m}`) });
   // A server bound to a name answers to that name; a wildcard or an address adds none.
   const allowedHosts = isIP(cfg.host) ? cfg.allowedHosts : [...cfg.allowedHosts, cfg.host.toLowerCase()];
-  const app = await buildApp({ store, logger: true, ingestToken: cfg.ingestToken, allowedHosts, webDist: cfg.webDist, collector });
+  const app = await buildApp({ store, logger: true, ingestToken: cfg.ingestToken, allowedHosts, webDist: cfg.webDist, collector, repos });
   // Closing the app stops pulling and releases the log, so a clean stop leaves the next start nothing to clear (ADR 0008).
   app.addHook('onClose', async () => {
     collector.stop();

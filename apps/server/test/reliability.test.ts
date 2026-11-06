@@ -107,7 +107,8 @@ describe('the store keeps the log contract', () => {
     expect(EventStore.open(file, { readOnly: true }).all()).toHaveLength(21);
   });
 
-  it('loads what came before any cut a crash can leave, or names the cut line and says to delete it', () => {
+  // A load per byte of six events: seconds on a busy machine, so the 5 s default is too tight (it timed out under the full suite).
+  it('loads what came before any cut a crash can leave, or names the cut line and says to delete it', SPAWNS, () => {
     const lines = DEMO.slice(0, 6).map((e) => `${JSON.stringify(e)}\n`);
     const whole = Buffer.from(lines.join(''));
     const file = fresh('cut.jsonl');

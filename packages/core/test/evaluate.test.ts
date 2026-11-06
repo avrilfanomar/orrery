@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateUniverse, judge, project, readingSeries, rollup, signalPath } from '../src/index.js';
+import { backlogBelow, buildUniverseView, evaluateUniverse, judge, project, readingSeries, rollup, signalPath } from '../src/index.js';
 import { makeLog, msLower, pctHigher } from './helpers.js';
 
 describe('judge', () => {
@@ -172,5 +172,33 @@ describe('evolution', () => {
     expect(evaluateUniverse(log.u, log.now()).get('k')!.status).toBe('breach');
     const series = readingSeries(log.u, log.u.nodes.get('k')!, '2026-02-01T00:00:00.000Z', log.now());
     expect(series.map((p) => [p.s, p.version])).toEqual([['breach', 2]]);
+  });
+});
+
+describe('references are inert', () => {
+  it('leave every status, reason, coverage, ribbon and backlog exactly as they were', () => {
+    const build = (withRefs: boolean) => {
+      const log = makeLog('2026-04-01T00:00:00.000Z');
+      log.run({ type: 'node.create', data: { id: 'p', kind: 'product', title: 'P' } });
+      log.run({ type: 'node.create', data: { id: 'r', kind: 'requirement', title: 'R', parentId: 'p' } });
+      log.run({ type: 'node.create', data: { id: 'stub', kind: 'requirement', title: 'Stub', parentId: 'p' } });
+      log.run({ type: 'node.create', data: { id: 'k', kind: 'kpi', title: 'K', parentId: 'r', measure: msLower(500, 700) } });
+      for (let h = 0; h < 48; h += 6) {
+        log.advanceHours(6);
+        log.run({ type: 'reading.record', data: { nodeId: 'k', value: 300 + h * 10 } });
+        // A stub with code behind it is still a stub: implemented is not observed.
+        if (withRefs) for (const id of ['p', 'r', 'stub', 'k']) log.run({ type: 'node.reference', data: { id, ref: { kind: 'code', target: { repo: 'shop', path: `src/${id}-${h}.ts` } } } });
+      }
+      return buildUniverseView(log.events, { now: log.now() });
+    };
+    const plain = build(false);
+    const referenced = build(true);
+    for (const id of Object.keys(plain.nodes)) {
+      expect(referenced.nodes[id]!.evaluation, id).toEqual(plain.nodes[id]!.evaluation);
+      expect(referenced.nodes[id]!.ribbon, id).toEqual(plain.nodes[id]!.ribbon);
+      expect(backlogBelow(referenced, id).map((n) => n.id), id).toEqual(backlogBelow(plain, id).map((n) => n.id));
+    }
+    expect(referenced.nodes.stub!.evaluation.status).toBe('unknown');
+    expect(referenced.nodes.stub!.refs).toHaveLength(8);
   });
 });

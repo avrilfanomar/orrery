@@ -4,6 +4,7 @@
 // with a reason wherever the domain demands one, never a rewrite of the past.
 import {
   parseCommand,
+  refKey,
   type Binding,
   type CommandInput,
   type Dimension,
@@ -11,6 +12,7 @@ import {
   type MeasureSpec,
   type NodeKind,
   type Priority,
+  type Reference,
   type RollupRule,
   type ScenarioSpec,
   type UniverseView,
@@ -26,7 +28,12 @@ export interface ProbeSpec {
   since: string;
   /** How the number is made, for people. Rewording it is a plain edit. */
   method: string;
+  /** For a test-suite scenario: the test files and `describe` titles it judges. Each becomes a `test` reference (ADR 0014). */
+  selectors?: readonly { file: string; describe?: readonly string[] }[];
 }
+
+/** The repository id the dogfood's references lead into: this one. */
+export const DOGFOOD_REPO = 'orrery';
 
 /** The binding's query for a probe: an identifier, never prose, because comparability keys on the exact string. */
 export const probeQuery = (p: Pick<ProbeSpec, 'id' | 'version'>) => `${p.id}@${p.version}`;
@@ -43,6 +50,8 @@ export interface CurrentNode {
   dimensions: Dimension[];
   owner: string | null;
   dashboardUrl: string | null;
+  /** Absent on a view from before ADR 0014. */
+  refs?: readonly Reference[];
   lifecycle: Lifecycle;
   definition: { measure: MeasureSpec | null; rollup: RollupRule; scenario: ScenarioSpec | null; binding: Binding | null };
 }
@@ -78,12 +87,29 @@ export function describeWithMethod(description: string, probe: ProbeSpec | undef
   return `${description}${description ? '\n\n' : ''}How it is measured (${probeQuery(probe)}): ${probe.method}`;
 }
 
+/**
+ * A node's hand references: those `model.ts` declares, then one `test`
+ * reference per `describe` title its probe judges, generated the way its
+ * binding is, so the two can never disagree.
+ */
+export function modelReferences(node: ModelNode, probe: ProbeSpec | undefined): Reference[] {
+  const generated = (probe?.selectors ?? []).flatMap((sel) =>
+    sel.describe?.length
+      ? sel.describe.map((title): Reference => ({ kind: 'test', target: { repo: DOGFOOD_REPO, path: sel.file, symbol: title } }))
+      : [{ kind: 'test', target: { repo: DOGFOOD_REPO, path: sel.file } } satisfies Reference],
+  );
+  const out = new Map<string, Reference>();
+  for (const r of [...(node.refs ?? []), ...generated]) out.set(refKey(r as Reference), r as Reference);
+  return [...out.values()];
+}
+
 function desiredOf(node: ModelNode, probes: ReadonlyMap<string, ProbeSpec>): Desired {
   const { probe: probeId, ...rest } = node;
   const probe = probeId ? probes.get(probeId) : undefined;
   if (probeId && !probe) throw new Error(`model: “${node.id}” names probe “${probeId}”, which is not in the registry`);
   const binding = probe ? { sourceId: null, language: 'probe' as const, query: probeQuery(probe) } : null;
-  const cmd = parseCommand({ type: 'node.create', data: { ...rest, description: describeWithMethod(node.description ?? '', probe), binding } });
+  const refs = modelReferences(node, probe);
+  const cmd = parseCommand({ type: 'node.create', data: { ...rest, description: describeWithMethod(node.description ?? '', probe), binding, refs } });
   if (cmd.type !== 'node.create') throw new Error('unreachable');
   return { ...cmd.data, id: node.id };
 }
@@ -111,8 +137,8 @@ function creationOrder(missing: Desired[]): Desired[] {
 
 /**
  * The commands that bring the log in line with the model, in an order `decide`
- * accepts: reactivations, creations, edits, unlinks, moves, links,
- * redefinitions, priorities, deprecations. Pure; applying it is the caller's job.
+ * accepts: reactivations, creations, edits, unreferences, unlinks, moves,
+ * links, redefinitions, priorities, references, deprecations. Pure; applying it is the caller's job.
  */
 export function planSync(model: readonly ModelNode[], current: ReadonlyMap<string, CurrentNode>, probes: ReadonlyMap<string, ProbeSpec>): PlannedChange[] {
   const seen = new Set<string>();
@@ -127,11 +153,13 @@ export function planSync(model: readonly ModelNode[], current: ReadonlyMap<strin
     reactivate: [] as PlannedChange[],
     create: [] as PlannedChange[],
     edit: [] as PlannedChange[],
+    unreference: [] as PlannedChange[],
     unlink: [] as PlannedChange[],
     move: [] as PlannedChange[],
     link: [] as PlannedChange[],
     redefine: [] as PlannedChange[],
     reprioritize: [] as PlannedChange[],
+    reference: [] as PlannedChange[],
     deprecate: [] as PlannedChange[],
   };
   const change = (cmd: CommandInput, summary: string, needsReason = true, defaultReason: string | null = null): PlannedChange => ({ cmd, summary, needsReason, defaultReason });
@@ -169,6 +197,7 @@ export function planSync(model: readonly ModelNode[], current: ReadonlyMap<strin
         change({ type: 'node.redefine', data: { id: d.id, ...Object.fromEntries(fields.map((k) => [k, d[k]])), reason: '' } }, `redefine “${d.title}” (${fields.join(', ')})`, true, own),
       );
     }
+    planReferences(d, c, buckets);
     if (d.priority !== c.priority) buckets.reprioritize.push(change({ type: 'node.reprioritize', data: { id: d.id, priority: d.priority, reason: '' } }, `reprioritize “${d.title}” ${c.priority} → ${d.priority}`));
   }
 
@@ -178,6 +207,21 @@ export function planSync(model: readonly ModelNode[], current: ReadonlyMap<strin
 
   return Object.values(buckets).flat();
 }
+
+/**
+ * Hand references only: a reference harvested from a tag belongs to the tag
+ * scan (ADR 0014, decision 5), and `model.ts` never declares one, so treating
+ * it as drift would remove at every run what the harvest adds back.
+ */
+function planReferences(d: Desired, c: CurrentNode, buckets: Record<'reference' | 'unreference', PlannedChange[]>): void {
+  const have = new Map((c.refs ?? []).filter((r) => !r.origin).map((r) => [refKey(r), r]));
+  const want = new Map(d.refs.map((r) => [refKey(r), r]));
+  const change = (cmd: CommandInput, summary: string): PlannedChange => ({ cmd, summary, needsReason: false, defaultReason: null });
+  for (const [k, r] of have) if (!want.has(k)) buckets.unreference.push(change({ type: 'node.unreference', data: { id: d.id, ref: r } }, `unreference “${d.title}” from ${describeRef(r)}`));
+  for (const [k, r] of want) if (!have.has(k)) buckets.reference.push(change({ type: 'node.reference', data: { id: d.id, ref: r } }, `reference ${describeRef(r)} from “${d.title}”`));
+}
+
+const describeRef = (r: Reference) => ('url' in r.target ? r.target.url : `${r.target.path}${r.target.symbol ? ` › ${r.target.symbol}` : ''}`);
 
 export class ReasonRequired extends Error {
   constructor(

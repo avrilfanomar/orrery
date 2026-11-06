@@ -15,11 +15,14 @@ import {
   signalPath,
   type Binding,
   type Evaluation,
+  type ReferenceTarget,
+  type Repository,
   type UniverseView,
 } from '@orrery/core';
 import { useMemo } from 'react';
 import { api } from '../api.js';
 import type { Action } from './ActionDialog.js';
+import { Connections } from './Connections.js';
 import { Counts, Coverage, KindTag, PriorityTag, Ribbon, StatusBadge, StatusDot, ago, fmtDate, fmtDateTime } from './bits.js';
 import { NodeTile } from './NodeTile.js';
 import { Provenance, safeHref } from './Provenance.js';
@@ -31,6 +34,8 @@ interface Props {
   asOf: string | null;
   onFocus: (id: string) => void;
   onAction: (action: Action, extra?: string) => void;
+  repos: readonly Repository[];
+  onTarget: (target: ReferenceTarget) => void;
 }
 
 const bySeverity = (view: UniverseView) => (a: string, b: string) => {
@@ -60,7 +65,7 @@ function useSourceView(id: string, binding: Binding | null, live: boolean, event
   };
 }
 
-export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
+export function Focus({ view, id, asOf, onFocus, onAction, repos, onTarget }: Props) {
   const node = view.nodes[id]!;
   const ev = node.evaluation;
   const live = view.live;
@@ -214,6 +219,9 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
             <button type="button" className="btn" onClick={() => onAction('link')}>
               Link
             </button>
+            <button type="button" className="btn" onClick={() => onAction('reference')}>
+              + Reference
+            </button>
             {node.lifecycle === 'active' ? (
               <button type="button" className="btn btn-quiet" onClick={() => onAction('deprecate')}>
                 Deprecate
@@ -246,6 +254,8 @@ export function Focus({ view, id, asOf, onFocus, onAction }: Props) {
           })}
         </section>
       )}
+
+      <Connections view={view} id={id} repos={repos} onFocus={onFocus} onTarget={onTarget} onAction={onAction} />
 
       {(spec || scenario) && (
         <section className="panel">

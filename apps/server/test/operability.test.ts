@@ -15,7 +15,8 @@ import { repoRoot } from '../src/paths.js';
 import { generateDogfood } from '../src/seeds.js';
 import { freePort } from '../src/dogfood/harness.js';
 import { startServer } from '../src/server.js';
-import { dogfoodSettings, serverSettings, simulatorSettings, type Env } from '../src/settings.js';
+import { loadRepos, parseRepos } from '../src/repos.js';
+import { dogfoodSettings, serverSettings, simulatorSettings, tagSettings, type Env } from '../src/settings.js';
 import { Collector } from '../src/sources/collector.js';
 import { loadSources, parseSources } from '../src/sources/config.js';
 import { EventStore } from '../src/store.js';
@@ -42,12 +43,13 @@ function runEntry(file: string, env: Env): Promise<{ code: number | null; stderr
 }
 
 describe('startup refusals explain themselves', () => {
-  const READERS = { serverSettings, simulatorSettings, dogfoodSettings } as const;
+  const READERS = { serverSettings, simulatorSettings, dogfoodSettings, tagSettings } as const;
   /** Every setting each reader takes. A setting read without a row here fails the completeness test below. */
   const SETTINGS: Record<keyof typeof READERS, string[]> = {
-    serverSettings: ['ORRERY_DATA_FILE', 'ORRERY_WEB_DIST', 'HOST', 'PORT', 'ORRERY_SEED', 'ORRERY_INGEST_TOKEN', 'ORRERY_SOURCES_FILE', 'ORRERY_ALLOW_REMOTE', 'ORRERY_ALLOWED_HOSTS'],
+    serverSettings: ['ORRERY_DATA_FILE', 'ORRERY_WEB_DIST', 'HOST', 'PORT', 'ORRERY_SEED', 'ORRERY_INGEST_TOKEN', 'ORRERY_SOURCES_FILE', 'ORRERY_REPOS_FILE', 'ORRERY_ALLOW_REMOTE', 'ORRERY_ALLOWED_HOSTS'],
     simulatorSettings: ['HOST', 'PORT', 'ORRERY_API', 'ORRERY_SIM_TICK_MS', 'ORRERY_INGEST_TOKEN'],
     dogfoodSettings: ['ORRERY_DOGFOOD_FILE', 'ORRERY_DOGFOOD_PORT', 'ORRERY_DOGFOOD_URL', 'ORRERY_PROBE_ENV', 'NO_COLOR'],
+    tagSettings: ['HOST', 'PORT', 'ORRERY_API'],
   };
   const BAD: [keyof typeof READERS, string, string][] = [
     ['serverSettings', 'PORT', 'abc'],
@@ -66,6 +68,7 @@ describe('startup refusals explain themselves', () => {
     ['simulatorSettings', 'ORRERY_API', 'ftp://example.org'],
     ['dogfoodSettings', 'ORRERY_DOGFOOD_PORT', 'eleven'],
     ['dogfoodSettings', 'ORRERY_DOGFOOD_URL', 'not a url'],
+    ['tagSettings', 'ORRERY_API', 'localhost:4710'],
   ];
 
   it('covers every setting the settings module reads', () => {
@@ -84,6 +87,7 @@ describe('startup refusals explain themselves', () => {
     ['serverSettings', 'ORRERY_SEED', 'dogfood', 'seed', 'dogfood'],
     ['serverSettings', 'ORRERY_INGEST_TOKEN', 's3cret', 'ingestToken', 's3cret'],
     ['serverSettings', 'ORRERY_SOURCES_FILE', '/etc/orrery/sources.json', 'sourcesFile', '/etc/orrery/sources.json'],
+    ['serverSettings', 'ORRERY_REPOS_FILE', '/etc/orrery/repos.json', 'reposFile', '/etc/orrery/repos.json'],
     ['serverSettings', 'ORRERY_ALLOW_REMOTE', '1', 'allowRemote', true],
     ['serverSettings', 'ORRERY_ALLOW_REMOTE', '0', 'allowRemote', false],
     ['serverSettings', 'ORRERY_ALLOWED_HOSTS', 'Orrery.example.org, .internal', 'allowedHosts', ['orrery.example.org', '.internal']],
@@ -97,6 +101,9 @@ describe('startup refusals explain themselves', () => {
     ['dogfoodSettings', 'ORRERY_DOGFOOD_URL', 'http://orrery.internal:4711', 'url', 'http://orrery.internal:4711'],
     ['dogfoodSettings', 'ORRERY_PROBE_ENV', 'ci', 'probeEnv', 'ci'],
     ['dogfoodSettings', 'NO_COLOR', '1', 'colour', false],
+    ['tagSettings', 'HOST', '::1', 'api', 'http://[::1]:4710'],
+    ['tagSettings', 'PORT', '8080', 'api', 'http://127.0.0.1:8080'],
+    ['tagSettings', 'ORRERY_API', 'https://orrery.example.org/', 'api', 'https://orrery.example.org'],
   ];
 
   it('takes every valid setting it is given', () => {
@@ -128,6 +135,26 @@ describe('startup refusals explain themselves', () => {
     const sources = join(tmp, 'one-source.json');
     writeFileSync(sources, JSON.stringify([{ id: 'prom', kind: 'prometheus', url: 'http://prometheus.invalid:9090' }]));
     await expect(startServer(serverSettings({ ORRERY_DATA_FILE: dataFile, HOST: '0.0.0.0', ORRERY_SOURCES_FILE: sources, ORRERY_ALLOW_REMOTE: '0' }), {})).rejects.toThrow(/ORRERY_ALLOW_REMOTE=1/);
+  });
+
+  it('refuses a repositories file it cannot use, naming the file and what to fix (ADR 0014)', () => {
+    const browse = 'https://git.example/shop/blob/main/{path}';
+    expect(parseRepos([{ id: 'shop', browse }])).toEqual([{ id: 'shop', label: 'shop', branch: 'main', browse }]);
+    const bad: [unknown, RegExp][] = [
+      [[{ id: 'shop', browse: 'https://git.example/shop' }], /\{path\} exactly once/],
+      [[{ id: 'shop', browse: 'https://git.example/{path}/{path}' }], /\{path\} exactly once/],
+      [[{ id: 'shop', browse: 'https://git.example/{rev}/{path}' }], /no placeholder but/],
+      [[{ id: 'shop', browse: 'javascript:alert(1)//{path}' }], /http\(s\)/],
+      [[{ id: 'shop', browse: 'https://user:pw@git.example/{path}' }], /no credentials/],
+      [[{ id: 'Shop!', browse }], /Repository ids/],
+      [[{ id: 'shop', browse, token: 'x' }], /token/],
+      [[{ id: 'shop', browse }, { id: 'shop', browse }], /duplicate repository id/],
+    ];
+    for (const [raw, message] of bad) expect(() => parseRepos(raw, 'repos.json'), JSON.stringify(raw)).toThrow(message);
+    expect(() => loadRepos(join(tmp, 'missing.json'))).toThrow(/^ORRERY_REPOS_FILE: .* does not exist/);
+    const broken = join(tmp, 'broken-repos.json');
+    writeFileSync(broken, '[{');
+    expect(() => loadRepos(broken)).toThrow(/^ORRERY_REPOS_FILE: .* is not valid JSON/);
   });
 
   it.each(BAD)('%s refuses %s=%j, naming the variable and the value', (reader, name, value) => {

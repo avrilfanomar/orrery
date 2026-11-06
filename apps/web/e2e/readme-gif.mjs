@@ -83,15 +83,24 @@ async function signal() {
   await shot('<b>3 · …straight to the reading behind it.</b> Linked, it counts under checkout too.', 2.6);
 }
 
+async function trace() {
+  const implementation = page.locator('.conn summary', { hasText: 'Implementation' });
+  await implementation.scrollIntoViewIfNeeded();
+  await implementation.click();
+  await point(page.getByRole('button', { name: /services\/checkout\/src\/payments\.ts/ }), '<b>4 · Follow it into the code.</b> Its references lead to the files behind it…');
+  await page.getByRole('heading', { name: /Referenced by 2 nodes/ }).waitFor();
+  await shot('<b>4 · …and a file leads back</b> to every requirement it backs.', 2.8);
+}
+
 async function yardstick() {
   await open('k-p95');
   await page.locator('.panel svg').first().scrollIntoViewIfNeeded();
-  await shot('<b>4 · Targets evolve, with a reason.</b> Older readings keep the old yardstick.', 3.2);
+  await shot('<b>5 · Targets evolve, with a reason.</b> Older readings keep the old yardstick.', 3.2);
 }
 
 async function unknown() {
   await open('g-safe');
-  await shot('<b>5 · Unmeasured is unknown, never green.</b> The EU audit has never run.', 2.6);
+  await shot('<b>6 · Unmeasured is unknown, never green.</b> The EU audit has never run.', 2.6);
 }
 
 async function timeTravel() {
@@ -104,11 +113,11 @@ async function timeTravel() {
   await mark(slider);
   for (const t of [0.35, 0.7]) {
     await slider.fill(at(max - (max - target) * t));
-    await shot('<b>6 · Time travel.</b> Drag back through the log…', 0.7);
+    await shot('<b>7 · Time travel.</b> Drag back through the log…', 0.7);
   }
   await slider.fill(at(target));
   await page.locator('.past-banner').first().waitFor();
-  await shot('<b>6 · …to the universe as known three weeks ago.</b> The KPI is green; <i>Search</i> is not there yet.', 3.2);
+  await shot('<b>7 · …to the universe as known three weeks ago.</b> The KPI is green; <i>Search</i> is not there yet.', 3.2);
 }
 
 function encode() {
@@ -121,6 +130,7 @@ function encode() {
 try {
   await drill();
   await signal();
+  await trace();
   await yardstick();
   await unknown();
   await timeTravel();

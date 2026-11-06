@@ -20,6 +20,7 @@ export function renderReport(r: RunResult, colour: boolean): string {
     out.push(r.notWritten ? `Model: ${pending} change${pending === 1 ? '' : 's'} not applied (${r.notWritten})` : `Model: ${r.applied} change${r.applied === 1 ? '' : 's'} applied`);
     for (const c of r.plan) out.push(`  · ${c.summary}${r.notWritten && c.needsReason && !c.defaultReason ? dim(' (needs a reason)') : ''}`);
   }
+  out.push(...tagLines(r, dim));
   out.push('');
 
   const children = new Map<string | null, ModelNode[]>();
@@ -51,4 +52,14 @@ export function renderReport(r: RunResult, colour: boolean): string {
   if (skipped.length) out.push(`Not measured, so recorded nothing and will read unknown once stale: ${skipped.map((x) => x.node.id).join(', ')}.`);
   out.push(dim('Open it with `pnpm dogfood:serve` → http://localhost:4711'), '');
   return out.join('\n');
+}
+
+/** The tag harvest: what changed, and the tags it set aside (ADR 0014). */
+function tagLines(r: RunResult, dim: (s: string) => string): string[] {
+  const p = r.tagPlan;
+  if (!p) return [dim('Tags: not harvested (only from the tip of main)')];
+  const out = [p.changes.length === 0 ? dim('Tags: in sync with the code') : r.notWritten ? `Tags: ${p.changes.length} not harvested (${r.notWritten})` : `Tags: ${r.harvested} harvested`];
+  for (const c of p.changes) out.push(`  · ${c.summary}`);
+  for (const t of p.dangling) out.push(`  ✗ ${t.path} tags “${t.nodeId}”, which is no node`);
+  return out;
 }

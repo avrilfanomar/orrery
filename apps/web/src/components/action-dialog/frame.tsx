@@ -15,7 +15,7 @@ export interface FormProps {
   node: NodeView;
   view: UniverseView;
   session: Session;
-  /** The unlink target, when the action needs one chosen elsewhere. */
+  /** What the action needs chosen elsewhere: the unlink target, or the reference to remove as JSON. */
   extra?: string;
 }
 

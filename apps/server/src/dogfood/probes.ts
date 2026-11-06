@@ -35,7 +35,10 @@ import { SECURITY_PROBES } from './security.js';
 import { SUITABILITY_PROBES } from './suitability.js';
 import { USABILITY_PROBES } from './usability.js';
 import { scrub, smoke, withLiveWeek } from './harness.js';
-import type { ProbeSpec } from './sync.js';
+import { DOGFOOD_MODEL } from './model.js';
+import { DOGFOOD_REPO, modelReferences, type ProbeSpec } from './sync.js';
+import { readText } from '../tags/files.js';
+import { danglingReferences, harvestTags } from '../tags/scan.js';
 
 export type ProbeOutcome = { value: number; detail?: string } | Skip;
 
@@ -426,6 +429,24 @@ export const PROBES: readonly Probe[] = [
         }
       }
       return { value: broken.length, detail: broken.slice(0, 3).join('; ') || undefined };
+    },
+  },
+  {
+    id: 'references-dangling',
+    version: 1,
+    since: 'First version of this method (ADR 0014)',
+    method:
+      'Takes the hand references of every node in apps/server/src/dogfood/model.ts into this repository (`orrery`), including the `test` references its suite probes generate, and counts those whose path is not a tracked file (or, for a directory, has no tracked file under it), or whose symbol does not occur in the file as a whole word. Adds every tag (`orrery:` and node ids) in tracked text files outside *.md and fixtures/ that names no node in the model. The value is the sum: what a tag scan would refuse.',
+    measure(ctx) {
+      const nodes = DOGFOOD_MODEL.map((n) => ({ id: n.id, title: n.title, lifecycle: 'active' as const, refs: modelReferences(n, n.probe ? PROBE_SPECS.get(n.probe) : undefined) }));
+      const tracked = ctx.tracked();
+      const files = new Set(tracked);
+      const text = (path: string) => (files.has(path) ? readText(ctx.root, path) : null);
+      const refs = danglingReferences(nodes, DOGFOOD_REPO, tracked, text);
+      const ids = new Set(nodes.map((n) => n.id));
+      const tags = harvestTags(tracked.flatMap((path) => [{ path, text: text(path) ?? '' }])).filter((t) => !ids.has(t.nodeId));
+      const problems = [...refs.map((d) => `${d.nodeId}: ${d.problem}`), ...tags.map((t) => `${t.path} tags “${t.nodeId}”, which is no node`)];
+      return { value: problems.length, detail: problems.slice(0, 3).join('; ') || `${nodes.reduce((k, n) => k + n.refs.length, 0)} references, all resolved` };
     },
   },
 ];

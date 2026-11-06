@@ -12,6 +12,7 @@ import {
   parseCommand,
   project,
   type NewEvent,
+  type Repository,
 } from '@orrery/core';
 import { z } from 'zod';
 import { bearerMatches, guard, refuse, RESERVED_ACTORS } from './guard.js';
@@ -32,6 +33,8 @@ export interface AppOptions {
   logger?: boolean | { write(line: string): void };
   /** Pulls bound metrics from configured sources (ADR 0002). Defaults to one with no sources. */
   collector?: Collector;
+  /** The repositories references lead into, public fields only (ADR 0014). */
+  repos?: readonly Repository[];
 }
 
 const HTTP_STATUS = { invalid: 400, not_found: 404, conflict: 409 } as const;
@@ -97,6 +100,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
 
   /** Configured sources (public fields only), the pull state of every binding to one, and the query languages the installed modules bring. */
   app.get('/api/sources', async () => ({ ...collector.describe(project(store.all())), languages: publicLanguages() }));
+
+  /** The repositories references lead into: the console builds links out from these, the tag scan learns each one's branch. */
+  app.get('/api/repos', async () => ({ repositories: opts.repos ?? [] }));
 
   app.post('/api/commands', async (req, reply) => {
     const cmd = parseCommand(req.body);

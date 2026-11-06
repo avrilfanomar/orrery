@@ -4,6 +4,7 @@
 import { KIND_LABELS } from './constants.js';
 import { formatThreshold, formatValue, shortRollup } from './format.js';
 import type { Definition, NodeState, Reading, Universe } from './model.js';
+import { describeTarget, kindLabel, refKey } from './references.js';
 import type { OrreryEvent } from './schema.js';
 
 export function emptyUniverse(): Universe {
@@ -120,6 +121,7 @@ export function applyEvent(u: Universe, e: OrreryEvent): void {
         dimensions: [...d.dimensions],
         owner: d.owner,
         dashboardUrl: d.dashboardUrl ?? null,
+        refs: d.refs ? [...d.refs] : [],
         lifecycle: 'active',
         createdAt: e.at,
         updatedAt: e.at,
@@ -218,6 +220,12 @@ export function applyEvent(u: Universe, e: OrreryEvent): void {
       entry(n.id, `“${n.title}” no longer contributes to “${titleOf(u, e.data.target)}”`, e.data.reason, [e.data.target]);
       return;
     }
+    case 'node.referenced':
+    case 'node.unreferenced': {
+      const n = u.nodes.get(e.data.id);
+      if (n) entry(n.id, applyReference(n, e), e.data.reason);
+      return;
+    }
     case 'node.deprecated':
     case 'node.reactivated': {
       const n = u.nodes.get(e.data.id);
@@ -230,6 +238,16 @@ export function applyEvent(u: Universe, e: OrreryEvent): void {
       return;
     }
   }
+}
+
+/** Adds or removes a node's reference and says what changed, for the timeline (ADR 0014). */
+function applyReference(n: NodeState, e: Extract<OrreryEvent, { type: 'node.referenced' | 'node.unreferenced' }>): string {
+  const key = refKey(e.data.ref);
+  n.refs = n.refs.filter((r) => refKey(r) !== key);
+  if (e.type === 'node.referenced') n.refs.push(e.data.ref);
+  n.updatedAt = e.at;
+  const what = `${kindLabel(e.data.ref.kind).toLowerCase()} ${describeTarget(e.data.ref.target)}`;
+  return `“${n.title}” ${e.type === 'node.referenced' ? 'now references' : 'no longer references'} ${what}`;
 }
 
 /** A short line for a reading, used by feeds and tooltips. */

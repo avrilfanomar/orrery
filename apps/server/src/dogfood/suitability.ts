@@ -8,16 +8,16 @@
 import { runMutants, type Mutant } from './mutants.js';
 import type { Probe, ProbeContext, ProbeOutcome } from './probes.js';
 
-const V12 = 'First version of this method (ADR 0012)';
+const V2_TRACE = 'Traceability joins the README’s needs (ADR 0014): five breaks that leave a requirement out of reach of its metrics or its code';
 
 /** The rows of the README's "The idea" table, each a need the product claims to meet. */
-export const NEEDS = ['Build and manage requirements & constraints', 'Business + quality KPIs', 'High-level monitoring', 'Progressive disclosure', 'Iterative refinement', 'Dynamic evolution'] as const;
+export const NEEDS = ['Build and manage requirements & constraints', 'Business + quality KPIs', 'High-level monitoring', 'Progressive disclosure', 'Iterative refinement', 'Dynamic evolution', 'Traceability'] as const;
 
 export interface ClaimMutant extends Mutant {
   need: (typeof NEEDS)[number];
 }
 
-const [MANAGE, KPIS, MONITOR, DISCLOSE, REFINE, EVOLVE] = NEEDS;
+const [MANAGE, KPIS, MONITOR, DISCLOSE, REFINE, EVOLVE, TRACE] = NEEDS;
 
 export const CLAIM_MUTANTS: readonly ClaimMutant[] = [
   { need: MANAGE, id: 'links-ignored', file: 'evaluate.ts', find: 'for (const cid of [...(idx.children.get(id) ?? []), ...(idx.linkedFrom.get(id) ?? [])]) {', replace: 'for (const cid of [...(idx.children.get(id) ?? [])]) {', shows: 'a node that evidences two parents counted in only one' },
@@ -41,6 +41,11 @@ export const CLAIM_MUTANTS: readonly ClaimMutant[] = [
   { need: EVOLVE, id: 'diff-misses-target', file: 'project.ts', find: "parts.push(`target ${formatThreshold(a, 'target')} → ${formatThreshold(b, 'target')}`);", replace: '', shows: 'a revision whose change-feed entry leaves out its new target' },
   { need: EVOLVE, id: 'late-reading-out-of-order', file: 'project.ts', find: 'if (list[mid]!.observedAt <= r.observedAt) lo = mid + 1;', replace: 'if (list[mid]) lo = mid + 1;', shows: 'a late, back-dated reading replacing today’s status' },
   { need: EVOLVE, id: 'backfill-unjudged', file: 'evaluate.ts', find: 'return n.definitions.find((x) => x.version > d.version && x.measure) ?? null;', replace: 'return null;', shows: 'a reading back-filled from before the node had a measure left unjudged' },
+  { need: TRACE, id: 'metrics-skip-links', file: 'views.ts', find: 'for (const cid of [...cur.childIds, ...cur.linkedFromIds]) {', replace: 'for (const cid of [...cur.childIds]) {', shows: 'a metric linked in from another goal missing from Metrics beneath' },
+  { need: TRACE, id: 'counts-toward-one-level', file: 'views.ts', find: '        next.push(tid);', replace: '', shows: 'Counts toward stopping at the direct parents, short of the goals above them' },
+  { need: TRACE, id: 'file-page-skips-directories', file: 'references.ts', find: "if (ref.path.endsWith('/') && asked.path.startsWith(ref.path)) return 'directory';", replace: '', shows: 'a file’s page missing the requirement that references its directory' },
+  { need: TRACE, id: 'search-skips-queries', file: 'views.ts', find: 'if (n.definition.binding?.query.toLowerCase().includes(q)) return 5;', replace: '', shows: 'Jump to not finding the KPIs built on a metric name' },
+  { need: TRACE, id: 'href-unencoded', file: 'references.ts', find: "const path = t.path.split('/').map(encodeURIComponent).join('/');", replace: 'const path = t.path;', shows: 'a link out that a file name with # or ? sends somewhere else' },
 ];
 
 async function claimMutants(ctx: ProbeContext): Promise<ProbeOutcome> {
@@ -56,8 +61,8 @@ async function claimMutants(ctx: ProbeContext): Promise<ProbeOutcome> {
 export const SUITABILITY_PROBES: readonly Probe[] = [
   {
     id: 'claim-mutants',
-    version: 1,
-    since: V12,
+    version: 2,
+    since: V2_TRACE,
     method: `Copies packages/core into a temp directory and breaks it on purpose, one break at a time, in each of ${CLAIM_MUTANTS.length} ways that would leave a need in the README’s “The idea” table unmet (the false greens are false-green-mutants’ list): ${CLAIM_MUTANTS.map((m) => m.id).join(', ')} (CLAIM_MUTANTS in apps/server/src/dogfood/suitability.ts). After each break it runs the core's tests (vitest run --bail=1, JSON report), on three copies side by side. A break is caught only when a test fails. The value is the number of breaks no test catches. No reading when the unbroken copy fails its tests, a break no longer applies to the code, or a break leaves code that does not load.`,
     measure: claimMutants,
   },

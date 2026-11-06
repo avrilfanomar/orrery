@@ -13,7 +13,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dogfood": "tsx src/dogfood/run.ts",
-    "dogfood:serve": "tsx src/dogfood/serve.ts"
+    "dogfood:serve": "tsx src/dogfood/serve.ts",
+    "tags": "tsx src/tags/run.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.8",

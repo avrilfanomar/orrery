@@ -14,7 +14,7 @@ time, and it evolves without rewriting its past.
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="docs/tour-still.png">
-    <img src="docs/tour.gif" alt="The console: Larch Store is in breach; opening a tile shows one level below; Follow the signal jumps to the 5xx reading behind it; a tightened latency target changes the chart's yardstick from the day it was published; an unmeasured goal reads unknown; time travel shows the universe three weeks ago" width="900">
+    <img src="docs/tour.gif" alt="The console: Larch Store is in breach; opening a tile shows one level below; Follow the signal jumps to the 5xx reading behind it; its code leads to a file's page listing both requirements it backs; a tightened latency target changes the chart's yardstick from the day it was published; an unmeasured goal reads unknown; time travel shows the universe three weeks ago" width="900">
   </picture>
 </p>
 
@@ -41,6 +41,7 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 | `pnpm --filter @orrery/web a11y` | Accessibility scan against a running app (reads only) |
 | `pnpm --filter @orrery/web readme-gif` | Re-record the picture above against a freshly reset, running app (reads only; needs ffmpeg) |
 | `pnpm dogfood` | Measure this repository against its own requirements ([below](#the-repository-measures-itself)) |
+| `pnpm tags --repo <id>` | Harvest a repository's `orrery:` tags into references ([below](#linking-code-and-everything-else)) |
 
 ## The idea
 
@@ -52,6 +53,7 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 | Progressive disclosure | The focus view shows one node and exactly one level below it. Tiles drill down, the breadcrumb climbs back, and **Follow the signal** jumps straight from a red goal to the reading that caused it |
 | Iterative refinement | A one-line stub is legitimate. It shows as **unknown**, never green, and sits in the **Not yet observable** backlog of everything above it until someone refines it |
 | Dynamic evolution | Targets, rollup rules, priorities, structure and lifecycle change through **reasoned, append-only events**. A reading stays judged against the definition in force when it was taken, and **time travel** shows the universe as it was known on any day |
+| Traceability | A node carries **references** to the code, tests, documents and tickets behind it, and a tag in the code adds one. **Connections** lists every metric beneath a node and everything it counts toward, at any depth; a file's page lists every node that references it; **Jump to** finds a node, a file or a metric by name. References never change a status |
 
 ## A five-minute tour
 
@@ -77,6 +79,11 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
    **+ Refine** → add a KPI → **Record reading** → **Revise definition**
    (a reason is required). Watch coverage, the parent's status and the
    **Changes** feed update.
+6. **Follow it into the code.** On *Checkout server errors (5xx rate)*, open
+   **Connections → Implementation** and pick `services/checkout/src/payments.ts`.
+   Its page lists both nodes it backs: the 5xx KPI, and *Checkout is short and
+   dependable* through the `services/checkout/` directory. **Jump to**
+   (Ctrl+K) finds it again by typing `payments`.
 
 ## Why it is built this way
 
@@ -87,6 +94,7 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 | [0003](docs/adr/0003-the-repository-measures-itself.md) | The repository measures itself |
 | 0004–0012 | How each quality is tested: [efficiency](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.md), [flexibility](docs/adr/0005-flexibility-is-tested-as-promises.md), [maintainability](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.md), [operability](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.md), [reliability](docs/adr/0008-reliability-what-it-acknowledged-survives.md), [safety](docs/adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.md), [security](docs/adr/0010-security-the-browser-is-the-way-in.md), [usability](docs/adr/0011-usability-everyone-can-read-and-operate-it.md), and [suitability](docs/adr/0012-suitability-it-does-what-the-readme-says.md) (it does what this README says) |
 | [0013](docs/adr/0013-modules-bring-what-core-does-not-know.md) | Modules bring what core does not know: query languages and source kinds. Prometheus is one |
+| [0014](docs/adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.md) | Traceability: one step from a requirement to its metrics and its code, and back |
 
 ## The repository measures itself
 
@@ -104,6 +112,32 @@ pnpm dogfood:serve         # the dogfood universe in the console on :4711
 
 The goals, the measurement rules, how each quality is tested and how to change
 the model are in [docs/dogfood.md](docs/dogfood.md).
+
+## Linking code and everything else
+
+A node carries **references**: to a file or directory in a repository (with an
+optional symbol, never a line number), or to any http(s) URL. Each has a kind:
+`code`, `test`, `doc`, `adr`, `ticket`, `dashboard`, `runbook`, `design`, or a
+team's own. Add one with **+ Reference**; it needs no reason, because it moves
+no status.
+
+- **Links out.** `ORRERY_REPOS_FILE` names the repositories references lead
+  into, each with a browse template (`apps/server/repos.example.json`
+  configures the demo's fictional one). Without it, references still navigate
+  inside the console.
+- **Links in.** `/?focus=<id>` opens a node and `/?repo=<id>&path=<path>` a
+  file's page, so a dashboard, a ticket or a code review can link back.
+- **Tags.** Write `orrery:` followed by node ids in any file, in any language,
+  and harvest them:
+
+  ```bash
+  pnpm tags --repo shop --root ../shop --dry-run   # any branch: plan and check
+  pnpm tags --repo shop --root ../shop             # the configured branch's tip, clean tree
+  ```
+
+  A tag naming no node fails the scan and writes nothing. A scan touches only
+  references it harvested from that repository; remove one by removing its tag.
+  Markdown and `fixtures/` are never scanned.
 
 ## Feeding it data
 
@@ -185,8 +219,9 @@ anyone else ([ADR 0010](docs/adr/0010-security-the-browser-is-the-way-in.md)).
 | `GET` | `/api/universe?asOf=` | Every node with status, reason, drivers, coverage, ribbon, sparkline |
 | `GET` | `/api/nodes/:id?asOf=` | Definition versions, history, reading series judged per version |
 | `GET` | `/api/changes?asOf=&limit=` | The model's change feed (readings excluded) |
-| `POST` | `/api/commands` | `node.create · edit · redefine · reprioritize · move · link · unlink · deprecate · reactivate`, `reading.record` |
+| `POST` | `/api/commands` | `node.create · edit · redefine · reprioritize · move · link · unlink · deprecate · reactivate · reference · unreference`, `reading.record` |
 | `POST` | `/api/readings` | Ingestion webhook (single reading or `{ readings: [...] }`) |
+| `GET` | `/api/repos` | The repositories references lead into: id, label, branch and browse template |
 | `GET` | `/api/sources` | Configured metric sources (public fields only), each binding's pull state and drill-out link, and the query languages the installed modules bring |
 | `GET` | `/api/health` | Liveness, how many events the log holds and when the last was recorded |
 
@@ -217,14 +252,15 @@ directory is used.
 |---|---|---|---|
 | `ORRERY_DATA_FILE` | `data/events.jsonl` | server, `reset` | The event log |
 | `ORRERY_SEED` | `demo` | server, `reset` | What an empty log starts as: `demo` or `dogfood` |
-| `PORT` | `4710` | server, `reset`, simulator | The API port |
-| `HOST` | `127.0.0.1` | server, `reset`, simulator | The address the API binds to |
+| `PORT` | `4710` | server, `reset`, simulator, `tags` | The API port |
+| `HOST` | `127.0.0.1` | server, `reset`, simulator, `tags` | The address the API binds to |
 | `ORRERY_WEB_DIST` | `apps/web/dist` | server | The built UI to serve, if present |
 | `ORRERY_INGEST_TOKEN` | unset | server, simulator | Requires `Authorization: Bearer …` on every reading, through `POST /api/readings` or a `reading.record` command |
 | `ORRERY_SOURCES_FILE` | unset | server | Metric sources to pull from (see above). Their tokens are named by `tokenEnv` |
+| `ORRERY_REPOS_FILE` | unset | server | Repositories references lead into, each with a browse template (see above) |
 | `ORRERY_ALLOW_REMOTE` | unset | server | `1` allows a non-loopback `HOST` with sources configured |
 | `ORRERY_ALLOWED_HOSTS` | unset | server | Host names, comma-separated, a request may name besides IP addresses, `localhost` and `HOST`; `.example.org` covers every name under it |
-| `ORRERY_API` | `http://HOST:PORT` (simulator), `http://127.0.0.1:4710` (Vite) | simulator, Vite dev server | Where the API is |
+| `ORRERY_API` | `http://HOST:PORT` (simulator, `tags`), `http://127.0.0.1:4710` (Vite) | simulator, `tags`, Vite dev server | Where the API is |
 | `ORRERY_SIM_TICK_MS` | `30000` | simulator | How often the fast signals move |
 | `ORRERY_DOGFOOD_FILE` | `data/dogfood.jsonl` | `dogfood`, `dogfood:serve` | The repository's own log |
 | `ORRERY_DOGFOOD_PORT` | `4711` | `dogfood`, `dogfood:serve` | Its port |
@@ -253,7 +289,7 @@ packages/module-kit   the contract a module implements: query languages and sour
 packages/prometheus   a module: PromQL and the Prometheus source kind, directly or through Grafana
 apps/server           Fastify shell, append-only JSONL event store, demo seed, simulator,
                       the installed modules (src/modules.ts), source settings and the pull collector (src/sources),
-                      the dogfood model, probes and runner (src/dogfood)
+                      the dogfood model, probes and runner (src/dogfood), the tag scan (src/tags)
 apps/web              React + TanStack Query UI — outline, focus view, chart, dialogs, time travel
 docs/adr              architecture decisions
 ```

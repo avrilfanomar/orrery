@@ -2,7 +2,7 @@
 // and the commands the API accepts. Types are inferred from here so the schema
 // and the type can never disagree.
 import { z } from 'zod';
-import { DIMENSIONS, NODE_KINDS, PRIORITIES } from './constants.js';
+import { DIMENSIONS, MAX_REFERENCES, NODE_KINDS, PRIORITIES } from './constants.js';
 
 export const NodeIdSchema = z
   .string()
@@ -97,6 +97,68 @@ export const HttpUrlSchema = z
     }
   }, 'Give an http(s) URL');
 
+// ---------------------------------------------------------------------------
+// References (ADR 0014): a node's pointer to a place outside the graph. Inert —
+// nothing here is read by evaluation — so they are navigation, not evidence.
+// ---------------------------------------------------------------------------
+
+/** What a reference is to: an open id, so a team's own kind needs no change to core. */
+export const ReferenceKindSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]{0,31}$/, 'Reference kinds are 1–32 lowercase letters, digits and dashes, starting with a letter');
+
+export const RepoIdSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,31}$/, 'Repository ids are 1–32 lowercase letters, digits and dashes');
+
+/**
+ * A path inside a repository, relative and `/`-separated; a trailing `/` names
+ * a directory. No `.` or `..` segment, so a path can never climb out of the
+ * repository its browse link is built for, and no control character, so a
+ * hand-edited log cannot smuggle a line break into a timeline sentence.
+ */
+export function isRepoPath(p: string): boolean {
+  if (p.length === 0 || p.length > 400 || p.startsWith('/') || p.includes('\\')) return false;
+  if (/[\u0000-\u001f\u007f]/.test(p)) return false;
+  const segments = p.split('/');
+  if (segments[segments.length - 1] === '') segments.pop();
+  return segments.length > 0 && segments.every((s) => s !== '' && s !== '.' && s !== '..');
+}
+
+const RepoPathSchema = z
+  .string()
+  .max(400)
+  .refine(isRepoPath, 'Give a path inside the repository: relative, “/”-separated, with no “.” or “..” segment');
+
+const RepoTargetSchema = z.strictObject({
+  repo: RepoIdSchema,
+  path: RepoPathSchema,
+  /** A name to find in the file (a function, a `describe` title). Never a line number: lines move with every edit. */
+  symbol: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .refine((s) => !/[\r\n]/.test(s), 'A symbol is one line')
+    .optional(),
+});
+
+/** Where a reference leads: a place in a repository, or an http(s) URL. */
+export const ReferenceTargetSchema = z.union([RepoTargetSchema, z.strictObject({ url: HttpUrlSchema })]);
+export type ReferenceTarget = z.infer<typeof ReferenceTargetSchema>;
+
+export const ReferenceSchema = z.strictObject({
+  kind: ReferenceKindSchema,
+  target: ReferenceTargetSchema,
+  label: z.string().trim().min(1).max(140).optional(),
+  /** Harvested from a tag in the code; absent means added by hand. Each importer reconciles only its own origin. */
+  origin: z.literal('tag').optional(),
+});
+export type Reference = z.infer<typeof ReferenceSchema>;
+
+/** A reference may carry a reason, never needs one: it moves no status and no yardstick. */
+const OptionalReasonSchema = z.string().trim().max(500).nullable();
+
 export const RollupRuleSchema = z
   .discriminatedUnion('strategy', [
     z.object({ strategy: z.literal('worst') }),
@@ -144,6 +206,8 @@ const NodeCreatedData = z.object({
   // Optional so logs written before ADR 0002 keep loading; absent means null.
   binding: BindingSchema.nullable().optional(),
   dashboardUrl: HttpUrlSchema.nullable().optional(),
+  // Optional so logs written before ADR 0014 keep loading; absent means none.
+  refs: z.array(ReferenceSchema).max(MAX_REFERENCES).optional(),
   reason: z.string().trim().max(500).nullable(),
 });
 
@@ -170,6 +234,8 @@ const NodeReprioritizedData = z.object({ id: NodeIdSchema, priority: PrioritySch
 const NodeMovedData = z.object({ id: NodeIdSchema, parentId: NodeIdSchema.nullable(), reason: ReasonSchema });
 const NodeLinkData = z.object({ id: NodeIdSchema, target: NodeIdSchema, reason: ReasonSchema });
 const NodeLifecycleData = z.object({ id: NodeIdSchema, reason: ReasonSchema });
+/** Both directions carry the reference itself, as `node.unlinked` carries its target: never an encoded key, which could change. */
+const NodeReferenceData = z.object({ id: NodeIdSchema, ref: ReferenceSchema, reason: OptionalReasonSchema });
 
 const ReadingRecordedData = z.object({
   nodeId: NodeIdSchema,
@@ -198,6 +264,8 @@ export const EventSchema = z.discriminatedUnion('type', [
   envelope('node.unlinked', NodeLinkData),
   envelope('node.deprecated', NodeLifecycleData),
   envelope('node.reactivated', NodeLifecycleData),
+  envelope('node.referenced', NodeReferenceData),
+  envelope('node.unreferenced', NodeReferenceData),
   envelope('reading.recorded', ReadingRecordedData),
 ]);
 export type OrreryEvent = z.infer<typeof EventSchema>;
@@ -228,6 +296,7 @@ export const CommandSchema = z.discriminatedUnion('type', [
       scenario: ScenarioSpecSchema.nullable().default(null),
       binding: BindingSchema.nullable().default(null),
       dashboardUrl: HttpUrlSchema.nullable().default(null),
+      refs: z.array(ReferenceSchema).max(MAX_REFERENCES).default([]),
       reason: z.string().trim().max(500).nullable().default(null),
     }),
   }),
@@ -239,6 +308,8 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('node.unlink'), data: NodeLinkData }),
   z.object({ type: z.literal('node.deprecate'), data: NodeLifecycleData }),
   z.object({ type: z.literal('node.reactivate'), data: NodeLifecycleData }),
+  z.object({ type: z.literal('node.reference'), data: NodeReferenceData.extend({ reason: OptionalReasonSchema.default(null) }) }),
+  z.object({ type: z.literal('node.unreference'), data: NodeReferenceData.extend({ reason: OptionalReasonSchema.default(null) }) }),
   z.object({
     type: z.literal('reading.record'),
     data: z.object({

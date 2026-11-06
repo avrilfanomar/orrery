@@ -1538,3 +1538,228 @@ textarea.mono {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12px;
 }
+
+/* ---------- traceability (ADR 0014) ---------- */
+
+.conn {
+  border-top: 1px solid var(--border);
+  padding: 4px 0;
+}
+.conn summary {
+  cursor: pointer;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.conn[open] summary {
+  margin-bottom: 6px;
+}
+.conn-title {
+  font-weight: 600;
+}
+.conn-empty {
+  border-top: 1px solid var(--border);
+  margin: 0;
+  padding: 6px 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.conn-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin: 10px 0 4px;
+}
+.conn-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.conn-list > li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+}
+.conn-list > li:hover {
+  background: var(--surface-2);
+}
+.conn-list > li.depth-2 {
+  padding-inline-start: 20px;
+}
+.conn-list > li.depth-3 {
+  padding-inline-start: 36px;
+}
+.conn-list > li.depth-4 {
+  padding-inline-start: 52px;
+}
+.conn-node,
+.ref-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  min-height: 24px;
+  text-align: left;
+  font-weight: 560;
+  color: var(--ink);
+}
+.conn-node:hover,
+.ref-target:hover {
+  text-decoration: underline;
+}
+.conn-figures,
+.ref-holders,
+.referrer-up {
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.ref-holders .link-btn,
+.change-related .link-btn {
+  margin-inline-end: 6px;
+}
+.ref-kind {
+  font-size: 11px;
+  line-height: 18px;
+  padding: 0 7px;
+  border-radius: 4px;
+  color: var(--ink-2);
+  background: var(--sunken);
+  white-space: nowrap;
+}
+.ref-target {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  word-break: break-all;
+}
+.ref-sub {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11.5px;
+}
+.ref-out {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  font-size: 12.5px;
+}
+.ref-x {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  border-radius: 999px;
+  min-width: 24px;
+  min-height: 24px;
+  margin-inline-start: auto;
+}
+.reference-title {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+.change-related {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.jump {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.jump input {
+  width: 220px;
+  padding: 5px 52px 5px 10px;
+  min-height: 30px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--page);
+}
+.jump-key {
+  position: absolute;
+  right: 8px;
+  font: 11px var(--font);
+  color: var(--muted);
+  pointer-events: none;
+}
+.jump-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: min(440px, calc(100vw - 32px));
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.jump-list[hidden] {
+  display: none;
+}
+.jump-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.jump-list li.is-active {
+  background: var(--accent-wash);
+}
+.jump-list .jump-none {
+  color: var(--muted);
+  cursor: default;
+}
+.jump-title {
+  font-weight: 560;
+  flex: 0 1 auto;
+  min-width: 6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jump-meta {
+  font-size: 12px;
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: end;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.radios {
+  display: grid;
+  gap: 4px;
+}
+.radios label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+@media (max-width: 560px) {
+  .jump,
+  .jump input {
+    width: 100%;
+  }
+}

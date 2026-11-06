@@ -23,3 +23,24 @@ describe('an oversized request is refused at its first limit', () => {
     }
   });
 });
+
+describe('a reference cannot lead anywhere it should not', () => {
+  const create = (path: string) => CommandSchema.safeParse({ type: 'node.create', data: { kind: 'goal', title: 'G', refs: [{ kind: 'code', target: { repo: 'shop', path } }] } }).success;
+
+  it('refuses a path that climbs out of its repository, starts at the root, or carries a backslash or a control character', () => {
+    for (const bad of ['../etc/passwd', 'src/../../x', './src/a.ts', '/etc/passwd', 'src\\a.ts', 'src/a\n.ts', 'src//a.ts', '', '/']) expect(create(bad), JSON.stringify(bad)).toBe(false);
+    for (const good of ['src/a.ts', 'services/checkout/', 'a', 'docs/adr/0014-x.md']) expect(create(good), good).toBe(true);
+  });
+
+  it('refuses a URL that is not http(s), and a target that is both kinds at once', () => {
+    const target = (t: unknown) => CommandSchema.safeParse({ type: 'node.reference', data: { id: 'g', ref: { kind: 'ticket', target: t } } }).success;
+    expect(target({ url: 'javascript:alert(1)' })).toBe(false);
+    expect(target({ url: 'https://tracker.example/T-1' })).toBe(true);
+    expect(target({ url: 'https://tracker.example/T-1', repo: 'shop', path: 'a' })).toBe(false);
+  });
+
+  it('reports one problem for far too many references, without reading them', () => {
+    const parsed = CommandSchema.safeParse({ type: 'node.create', data: { kind: 'goal', title: 'G', refs: new Array(MANY).fill(0) } });
+    expect(parsed.error!.issues.map((i) => [i.code, i.path.join('.')])).toEqual([['too_big', 'data.refs']]);
+  });
+});

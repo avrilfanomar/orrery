@@ -43,6 +43,18 @@ export function ChangeFeed({ changes, view, onFocus, onAsOf, onClose }: Props) {
                     <span className="change-summary">{c.summary}</span>
                     {c.reason && <q className="why">{c.reason}</q>}
                   </button>
+                  {c.relatedIds.some((r) => view.nodes[r]) && (
+                    <span className="change-related">
+                      also{' '}
+                      {c.relatedIds
+                        .filter((r) => view.nodes[r])
+                        .map((r) => (
+                          <button key={r} type="button" className="link-btn" onClick={() => onFocus(r)}>
+                            {view.nodes[r]!.title}
+                          </button>
+                        ))}
+                    </span>
+                  )}
                   <button type="button" className="link-btn" onClick={() => onAsOf(new Date(Date.parse(c.at) - 60_000).toISOString())}>
                     see the universe just before this
                   </button>

@@ -1,6 +1,6 @@
 // The read models the API serves and the UI renders. Building them here keeps
 // the server a thin shell and lets tests exercise exactly what users see.
-import type { Status } from './constants.js';
+import { IMPLEMENTATION_KINDS, type Status } from './constants.js';
 import {
   currentDefinition,
   evaluateUniverse,
@@ -10,7 +10,8 @@ import {
 import { readingSeries, statusHistory, timelineFor, type SeriesPoint } from './history.js';
 import type { Definition, NodeState, TimelineEntry } from './model.js';
 import { project } from './project.js';
-import type { OrreryEvent } from './schema.js';
+import { describeTarget, matchTarget, refKey, targetKey, type TargetMatch } from './references.js';
+import type { OrreryEvent, Reference, ReferenceTarget } from './schema.js';
 
 const DAY = 24 * 3.6e6;
 
@@ -87,6 +88,192 @@ export function breadcrumbTo(view: UniverseView, id: string): NodeView[] {
     cur = view.nodes[cur]!.parentId;
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Traceability (ADR 0014): every connection of a node, one step away.
+// ---------------------------------------------------------------------------
+
+/** A node something contributes to, how far up it is, and the edge the walk arrived by. */
+export interface Contribution {
+  node: NodeView;
+  via: 'parent' | 'link';
+  depth: number;
+}
+
+/**
+ * Everything a node counts toward, through primary parents and links, nearest
+ * first: a KPI linked under two requirements lists both, and the goals above
+ * them. The breadcrumb climbs one path; this is every path up.
+ */
+export function countsToward(view: UniverseView, id: string): Contribution[] {
+  const out: Contribution[] = [];
+  const seen = new Set([id]);
+  let frontier = [id];
+  for (let depth = 1; frontier.length > 0; depth++) {
+    const next: string[] = [];
+    for (const nid of frontier) {
+      for (const [tid, via] of upEdges(view.nodes[nid])) {
+        const t = view.nodes[tid];
+        if (!t || seen.has(tid)) continue;
+        seen.add(tid);
+        out.push({ node: t, via, depth });
+        next.push(tid);
+      }
+    }
+    frontier = next;
+  }
+  return out;
+}
+
+function upEdges(n: NodeView | undefined): [string, Contribution['via']][] {
+  if (!n) return [];
+  return [...(n.parentId ? [[n.parentId, 'parent'] as [string, 'parent']] : []), ...n.links.map((l) => [l, 'link'] as [string, 'link'])];
+}
+
+/** Every active node beneath `id`, through children and links, each once, `id` itself excluded. */
+function activeBeneath(view: UniverseView, id: string): NodeView[] {
+  const found = new Map<string, NodeView>();
+  const stack = [id];
+  while (stack.length > 0) {
+    const cur = view.nodes[stack.pop()!];
+    if (!cur) continue;
+    for (const cid of [...cur.childIds, ...cur.linkedFromIds]) {
+      const c = view.nodes[cid];
+      if (!c || c.lifecycle !== 'active' || cid === id || found.has(cid)) continue;
+      found.set(cid, c);
+      stack.push(cid);
+    }
+  }
+  return [...found.values()];
+}
+
+/**
+ * Every measured node beneath a node, at any depth, through links too: from a
+ * requirement straight to its metrics. Judged on each node's own measurement,
+ * not its rolled-up status, so those whose measurement is known, plus the node
+ * itself when its own is, are exactly the leaves its coverage counts as
+ * measured, and the rest are in its backlog.
+ */
+export function metricsBelow(view: UniverseView, id: string): NodeView[] {
+  return activeBeneath(view, id).filter((n) => n.evaluation.measurement !== null);
+}
+
+/** One place many references may lead to, and who holds them. */
+export interface ReferenceGroup {
+  target: ReferenceTarget;
+  kinds: string[];
+  /** The first label any holder gave it. */
+  label: string | null;
+  /** Harvested from a tag in the code by at least one holder. */
+  tagged: boolean;
+  /** Added by hand by at least one holder. */
+  byHand: boolean;
+  /** The nodes holding a reference to it, in the order met. */
+  holders: string[];
+}
+
+function groupReferences(nodes: readonly NodeView[]): ReferenceGroup[] {
+  const groups = new Map<string, ReferenceGroup>();
+  for (const n of nodes) {
+    for (const ref of n.refs) {
+      const key = targetKey(ref.target);
+      const g = groups.get(key) ?? { target: ref.target, kinds: [], label: null, tagged: false, byHand: false, holders: [] };
+      groups.set(key, g);
+      addToGroup(g, ref, n.id);
+    }
+  }
+  return [...groups.values()].sort((a, b) => a.kinds[0]!.localeCompare(b.kinds[0]!) || describeTarget(a.target).localeCompare(describeTarget(b.target)));
+}
+
+function addToGroup(g: ReferenceGroup, ref: Reference, holder: string): void {
+  if (!g.kinds.includes(ref.kind)) g.kinds.push(ref.kind);
+  g.label ??= ref.label ?? null;
+  if (ref.origin === 'tag') g.tagged = true;
+  else g.byHand = true;
+  if (!g.holders.includes(holder)) g.holders.push(holder);
+}
+
+/**
+ * Where a group shows in the console: under *Implementation* when any holder
+ * calls it code or a test, under *References* otherwise. One place may be both
+ * a doc and code; implementation wins, so code is never hidden among tickets.
+ */
+export function splitReferences(groups: readonly ReferenceGroup[]): { implementation: ReferenceGroup[]; other: ReferenceGroup[] } {
+  const isImpl = (g: ReferenceGroup) => g.kinds.some((k) => IMPLEMENTATION_KINDS.includes(k));
+  return { implementation: groups.filter(isImpl), other: groups.filter((g) => !isImpl(g)) };
+}
+
+/** A node's own references, one row per place: a harvested and a hand reference to one file show as one. */
+export function referencesOn(view: UniverseView, id: string): ReferenceGroup[] {
+  const n = view.nodes[id];
+  return n ? groupReferences([n]) : [];
+}
+
+/** The references held beneath a node, at any depth: the code behind a goal, grouped by place, each naming its holders. */
+export function referencesBelow(view: UniverseView, id: string): ReferenceGroup[] {
+  return groupReferences(activeBeneath(view, id));
+}
+
+/** A node that references a place, through which reference, and how that reference's target relates to the place asked about. */
+export interface Referrer {
+  node: NodeView;
+  ref: Reference;
+  match: TargetMatch;
+}
+
+const MATCH_ORDER: Record<TargetMatch, number> = { exact: 0, directory: 1, file: 2 };
+
+/**
+ * From a file, a directory or a URL back to the nodes that reference it: for a
+ * file, also those referencing a directory above it; for a directory, also
+ * those referencing a file below it. One pass over every reference.
+ */
+export function referencedBy(view: UniverseView, target: ReferenceTarget): Referrer[] {
+  const out: Referrer[] = [];
+  for (const node of Object.values(view.nodes)) {
+    for (const ref of node.refs) {
+      const match = matchTarget(ref.target, target);
+      if (match) out.push({ node, ref, match });
+    }
+  }
+  return out.sort((a, b) => MATCH_ORDER[a.match] - MATCH_ORDER[b.match] || a.node.title.localeCompare(b.node.title) || refKey(a.ref).localeCompare(refKey(b.ref)));
+}
+
+export type SearchHit =
+  | { type: 'node'; id: string; rank: number; matched: string }
+  | { type: 'target'; target: ReferenceTarget; rank: number; matched: string; holders: string[] };
+
+/**
+ * One search over the whole universe, best first: an exact id, then a title
+ * that starts with the text, then a title or id that contains it, then a
+ * place a reference leads to, then a node whose query uses it (so a metric
+ * name finds every KPI built on it), then a description.
+ */
+export function searchUniverse(view: UniverseView, query: string, limit = 12): SearchHit[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const hits: SearchHit[] = [];
+  for (const n of Object.values(view.nodes)) {
+    const rank = nodeRank(n, q);
+    if (rank) hits.push({ type: 'node', id: n.id, rank, matched: n.title });
+  }
+  for (const g of groupReferences(Object.values(view.nodes))) {
+    const text = describeTarget(g.target);
+    if (text.toLowerCase().includes(q) || g.label?.toLowerCase().includes(q)) hits.push({ type: 'target', target: g.target, rank: 4, matched: g.label ?? text, holders: g.holders });
+  }
+  const active = (h: SearchHit) => (h.type === 'node' && view.nodes[h.id]!.lifecycle !== 'active' ? 1 : 0);
+  return hits.sort((a, b) => a.rank - b.rank || active(a) - active(b) || a.matched.localeCompare(b.matched)).slice(0, limit);
+}
+
+function nodeRank(n: NodeView, q: string): number | null {
+  const title = n.title.toLowerCase();
+  if (n.id === q) return 1;
+  if (title.startsWith(q)) return 2;
+  if (title.includes(q) || n.id.includes(q)) return 3;
+  if (n.definition.binding?.query.toLowerCase().includes(q)) return 5;
+  if (n.description.toLowerCase().includes(q)) return 6;
+  return null;
 }
 
 function resolveAsOf(opts: ViewOptions): { asOf: string; live: boolean } {

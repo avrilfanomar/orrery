@@ -12,8 +12,9 @@ import type { FormProps, Session } from './action-dialog/frame.js';
 import { EditForm, PriorityForm, RedefineForm, RefineForm } from './action-dialog/node-forms.js';
 import { DeprecateForm, LinkForm, MoveForm, ReactivateForm, UnlinkForm } from './action-dialog/placement-forms.js';
 import { ReadingForm } from './action-dialog/reading-form.js';
+import { ReferenceForm, UnreferenceForm } from './action-dialog/reference-forms.js';
 
-export type Action = 'refine' | 'edit' | 'priority' | 'redefine' | 'move' | 'link' | 'unlink' | 'deprecate' | 'reactivate' | 'reading';
+export type Action = 'refine' | 'edit' | 'priority' | 'redefine' | 'move' | 'link' | 'unlink' | 'deprecate' | 'reactivate' | 'reading' | 'reference' | 'unreference';
 
 interface Props {
   action: Action;
@@ -36,6 +37,8 @@ const FORMS: Record<Action, ComponentType<FormProps>> = {
   deprecate: DeprecateForm,
   reactivate: ReactivateForm,
   reading: ReadingForm,
+  reference: ReferenceForm,
+  unreference: UnreferenceForm,
 };
 
 export function ActionDialog({ action, extra, node, view, actor, onClose, onDone }: Props) {

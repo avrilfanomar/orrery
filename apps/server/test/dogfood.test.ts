@@ -1,6 +1,7 @@
 // ADR 0003: the repository measured by itself. These pin the contract between
 // the model, the probe registry and the log — with stub probes, so no tsc,
 // vite or benchmark runs inside `pnpm verify`.
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +18,8 @@ import { FALSE_GREEN_MUTANTS } from '../src/dogfood/safety.js';
 import { CLAIM_MUTANTS, NEEDS } from '../src/dogfood/suitability.js';
 import { findSecrets, SECRET_SHAPES } from '../src/dogfood/security.js';
 import { injectTransport, runDogfood } from '../src/dogfood/runner.js';
-import { currentFromView, planSync, probeQuery, ReasonRequired, resolveReasons, type ProbeSpec } from '../src/dogfood/sync.js';
+import { currentFromView, DOGFOOD_REPO, modelReferences, planSync, probeQuery, ReasonRequired, resolveReasons, type ProbeSpec } from '../src/dogfood/sync.js';
+import { danglingReferences, harvestTags } from '../src/tags/scan.js';
 import { repoRoot } from '../src/paths.js';
 import { generateDogfood, seedKindFrom } from '../src/seeds.js';
 import { EventStore } from '../src/store.js';
@@ -132,6 +134,50 @@ describe('planSync', () => {
     expect(byType('node.edit')[0]).toMatchObject({ needsReason: false, cmd: { data: { id: 'g-fast', title: 'Fast' } } });
     expect(byType('node.deprecate')[0]).toMatchObject({ needsReason: true, cmd: { data: { id: 'k-links' } } });
     expect(() => planSync(edit('k-links', { kind: 'scenario' }), seeded, PROBE_SPECS)).toThrow(/kind never changes/);
+  });
+
+  it('reconciles hand references without a reason, and never touches a harvested one (ADR 0014)', () => {
+    const doc = { kind: 'doc', target: { repo: DOGFOOD_REPO, path: 'docs/dogfood.md' } } as const;
+    const plan = planSync(edit('c-gate', { refs: [doc] }), seeded, PROBE_SPECS);
+    expect(plan.map((p) => [p.cmd.type, p.needsReason])).toEqual([
+      ['node.unreference', false],
+      ['node.reference', false],
+    ]);
+    expect(plan[0]!.cmd.data).toMatchObject({ id: 'c-gate', ref: { target: { path: 'packages/core/src/decide.ts' } } });
+    const harvested = new Map(seeded);
+    const gate = harvested.get('c-gate')!;
+    harvested.set('c-gate', { ...gate, refs: [...(gate.refs ?? []), { kind: 'code', target: { repo: DOGFOOD_REPO, path: 'packages/core/src/decide.ts' }, origin: 'tag' }] });
+    expect(planSync(DOGFOOD_MODEL, harvested, PROBE_SPECS)).toEqual([]);
+  });
+
+  it('gives a suite probe’s node a test reference for each describe title it judges', () => {
+    const node = DOGFOOD_MODEL.find((n) => n.probe === 'suite-decide')!;
+    expect(modelReferences(node, PROBE_SPECS.get('suite-decide'))).toContainEqual({ kind: 'test', target: { repo: DOGFOOD_REPO, path: 'packages/core/test/decide.test.ts', symbol: 'decide' } });
+  });
+});
+
+describe('the dogfood’s references', () => {
+  // Every file in the working tree git would commit: a new file is referenced before it is committed.
+  const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: repoRoot, encoding: 'utf8' }).split('\n').filter(Boolean);
+  const read = (f: string) => {
+    try {
+      return readFileSync(join(repoRoot, f), 'utf8');
+    } catch {
+      return null;
+    }
+  };
+
+  it('all lead somewhere: every path a file, every symbol in it', () => {
+    const nodes = DOGFOOD_MODEL.map((n) => ({ id: n.id, title: n.title, lifecycle: 'active' as const, refs: modelReferences(n, n.probe ? PROBE_SPECS.get(n.probe) : undefined) }));
+    expect(nodes.reduce((k, n) => k + n.refs.length, 0)).toBeGreaterThan(20);
+    expect(danglingReferences(nodes, DOGFOOD_REPO, files, read)).toEqual([]);
+  });
+
+  it('are named back by tags in the code, and every tag names a node in the model', () => {
+    const tags = harvestTags(files.filter((f) => /\.(?:ts|tsx|mjs)$/.test(f)).map((path) => ({ path, text: read(path) ?? '' })));
+    expect(tags.length).toBeGreaterThan(0);
+    const ids = new Set(DOGFOOD_MODEL.map((n) => n.id));
+    expect(tags.filter((t) => !ids.has(t.nodeId))).toEqual([]);
   });
 });
 
@@ -310,6 +356,19 @@ describe('a dogfood run', () => {
     const second = await run();
     expect(second.plan).toEqual([]);
     expect(second.applied).toBe(0);
+  });
+
+  it('harvests the repository’s tags after the sync, sets aside one naming no node, and still records', async () => {
+    const { store, run, advance } = await setup();
+    const T = ['orrery', ':'].join('');
+    const files: Record<string, string> = { 'packages/core/src/decide.ts': `// ${T}c-gate`, 'src/stray.ts': `// ${T}no-such-node` };
+    const tags = { tracked: Object.keys(files), read: (p: string) => files[p] ?? null };
+    const first = await run({}, { tags });
+    expect([first.harvested, first.tagPlan!.dangling.length, first.recorded]).toEqual([1, 1, measured.length]);
+    expect(store.all().find((e) => e.type === 'node.referenced')).toMatchObject({ actor: 'tags', data: { id: 'c-gate', ref: { origin: 'tag' } } });
+    advance(60);
+    const second = await run({}, { tags });
+    expect([second.plan, second.tagPlan!.changes]).toEqual([[], []]);
   });
 
   it('treats a new probe version as a new yardstick: unknown until measured under it', async () => {

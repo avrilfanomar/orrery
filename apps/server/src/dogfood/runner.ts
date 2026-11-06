@@ -6,7 +6,9 @@ import type { FastifyInstance } from 'fastify';
 import type { GitSnapshot } from './collectors.js';
 import { DOGFOOD_MODEL, type ModelNode } from './model.js';
 import { PROBES, type Probe, type ProbeContext, type ProbeOutcome } from './probes.js';
-import { currentFromView, planSync, resolveReasons, type PlannedChange } from './sync.js';
+import { TAG_ACTOR } from '../tags/runner.js';
+import { harvestTags, planTags, type TaggableNode, type TagPlan } from '../tags/scan.js';
+import { currentFromView, DOGFOOD_REPO, planSync, resolveReasons, type PlannedChange } from './sync.js';
 
 export interface Transport {
   get<T>(path: string): Promise<T>;
@@ -64,6 +66,11 @@ export interface RunDeps {
   env?: string;
   clock?: () => Date;
   progress?: (line: string) => void;
+  /**
+   * This repository's tracked files, to harvest its tags from (ADR 0014). Left
+   * out, the run harvests nothing: the caller passes it only from main's tip.
+   */
+  tags?: { tracked: readonly string[]; read(path: string): string | null };
 }
 
 export interface RunResult {
@@ -76,6 +83,9 @@ export interface RunResult {
   recorded: number;
   /** Why nothing was written, when nothing was. */
   notWritten: string | null;
+  /** The tag harvest, when the run was given the files; tags naming no node are set aside and counted by `references-dangling`. */
+  tagPlan: TagPlan | null;
+  harvested: number;
   view: UniverseView;
 }
 
@@ -120,6 +130,8 @@ export async function runDogfood(opts: RunOptions, deps: RunDeps): Promise<RunRe
     }
   }
 
+  const { tagPlan, harvested } = await harvest(api, deps.tags, git.sha, notWritten ? plannedNodes(before, model) : null);
+
   const byId = new Map(probes.map((p) => [p.id, p]));
   const wanted = model.filter((n) => n.probe && (!opts.only?.length || opts.only.includes(n.id) || opts.only.includes(n.probe)));
   // Timing benchmarks last, so nothing else competes with them for the CPU.
@@ -146,7 +158,39 @@ export async function runDogfood(opts: RunOptions, deps: RunDeps): Promise<RunRe
   if (!notWritten && readings.length) recorded = (await api.post<{ accepted: number }>('/api/readings', { readings })).accepted;
 
   const view = notWritten ? before : await api.get<UniverseView>('/api/universe');
-  return { model, plan, applied, results, source, observedAt, recorded, notWritten, view };
+  return { model, plan, applied, results, source, observedAt, recorded, notWritten, tagPlan, harvested, view };
+}
+
+/** The nodes as the sync would leave them, for a run that writes nothing: a tag naming a node the model adds is not dangling. */
+function plannedNodes(before: UniverseView, model: readonly ModelNode[]): TaggableNode[] {
+  const nodes: TaggableNode[] = Object.values(before.nodes);
+  for (const n of model) if (!before.nodes[n.id]) nodes.push({ id: n.id, title: n.title, lifecycle: 'active', refs: [] });
+  return nodes;
+}
+
+/**
+ * The harvest is a step of the sync rather than a scan of its own: a tag
+ * naming no node is left out of the plan, not a reason to stop, so the run
+ * still records its readings and `references-dangling` reads the breach.
+ * Planned against the universe after the sync, so a node it just created can
+ * be tagged; given `planOnly`, it plans against those nodes and writes nothing.
+ */
+async function harvest(api: Transport, tags: RunDeps['tags'], sha: string, planOnly: TaggableNode[] | null): Promise<{ tagPlan: TagPlan | null; harvested: number }> {
+  if (!tags) return { tagPlan: null, harvested: 0 };
+  const files = tags.tracked.flatMap((path) => {
+    const text = tags.read(path);
+    return text === null ? [] : [{ path, text }];
+  });
+  const nodes = planOnly ?? Object.values((await api.get<UniverseView>('/api/universe')).nodes);
+  const tagPlan = planTags(nodes, DOGFOOD_REPO, harvestTags(files), { added: `Tagged at ${sha}`, removed: `Tag gone at ${sha}` });
+  let harvested = 0;
+  if (!planOnly) {
+    for (const change of tagPlan.changes) {
+      await api.post('/api/commands', change.cmd, TAG_ACTOR);
+      harvested++;
+    }
+  }
+  return { tagPlan, harvested };
 }
 
 /** The webhook is all-or-nothing, so one malformed value must not cost the whole run its readings. */

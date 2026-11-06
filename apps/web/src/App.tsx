@@ -1,14 +1,16 @@
 import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { UniverseView } from '@orrery/core';
+import type { ReferenceTarget, UniverseView } from '@orrery/core';
 import { api } from './api.js';
 import { ActionDialog, type Action } from './components/ActionDialog.js';
 import { ChangeFeed } from './components/ChangeFeed.js';
 import { Coverage, StatusBadge, fmtDateTime } from './components/bits.js';
 import { Focus } from './components/Focus.js';
+import { JumpTo } from './components/JumpTo.js';
 import { Outline } from './components/Outline.js';
+import { ReferencePage } from './components/ReferencePage.js';
 import { TimeTravel } from './components/TimeTravel.js';
-import { useRoute, useStoredState } from './route.js';
+import { useRoute, useStoredState, type Route } from './route.js';
 
 const LIVE_REFRESH_MS = 5000;
 /** A refresh still unanswered after this long counts as no answer: `fetch` itself never gives up on a server that hangs. */
@@ -32,6 +34,20 @@ function useStalledSince(query: UseQueryResult, live: boolean): number | null {
   }, [live]);
   const hung = fetchingSince.current !== null && now - fetchingSince.current > HUNG_AFTER_MS;
   return live && query.dataUpdatedAt > 0 && (query.isError || hung) ? query.dataUpdatedAt : null;
+}
+
+/** The reference page the URL names, if any: a repository path, or a URL. */
+function targetOf(route: Route): ReferenceTarget | null {
+  if (route.repo && route.path) return { repo: route.repo, path: route.path };
+  if (route.url) return { url: route.url };
+  return null;
+}
+
+/** A tab or a bookmark says where it leads. */
+function useTitle(title: string | null) {
+  useEffect(() => {
+    document.title = title ? `${title} · Orrery` : 'Orrery';
+  }, [title]);
 }
 
 interface BannersProps {
@@ -82,6 +98,9 @@ export function App() {
     placeholderData: keepPreviousData,
   });
   const stalledSince = useStalledSince(universe, !route.asOf);
+  const repos = useQuery({ queryKey: ['repos'], queryFn: api.repos, staleTime: Infinity });
+  const target = targetOf(route);
+  useTitle(target ? ('url' in target ? target.url : target.path) : route.focus && universe.data?.nodes[route.focus] ? universe.data.nodes[route.focus]!.title : null);
   const changes = useQuery({
     queryKey: ['changes', universe.data?.stats.changes ?? 0],
     queryFn: () => api.changes(null),
@@ -109,7 +128,9 @@ export function App() {
   const focusId = route.focus && view.nodes[route.focus] ? route.focus : rootId;
   const missing = route.focus && !view.nodes[route.focus];
   const root = rootId ? view.nodes[rootId] : undefined;
-  const focus = (id: string) => navigate({ focus: id });
+  const focus = (id: string) => navigate({ focus: id, repo: null, path: null, url: null });
+  const openTarget = (t: ReferenceTarget) => navigate('url' in t ? { url: t.url, repo: null, path: null } : { repo: t.repo, path: t.path, url: null });
+  const repoList = repos.data ?? [];
 
   return (
     <div className={`app${view.live ? '' : ' is-past'}${universe.isPlaceholderData ? ' is-refetching' : ''}${stalledSince ? ' is-stalled' : ''}`}>
@@ -136,6 +157,7 @@ export function App() {
             <Coverage {...root.evaluation.coverage} />
           </div>
         )}
+        <JumpTo view={view} onFocus={focus} onTarget={openTarget} />
         <TimeTravel range={view.range} asOf={route.asOf} stalled={stalledSince !== null} changes={changes.data ?? []} onChange={(asOf) => navigate({ asOf }, { replace: true })} />
         <button type="button" className={`btn btn-small${changesOpen ? ' is-on' : ''}`} onClick={() => setChangesOpen((o) => !o)} aria-expanded={changesOpen}>
           Changes {view.stats.changes > 0 && <span className="pill">{view.stats.changes}</span>}
@@ -157,8 +179,10 @@ export function App() {
       <div className={`body${changesOpen ? ' with-drawer' : ''}`}>
         {focusId && <Outline view={view} focusId={focusId} onFocus={focus} />}
         <main className="main">
-          {focusId ? (
-            <Focus key={focusId} view={view} id={focusId} asOf={route.asOf} onFocus={focus} onAction={(action, extra) => setDialog({ action, extra })} />
+          {target ? (
+            <ReferencePage key={JSON.stringify(target)} view={view} target={target} repos={repoList} onFocus={focus} onTarget={openTarget} />
+          ) : focusId ? (
+            <Focus key={focusId} view={view} id={focusId} asOf={route.asOf} onFocus={focus} onAction={(action, extra) => setDialog({ action, extra })} repos={repoList} onTarget={openTarget} />
           ) : (
             <p className="muted">The universe is empty.</p>
           )}
@@ -174,7 +198,7 @@ export function App() {
         )}
       </div>
 
-      {dialog && focusId && view.nodes[focusId] && (
+      {dialog && !target && focusId && view.nodes[focusId] && (
         <ActionDialog
           action={dialog.action}
           extra={dialog.extra}

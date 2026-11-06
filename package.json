@@ -15,6 +15,7 @@
     "reset": "pnpm --filter @orrery/server reset",
     "dogfood": "pnpm --filter @orrery/server dogfood",
     "dogfood:serve": "pnpm --filter @orrery/web build && pnpm --filter @orrery/server dogfood:serve",
+    "tags": "pnpm --filter @orrery/server tags",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "verify": "pnpm typecheck && pnpm test && pnpm --filter @orrery/web build"

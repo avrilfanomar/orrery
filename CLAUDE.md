@@ -113,6 +113,13 @@ ask first.
   with `refuse()`, which logs the refusal and never the credentials offered.
 - Nothing shaped like a credential is committed, not even in a test: build a
   fake one at runtime (`secrets-in-history` reads all of history).
+- The same goes for tag text (`orrery:` and a node id, ADR 0014) in a test or
+  an example: build it at runtime, or the dogfood harvests it. A real tag must
+  name a node in `model.ts`; `references-dangling` counts any that don't, and
+  every reference `model.ts` declares must resolve (`dogfood.test.ts`).
+- References are inert: nothing in `evaluate.ts` may read `refs`. A reference
+  needs no reason, and each importer reconciles only its own origin (the tag
+  scan harvested references, the dogfood sync hand ones).
 - The settings every source shares, and their checks, live in
   `apps/server/src/sources/config.ts`. A source kind declares only its own
   fields, never a shared one, and lets out only what its `details` allowlists.

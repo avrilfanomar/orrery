@@ -73,3 +73,25 @@ export const PASS_FAIL_UNIT = 'pass/fail';
 
 /** Readings whose source starts with this were pulled by the server's collector; nobody else may claim it (ADR 0002, decision 3). */
 export const PULL_SOURCE_PREFIX = 'pull:';
+
+/**
+ * The kinds of reference core suggests, with their labels (ADR 0014). A kind is
+ * an open id: a team's own (`incident`, `contract`) needs no change here. It
+ * decides only how a reference is grouped and labelled, never what it does.
+ */
+export const REFERENCE_KINDS: Readonly<Record<string, string>> = {
+  code: 'Code',
+  test: 'Test',
+  doc: 'Document',
+  adr: 'Decision',
+  ticket: 'Ticket',
+  dashboard: 'Dashboard',
+  runbook: 'Runbook',
+  design: 'Design',
+};
+
+/** The kinds the console shows under *Implementation*; every other kind goes under *References*. */
+export const IMPLEMENTATION_KINDS: readonly string[] = ['code', 'test'];
+
+/** At most this many references on one node: enough for a requirement tagged across a service, small enough to ride every universe poll. */
+export const MAX_REFERENCES = 100;

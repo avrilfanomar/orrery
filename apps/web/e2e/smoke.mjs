@@ -1,7 +1,9 @@
 // End-to-end smoke test against a running app (default http://127.0.0.1:4710,
 // i.e. `pnpm start`). It walks the evolution loop through the real UI:
 // refine an unrefined stub into a KPI, record a reading, revise the target
-// (and check the reason is enforced), then find the change in the feed. Last,
+// (and check the reason is enforced), then find the change in the feed. Then
+// it follows a metric into its code and back, and finds it again with Jump to
+// (ADR 0014). Last,
 // it stops the API's answers and checks the console stops calling itself live.
 // It writes to the event log — run `pnpm reset` afterwards for a clean demo.
 //
@@ -60,6 +62,33 @@ try {
   const latest = await page.locator('.drawer .change-summary').first().innerText();
   assert.match(latest, /to v2: target ≤ 5% → ≤ 8%/);
   ok('the revision heads the change feed with its diff');
+
+  await page.goto(`${BASE}/?focus=k-5xx`);
+  await page.locator('.conn summary', { hasText: 'Implementation' }).click();
+  await page.getByRole('button', { name: /services\/checkout\/src\/payments\.ts/ }).click();
+  await page.getByRole('heading', { name: /Referenced by 2 nodes/ }).waitFor();
+  await page.locator('.referrers .conn-node', { hasText: 'Checkout is short and dependable' }).click();
+  await page.getByRole('heading', { level: 1, name: 'Checkout is short and dependable' }).waitFor();
+  ok('a metric leads to its code, and the file back to the requirement it backs');
+
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('5xx');
+  await page.getByRole('option', { name: /Checkout server errors/ }).waitFor();
+  await page.keyboard.press('Enter');
+  await page.getByRole('heading', { level: 1, name: /5xx rate/ }).waitFor();
+  ok('Jump to finds a metric by name and opens it from the keyboard');
+
+  await page.getByRole('button', { name: '+ Reference' }).click();
+  const reference = page.locator('dialog[open]');
+  await reference.getByLabel('A link').check();
+  await reference.getByLabel('Kind').fill('ticket');
+  const ticket = `SRE-${Date.now().toString(36)}`;
+  await reference.getByLabel('URL').fill(`https://tracker.larch.example/browse/${ticket}`);
+  await reference.getByLabel('Label (optional)').fill(ticket);
+  await reference.getByRole('button', { name: 'Add reference' }).click();
+  await page.locator('.conn summary', { hasText: 'References' }).click();
+  await page.locator('.ref-target', { hasText: ticket }).waitFor();
+  ok('a reference is added from the console without a reason');
 
   assert.deepEqual(errors, [], 'no browser console errors');
   ok('no console errors');

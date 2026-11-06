@@ -1,16 +1,25 @@
-// The URL is the navigation state: which node is in focus and which moment is
-// being looked at. Every drill-down step is a history entry, so Back climbs
-// one level, and any view can be shared as a link.
+// The URL is the navigation state: which node is in focus, which moment is
+// being looked at, and which file or link's page is open (ADR 0014). Every
+// step is a history entry, so Back retraces it, and any view can be shared as
+// a link: `?repo=<id>&path=<path>` is how a code review links a file to its
+// requirements.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface Route {
   focus: string | null;
   asOf: string | null;
+  /** A reference target's page: a file or directory in a repository… */
+  repo: string | null;
+  path: string | null;
+  /** …or a URL. */
+  url: string | null;
 }
+
+const KEYS = ['focus', 'asOf', 'repo', 'path', 'url'] as const;
 
 function read(): Route {
   const p = new URLSearchParams(window.location.search);
-  return { focus: p.get('focus'), asOf: p.get('asOf') };
+  return { focus: p.get('focus'), asOf: p.get('asOf'), repo: p.get('repo'), path: p.get('path'), url: p.get('url') };
 }
 
 export function useRoute(): [Route, (patch: Partial<Route>, opts?: { replace?: boolean }) => void] {
@@ -26,10 +35,9 @@ export function useRoute(): [Route, (patch: Partial<Route>, opts?: { replace?: b
 
   const navigate = useCallback((patch: Partial<Route>, opts?: { replace?: boolean }) => {
     const next = { ...current.current, ...patch };
-    if (next.focus === current.current.focus && next.asOf === current.current.asOf) return;
+    if (KEYS.every((k) => next[k] === current.current[k])) return;
     const p = new URLSearchParams();
-    if (next.focus) p.set('focus', next.focus);
-    if (next.asOf) p.set('asOf', next.asOf);
+    for (const k of KEYS) if (next[k]) p.set(k, next[k]!);
     const qs = p.toString();
     const url = `${window.location.pathname}${qs ? `?${qs}` : ''}`;
     if (opts?.replace) window.history.replaceState(null, '', url);

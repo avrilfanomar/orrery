@@ -1,4 +1,4 @@
-import type { CommandInput, NodeDetailView, OrreryEvent, TimelineEntry, UniverseView } from '@orrery/core';
+import type { CommandInput, NodeDetailView, OrreryEvent, Repository, TimelineEntry, UniverseView } from '@orrery/core';
 
 export class ApiError extends Error {
   constructor(
@@ -72,6 +72,8 @@ export const api = {
   node: (id: string, asOf: string | null) => request<NodeDetailView>(withAsOf(`/api/nodes/${encodeURIComponent(id)}`, asOf)),
   changes: (asOf: string | null, limit = 300) => request<TimelineEntry[]>(withAsOf('/api/changes', asOf, `limit=${limit}`)),
   sources: () => request<SourcesView>('/api/sources'),
+  /** The repositories references lead into (ADR 0014): links out are built from their templates, in core. */
+  repos: () => request<{ repositories: Repository[] }>('/api/repos').then((r) => r.repositories),
   command: (cmd: CommandInput, actor: string) =>
     request<{ events: OrreryEvent[] }>('/api/commands', {
       method: 'POST',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateUniverse, project, signalPath, type UniverseView } from '@orrery/core';
+import { buildUniverseView, evaluateUniverse, project, referencedBy, signalPath, type UniverseView } from '@orrery/core';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
 import { EventStore } from '../src/store.js';
@@ -40,6 +40,20 @@ describe('the demo universe', () => {
       expect(n.dashboardUrl).toMatch(/^https:\/\/grafana\.larch\.example\//);
     }
   });
+
+  it('leads from the 5xx KPI to the payments code, and from that file to both requirements it backs (ADR 0014)', () => {
+    const view = buildUniverseView(generateDemo(NOW), { now: NOW.toISOString() });
+    const payments = { repo: 'larch-shop', path: 'services/checkout/src/payments.ts' };
+    expect(view.nodes['k-5xx']!.refs).toContainEqual({ kind: 'code', target: payments, origin: 'tag' });
+    expect(referencedBy(view, payments).map((r) => [r.node.id, r.match])).toEqual([
+      ['k-5xx', 'exact'],
+      ['r-checkout', 'directory'],
+    ]);
+    // Every reference outside the repository is a fictional link a person follows.
+    const urls = Object.values(view.nodes).flatMap((n) => n.refs.flatMap((r) => ('url' in r.target ? [r.target.url] : [])));
+    expect(urls.length).toBeGreaterThan(3);
+    for (const u of urls) expect(u).toMatch(/^https:\/\/[a-z]+\.larch\.example\//);
+  });
 });
 
 describe('API', () => {
@@ -56,6 +70,15 @@ describe('API', () => {
     expect(past.nodes['k-p95']!.evaluation.status).toBe('ok');
     expect(past.nodes['k-p95']!.definition.measure!.target).toBe(800);
     expect(past.nodes['r-search']).toBeUndefined();
+  });
+
+  it('serves the repositories references lead into, and none when none are configured', async () => {
+    const { app } = await setup();
+    expect((await app.inject('/api/repos')).json()).toEqual({ repositories: [] });
+    const store = EventStore.open(null);
+    const repos = [{ id: 'larch-shop', label: 'Larch shop', branch: 'main', browse: 'https://git.larch.example/larch/shop/src/branch/main/{path}' }];
+    const withRepos = await buildApp({ store, clock: () => NOW, repos });
+    expect((await withRepos.inject('/api/repos')).json()).toEqual({ repositories: repos });
   });
 
   it('serves a node’s definitions, history and series', async () => {
