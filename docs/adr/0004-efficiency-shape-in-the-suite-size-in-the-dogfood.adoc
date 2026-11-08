@@ -32,15 +32,11 @@ Two constraints shape the answer:
 
 ===== 1. The suite pins the shape, without a clock
 
-The suite counts and compares, and never times. It checks that:
-
-* reads per stored event stay the same with ten times the nodes, more ribbon
-  days or bigger batches;
-* the universe answer keeps its size as readings grow;
-* a batch at the documented limit is accepted whole, and one more is refused.
-
-The property is that the count does not change, whatever the constant. Another
-pass over the whole log is allowed. A pass per node, per day or per reading
+The suite counts and compares, and never times. Reads per stored event must
+not change as nodes, ribbon days or batches grow, nor the universe answer's
+size as readings grow, and the documented batch limit holds to the event. The
+property is that the count does not change, whatever the constant: another
+pass over the whole log is allowed, a pass per node, per day or per reading
 fails.
 
 ===== 2. The dogfood measures the size, after a week of live signals

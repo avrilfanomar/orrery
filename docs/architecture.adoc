@@ -111,39 +111,37 @@ beneath it.
 == 2. Architecture constraints
 
 The invariants. `CLAUDE.md` restates them for contributors, and the suites
-named there enforce them.
+named there enforce them. The decisions each one links to hold the reasons.
 
-* [[con-log-is-state]]**The event log is the only state.** A stored event is never changed. A correction is a new event, and every projection can be thrown away.
-* [[con-decide-gate]]**`decide` is the only gate.** Every rule that protects the model lives in one pure function, and the API, the seed and every importer go through it.
-* [[con-unknown-not-green]]**Unknown never rolls up as green.** No rule and no rollup strategy may turn missing evidence into a pass.
-* [[con-definition-in-force]]**A reading is judged against the definition in force when it was observed.** History is never re-judged by today's definition.
+* [[con-log-is-state]]**The event log is the only state.**
+* [[con-decide-gate]]**`decide` is the only gate.** Every rule that protects the model lives in that one pure function, and the API, the seed and every importer go through it.
+* [[con-unknown-not-green]]**Unknown never rolls up as green.**
+* [[con-definition-in-force]]**A reading is judged against the definition in force when it was observed.**
 * [[con-core-pure]]**The domain core is pure.** It uses no Node or browser API, so the server and the console run the same code.
-* [[con-core-no-integration]]**Core names no integration.** A query language, a source kind or a code host is a module, installed in one place.
+* [[con-core-no-integration]]**Core names no integration.**
 * [[con-one-process]]**One process, one local log.** The PoC is a single server writing a single JSONL file. There is no cluster, database or tenancy.
 
 [.links]
 |===
-|Source |owned-by
+|Source |owned-by |relates-to
 
-|<<con-log-is-state>> |<<sh-maintainer>>
-|<<con-decide-gate>> |<<sh-maintainer>>
-|<<con-unknown-not-green>> |<<sh-maintainer>>
-|<<con-definition-in-force>> |<<sh-maintainer>>
-|<<con-core-pure>> |<<sh-maintainer>>
-|<<con-core-no-integration>> |<<sh-maintainer>>
-|<<con-one-process>> |<<sh-maintainer>>
+|<<con-log-is-state>> |<<sh-maintainer>> |<<adr-0001>>
+|<<con-decide-gate>> |<<sh-maintainer>> |<<adr-0001>>, <<adr-0002>>
+|<<con-unknown-not-green>> |<<sh-maintainer>> |<<adr-0001>>, <<adr-0009>>
+|<<con-definition-in-force>> |<<sh-maintainer>> |<<adr-0001>>, <<adr-0002>>
+|<<con-core-pure>> |<<sh-maintainer>> |<<adr-0001>>, <<adr-0006>>
+|<<con-core-no-integration>> |<<sh-maintainer>> |<<adr-0013>>, <<adr-0014>>
+|<<con-one-process>> |<<sh-maintainer>> |<<adr-0001>>, <<adr-0008>>
 |===
 
 [[section-design-decisions]]
 == 9. Architecture decisions
 
 Each decision keeps its number for good, because code and probes cite it as
-"ADR 0002, decision 4". A later decision that changes an earlier one
-`orr:amends` it, and the earlier text stays as it was written.
+"ADR 0002, decision 4".
 
-Every decision is due for a scheduled look six months after its date (the
-`time.elapsed` subscription). Its own _Revisit when_ list names the events
-that should bring that look forward.
+Each falls due for review six months after its date, or sooner on an event
+from its _Revisit when_ list.
 
 include::adr/0001-one-graph-append-only-evolution.adoc[]
 
@@ -173,12 +171,13 @@ include::adr/0013-modules-bring-what-core-does-not-know.adoc[]
 
 include::adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.adoc[]
 
+include::adr/0015-suspect-contributions-a-change-of-meaning-asks-for-review.adoc[]
+
 === Revisit Triggers
 
-Nothing has fallen due yet. To find out what has, run the reference checker
-from the extensions repository:
-`arc42ext status docs/architecture.adoc`. To record a revisit, append the event
-and the revisit it opens to these tables.
+Nothing has fallen due yet. `arc42ext status docs/architecture.adoc` lists
+what has. A revisit is recorded by appending its event and the revisit to these
+tables.
 
 ==== Events
 
@@ -201,8 +200,8 @@ Known and accepted for a PoC. Each one leads to the decision that took it on.
 
 === Risks
 
-* [[risk-identity]]**No identity.** Anyone who can reach the API can change the model. Authors name themselves, and a request without one is signed "you", so the audit trail is only as good as the header and nothing is non-repudiable. The ingest token guards readings only.
-* [[risk-open-reads]]**Reads are open, and the server speaks plain HTTP.** Anyone who can reach it reads the whole universe, binding queries included. Nothing limits the request rate. With remote access allowed, the query oracle is back for that network, by design.
+* [[risk-identity]]**No identity.** Anyone who can reach the API can change the model. Authors name themselves, and a request without one is signed "you", so nothing is non-repudiable.
+* [[risk-open-reads]]**Reads are open, and the server speaks plain HTTP.** Anyone who can reach it reads the whole universe, binding queries included, at any rate. With remote access allowed, the query oracle is back for that network, by design.
 * [[risk-no-erasure]]**The log cannot forget.** An append-only log can never erase a name or a typed value. Removable personal data would need encryption per subject, or a log that keeps references instead of values.
 * [[risk-server-clock]]**Staleness trusts the server's clock.** A clock that runs behind makes stale readings look fresh. A clock that runs ahead errs safe.
 * [[risk-unit-mismatch]]**A query in the wrong unit reads in that unit.** A ratio bound to a percentage target reads a hundred times too good, and nothing can check that in general.
@@ -211,10 +210,10 @@ Known and accepted for a PoC. Each one leads to the decision that took it on.
 
 === Technical debt
 
-* [[td-projection]]**Every request re-projects the whole log.** That holds for thousands of events, not millions of readings. Each open console also costs a full projection every 5 s, changed or not.
-* [[td-batch-atomicity]]**A webhook batch is not atomic across a crash.** A kill partway through can leave part of a batch that was never acknowledged. Closing it needs a commit marker, which is a new event format.
-* [[td-console-tests]]**The console has no unit tests.** Its share of each README claim (drill-down, one level below the focus) and the not-live warning are held only by the browser smoke test.
-* [[td-a11y]]**Accessibility is checked by machine only.** Nobody has used the console with a screen reader, by keyboard alone or with magnification. The outline has no arrow keys, and the chart has no text form.
+* [[td-projection]]**Every request re-projects the whole log.** That holds for thousands of events, not millions of readings.
+* [[td-batch-atomicity]]**A webhook batch is not atomic across a crash.** A kill partway through can leave part of a batch that was never acknowledged.
+* [[td-console-tests]]**The console has no unit tests.** Only the browser smoke test holds what it does.
+* [[td-a11y]]**Accessibility is checked by machine only.** Nobody has used the console with a screen reader, by keyboard alone or with magnification. The chart has no text form.
 * [[td-observability]]**No access logs, metrics endpoint or readiness check.** The server logs warnings and errors only, and exposes nothing for Prometheus to scrape.
 
 [.links]

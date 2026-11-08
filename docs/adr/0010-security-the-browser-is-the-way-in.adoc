@@ -80,10 +80,8 @@ like a credential. It reports where, never the value.
   operator lists any extra names in a setting.
 * With an ingest token set, the console cannot record a reading by hand.
 * No stored event and no past status changed.
-* The open risks: there is no identity, reads are open, the server speaks
-  plain HTTP, and nothing limits the request rate (<<risk-identity,§11>>,
-  <<risk-open-reads,§11>>). The log cannot forget personal data
-  (<<risk-no-erasure,§11>>).
+* Still open: <<risk-identity,no identity>>, <<risk-open-reads,open reads over
+  plain HTTP>>, and <<risk-no-erasure,a log that cannot forget>> (§11).
 
 Not decided here: tamper evidence for the log, rate limiting, and TLS in the
 server itself.

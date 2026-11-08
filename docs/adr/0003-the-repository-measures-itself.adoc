@@ -21,14 +21,10 @@ Nothing checked that they still hold. `pnpm verify` says the tests pass. It
 does not say whether a contract is really enforced, whether the view is still
 fast after a week of live data, or whether a dependency has a known advisory.
 
-Four facts constrain dogfooding:
-
-* the log is permanent, so a wrong definition or a made-up reading can be
-  superseded but never removed;
-* changing what a number means needs a new version (<<adr-0002,ADR 0002>>,
-  decision 2);
-* the demo has to stay untouched;
-* there is no CI yet, so measurement runs on a developer's machine.
+A wrong definition or a made-up reading can be superseded but never removed
+(<<con-log-is-state,§2>>), and changing what a number means needs a new version
+(<<adr-0002,ADR 0002>>, decision 2). The demo has to stay untouched, and with no
+CI yet, measurement runs on a developer's machine.
 
 ==== Decision
 

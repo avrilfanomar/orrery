@@ -100,6 +100,7 @@ when it is next due for review. The decisions:
 | 0004–0012 | How each quality is tested: [efficiency](docs/adr/0004-efficiency-shape-in-the-suite-size-in-the-dogfood.adoc), [flexibility](docs/adr/0005-flexibility-is-tested-as-promises.adoc), [maintainability](docs/adr/0006-maintainability-structure-counted-diagnosis-pinned.adoc), [operability](docs/adr/0007-operability-what-whoever-runs-it-can-rely-on.adoc), [reliability](docs/adr/0008-reliability-what-it-acknowledged-survives.adoc), [safety](docs/adr/0009-safety-no-one-acts-on-a-green-it-has-not-earned.adoc), [security](docs/adr/0010-security-the-browser-is-the-way-in.adoc), [usability](docs/adr/0011-usability-everyone-can-read-and-operate-it.adoc), and [suitability](docs/adr/0012-suitability-it-does-what-the-readme-says.adoc) (it does what this README says) |
 | [0013](docs/adr/0013-modules-bring-what-core-does-not-know.adoc) | Modules bring what core does not know: query languages and source kinds. Prometheus is one |
 | [0014](docs/adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.adoc) | Traceability: one step from a requirement to its metrics and its code, and back |
+| [0015](docs/adr/0015-suspect-contributions-a-change-of-meaning-asks-for-review.adoc) | *Proposed.* Suspect contributions: a declared change of meaning asks what beneath it still holds |
 
 ## The repository measures itself
 

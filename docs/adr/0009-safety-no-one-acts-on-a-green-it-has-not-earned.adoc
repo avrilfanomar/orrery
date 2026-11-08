@@ -81,9 +81,8 @@ Anywhere else it says why and feeds nothing.
 
 ==== Consequences
 
-* Under `quorum`, a critical input in breach now reads breach. A quorum that is
-  met while a critical input is unmeasured reads unknown.
-* No status in the past changed.
+* Under `quorum`, a quorum that is met while a critical input is unmeasured
+  now reads unknown.
 * Each reset leaves a backup file, and nothing prunes them.
 * The not-live warning is held only by a browser test, because the console has
   no unit tests (<<td-console-tests,§11>>).

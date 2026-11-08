@@ -58,11 +58,10 @@ reproduced before it was fixed.
 
 ===== 3. How it is held
 
-The suite checks the store against broken logs and a log cut at every byte,
-a real server under a file-size limit, the lock, contained faults, and clean
-stops and restarts. Dogfood probes kill a server mid-write and count
-acknowledged readings lost, and run the suites in a shuffled order and count
-tests that fail only then.
+The suite holds decisions 1 and 2, down to a log cut at every byte and a real
+server under a file-size limit. Dogfood probes count the acknowledged readings
+lost when a server is killed mid-write, and the tests that fail only when the
+suites run shuffled.
 
 ==== Consequences
 

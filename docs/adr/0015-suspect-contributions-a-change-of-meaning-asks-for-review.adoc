@@ -1,0 +1,176 @@
+[[adr-0015]]
+=== ADR 0015 — Suspect contributions: a declared change of meaning asks what beneath it still holds
+
+Date:: 2026-11-07
+
+Status:: Proposed
+
+[.links]
+owned-by:: <<sh-maintainer>>
+addresses:: <<need-evolution>>, <<need-traceability>>
+orr:upholds:: <<qg-truth>>
+orr:amends:: <<adr-0001>>
+
+[.triggers]
+baseline:: 2026-11-07
+on time.elapsed:: every P6M
+
+==== Context
+
+A node contributes to its primary parent and to every node it links to, and
+each of those edges says: this is evidence for that. The model is meant to
+change underneath itself (ADR 0001, decision 4). When a requirement is
+reworded, a scenario gets a new response or a goal is narrowed, the
+contributions beneath it may no longer be evidence for what it now says. Today
+nothing asks, and the parent keeps reading green on contributions chosen for
+its old meaning.
+
+Other tools ask. Doorstop (a fingerprint of the parent stored on each link) and
+Jama Connect report a link suspect when its parent changes. OpenFastTrace gives
+an item a revision that its author raises only for a change of meaning. That
+voids every coverage link to it, and an editorial change does not. The
+Trustable Software Framework leaves a suspect link out of the parent's score
+until it is reviewed.
+
+*Words.* A *contribution* is one edge from a child to a parent, primary or
+link. A *revision* is a change the author declares changes what the node
+means. A contribution is *suspect* when its parent has been revised since
+someone last confirmed it.
+
+Three constraints apply.
+
+* The log is permanent, so a mark raised by mistake stays in it for ever.
+* Frozen logs must load and project as they did when they were written
+  (ADR 0005, decision 1). None of them may suddenly show a suspect.
+* The dogfood sync re-applies `model.ts` on every run, so every reword there
+  becomes an edit.
+
+==== Decision
+
+===== 1. Only a declared revision makes a contribution suspect
+
+The author says whether a change is a revision. Nothing infers it.
+
+* *The flag rides the change.* `node.edited` and `node.redefined` gain an
+  optional flag, `meaningChanged`. On an edit it is allowed only when the
+  title or description changes. On a redefinition it is allowed only when the
+  measure or the scenario changes. Owner, dimensions, dashboard, rollup and
+  binding say who looks after a node and how it is computed, not what it
+  means.
+* *Absent means editorial.* A change without the flag revises nothing. That
+  covers every one already in a log, so frozen logs show no suspect and every
+  existing contribution starts clean. It covers the dogfood sync too, which has
+  no way to say that a reword changed a meaning.
+* *Why not every change.* A fingerprint over the text would mark every typo fix
+  and flood the model on each dogfood reword. A mark that is almost always
+  noise teaches people to clear it unread.
+* *Why a flag and not a separate event.* ADR 0014, decision 4 chose separate
+  events because two writers sent whole lists and overwrote each other. A
+  revision has one writer, the author of the change, and belongs to that change.
+  A flag keeps the change and its claim in one line of the log.
+* *A revision needs a reason*, because it asks everyone beneath to check their
+  contribution and the reason is what they read. A redefinition already needs
+  one. An edit that declares a revision now does too, which *amends
+  <<adr-0001,ADR 0001>>, decision 4*. An editorial edit still needs none.
+
+===== 2. Suspect is inert, and shown where the green is read
+
+A suspect contribution changes no status, rollup, coverage, backlog, signal or
+ribbon. `evaluate.ts` never reads it, as it never reads references
+(ADR 0014, decision 2). No rollup rule changes, so ADR 0009's promise grid
+(decisions 1 and 5) has nothing new to hold.
+
+The Trustable Software Framework's alternative, leaving a suspect contribution
+out of its parent's rollup until it is reviewed, is rejected. One revision near
+the top would turn everything above it unknown, so status would report review
+bookkeeping, not the system. The readings are still real, and treating them as
+missing throws evidence away. The flag is opt-in, so if declaring a revision
+greyed out the tree, authors would stop declaring them.
+
+The console reader (<<sh-reader>>) acts on greens, and a green over
+contributions nobody has checked against the new meaning has not been earned
+again. So the reader sees it where the green is read. Core derives it and the
+console renders it:
+
+* *on the parent*: a note under its status. The evaluated reason sentence stays
+  as it is, a statement about readings;
+* *a "Needs review" list* beside "Not yet observable" in the focus view,
+  covering the suspect contributions in the subtree;
+* *on the edge* in Connections (ADR 0014, decision 8), and *in the change feed*
+  as the revision and each review, with author and time.
+
+===== 3. One rule for both kinds of edge
+
+A contribution is suspect when its parent has a revision later than both:
+
+* the moment the edge was made: the child's creation (which makes its primary
+  edge and any initial links), its move to the parent, or its link to it;
+* the edge's last review.
+
+The rule is the same for the primary parent and for every link. What follows
+from it:
+
+* *Move and link make a clean edge.* Both already need a reason, and the person
+  making the edge is asserting that it belongs there. Unlink and move-away
+  remove the edge, and its suspicion with it. A later link is a new edge.
+* *One level only.* A revision marks only the contributions to the revised
+  node, never anything above it. A reviewer who finds that the child's meaning
+  must change too revises the child, which marks the contributions to the child
+  in turn. Each step is a decision someone made. A new reading, like any change
+  that is not a revision, marks and clears nothing.
+* *Lifecycle marks nothing.* A deprecated node has no contribution to review.
+  A reactivated one shows whatever is still suspect.
+
+===== 4. A review clears it, through the gate
+
+One new event type, `node.reviewed`, names a child and the parent it
+contributes to. It says the contribution still holds for the parent's current
+meaning.
+
+* *It goes through `decide`.* The gate refuses an unknown node, a pair with no
+  edge between them, and an edge that is not suspect. Like "Nothing to change",
+  a review of nothing adds nothing to the log.
+* *A reason is optional.* A review moves no status and no yardstick, which is
+  why a reference needs no reason either. The common verdict is "still holds",
+  and the envelope keeps who and when. A verdict that it no longer holds is not
+  a review. It is an unlink or a move, and those need a reason.
+* *Suspect is never stored.* The projection derives it from revisions, edges and
+  reviews. Nothing in the log says "suspect", so changing how it is derived
+  leaves every logged event replayable, and projecting to an earlier moment
+  shows what was known then.
+* *Readings are judged as before.* A revision is not a definition version.
+  Definition versions say which yardstick judges a reading, and `definitionAt`
+  is unchanged. A revision says what the node means to the things beneath it.
+
+==== Consequences
+
+* The log gains one event type and one optional flag on two others, and
+  `node.edited` an optional reason. A new frozen log, `events.v4.jsonl`, holds
+  them. Reviews go through the existing commands route.
+* Deriving suspects and listing them for a subtree is core logic, tested there
+  (<<adr-0012,ADR 0012>>, decision 2).
+* A revision is only as good as the author's honesty. A reword that changes the
+  meaning but is left unflagged marks nothing, which is where things stand
+  today. The timeline still shows the edit.
+* Anyone can review, and a review is signed only by the author header
+  (<<risk-identity,§11>>).
+
+Not decided here: suspect references (references are inert); declaring a
+revision after the fact, without another change to carry it; a hint that
+suggests the flag when a change looks semantic; reviewing many contributions at
+once; a deadline after which an unreviewed contribution counts as unknown.
+
+==== Revisit when
+
+* suspects linger unreviewed while people act on the greens above them. Letting
+  them reach status would put them under ADR 0009, and a rule that reads them
+  must join its grid;
+* a reword that changed a meaning is found unflagged, more than once;
+* the dogfood model needs to declare a revision, such as on a probe's version
+  bump;
+* there are owners to notify that a contribution waits for review;
+* a mark for the reverse direction is wanted: a child's target relaxed, or a
+  child in breach deprecated, turning its parent green
+  (<<risk-moved-yardstick,§11>>). Suspect contributions could then mark the edge
+  above such a change;
+* authentication lands, so a review can be tied to a person.

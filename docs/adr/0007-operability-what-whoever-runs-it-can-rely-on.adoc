@@ -54,12 +54,10 @@ time.
 
 ===== 3. How it is held
 
-The suite checks that startup refusals name what to fix, that failures are
-visible, that the server recovers after a restart or a source outage, that
-every change is on the record, and that every documented command exists.
-Dogfood probes clone the repository fresh and serve it, count settings read
-outside the settings module, and count shipped dependencies under a licence
-that is not approved.
+The suite holds decisions 1 and 2, recovery after a restart or a source
+outage, the record of every change, and every documented command. Dogfood
+probes serve a fresh clone, and count settings read outside the settings
+module and shipped dependencies under a licence that is not approved.
 
 ==== Consequences
 

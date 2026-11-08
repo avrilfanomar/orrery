@@ -3,7 +3,7 @@
 
 Date:: 2026-11-03
 
-Status:: Accepted (PoC). Decision 3 is amended by <<adr-0009,ADR 0009>>.
+Status:: Accepted (PoC). Decision 3 is amended by <<adr-0009,ADR 0009>>. Decision 4 would be amended by <<adr-0015,ADR 0015>> (proposed).
 
 [.links]
 owned-by:: <<sh-maintainer>>
@@ -92,17 +92,15 @@ projection. As a result:
 
 ==== Consequences
 
-* The domain core is pure and synchronous. Projection, evaluation, rollup,
-  history and the command gate are plain functions, tested without I/O. The
-  server is a thin shell.
-* Projection is recomputed for each request. That is fine at PoC scale, but a
-  high reading volume needs snapshots, or a definition log beside a
+* Projection, evaluation, rollup, history and the command gate are plain
+  synchronous functions, tested without I/O (<<con-core-pure,§2>>). The server
+  is a thin shell.
+* A high reading volume will need snapshots, or a definition log beside a
   time-series store (<<td-projection,§11>>).
 * Readings are events too, so "what did we know at T" can be answered. The
   recording time and the observation time are kept apart, so a late reading
   lands in its place.
-* There is no authentication, and callers name themselves. That is acceptable
-  only for a PoC (<<risk-identity,§11>>).
+* Callers name themselves, with no authentication (<<risk-identity,§11>>).
 
 ==== Revisit when
 

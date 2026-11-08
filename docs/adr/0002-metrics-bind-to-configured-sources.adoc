@@ -26,13 +26,10 @@ already have these numbers in Prometheus, usually viewed through Grafana.
 * *drill-out*: where a person goes to look at it;
 * *pull*: the platform runs the query on a schedule and records the answers.
 
-Four facts constrain the shape:
-
-* the log is permanent (<<adr-0001,ADR 0001>>, decision 4);
-* commands are unauthenticated in the PoC;
-* the core must stay pure, and `decide` is the only gate;
-* a reading is judged by the definition in force when it was observed, which
-  includes what the number meant then.
+The constraints of <<section-architecture-constraints,§2>> shape it, and one
+of them reaches further than it looks: the definition in force when a reading
+was observed includes what the number meant then. Commands are also
+unauthenticated (<<risk-identity,§11>>).
 
 ==== Decision
 
