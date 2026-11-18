@@ -12,3 +12,6 @@ data/*.bak
 .vite/
 smoke-failure.png
 .idea/
+# the root LICENSE, copied in when a package is packed for npm
+packages/*/LICENSE
+apps/*/LICENSE
