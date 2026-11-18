@@ -23,7 +23,14 @@ time, and it evolves without rewriting its past.
 
 ## Run it
 
-Node ≥ 20.19 and pnpm.
+Node ≥ 20.19. To try it without a clone:
+
+```bash
+npx @avrilfanomar/orrery             # API and console on :4710; the log goes to ./orrery-data
+npx @avrilfanomar/orrery simulate    # in a second terminal: keep the demo's signals moving
+```
+
+To work on it, clone it and use pnpm:
 
 ```bash
 pnpm install
@@ -37,6 +44,7 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 | `pnpm start` | Build the UI and serve everything from :4710 |
 | `pnpm reset` | Re-seed the demo relative to now. Stop the server first; the old log is kept as `<log>.<instant>.bak` |
 | `pnpm verify` | Typecheck, unit and API tests, UI build |
+| `pnpm build` | Build what goes to npm: the libraries' `dist/`, and the server bundled with the console ([ADR 0016](docs/adr/0016-what-we-publish-and-what-a-version-promises.adoc)) |
 | `pnpm --filter @avrilfanomar/orrery-web e2e` | Browser smoke test against a running app (writes to the log) |
 | `pnpm --filter @avrilfanomar/orrery-web a11y` | Accessibility scan against a running app (reads only) |
 | `pnpm --filter @avrilfanomar/orrery-web readme-gif` | Re-record the picture above against a freshly reset, running app (reads only; needs ffmpeg) |
@@ -101,6 +109,7 @@ when it is next due for review. The decisions:
 | [0013](docs/adr/0013-modules-bring-what-core-does-not-know.adoc) | Modules bring what core does not know: query languages and source kinds. Prometheus is one |
 | [0014](docs/adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-code.adoc) | Traceability: one step from a requirement to its metrics and its code, and back |
 | [0015](docs/adr/0015-suspect-contributions-a-change-of-meaning-asks-for-review.adoc) | *Proposed.* Suspect contributions: a declared change of meaning asks what beneath it still holds |
+| [0016](docs/adr/0016-what-we-publish-and-what-a-version-promises.adoc) | What we publish on npm, and what a 0.x version promises |
 
 ## The repository measures itself
 
@@ -256,11 +265,11 @@ directory is used.
 
 | Variable | Default | Used by | What it does |
 |---|---|---|---|
-| `ORRERY_DATA_FILE` | `data/events.jsonl` | server, `reset` | The event log |
+| `ORRERY_DATA_FILE` | `data/events.jsonl`; from npm, `orrery-data/events.jsonl` where the command was typed | server, `reset` | The event log |
 | `ORRERY_SEED` | `demo` | server, `reset` | What an empty log starts as: `demo` or `dogfood` |
 | `PORT` | `4710` | server, `reset`, simulator, `tags` | The API port |
 | `HOST` | `127.0.0.1` | server, `reset`, simulator, `tags` | The address the API binds to |
-| `ORRERY_WEB_DIST` | `apps/web/dist` | server | The built UI to serve, if present |
+| `ORRERY_WEB_DIST` | `apps/web/dist`; from npm, the console inside the package | server | The built UI to serve, if present |
 | `ORRERY_INGEST_TOKEN` | unset | server, simulator | Requires `Authorization: Bearer …` on every reading, through `POST /api/readings` or a `reading.record` command |
 | `ORRERY_SOURCES_FILE` | unset | server | Metric sources to pull from (see above). Their tokens are named by `tokenEnv` |
 | `ORRERY_REPOS_FILE` | unset | server | Repositories references lead into, each with a browse template (see above) |

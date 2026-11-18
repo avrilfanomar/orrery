@@ -1,0 +1,92 @@
+[[adr-0016]]
+=== ADR 0016 — What we publish, and what a version promises
+
+Date:: 2026-11-18
+
+Status:: Accepted (PoC)
+
+[.links]
+owned-by:: <<sh-maintainer>>
+orr:upholds:: <<qg-operate>>, <<qg-flex>>
+orr:amends:: <<adr-0013>>
+
+[.triggers]
+baseline:: 2026-11-18
+on time.elapsed:: every P6M
+
+==== Context
+
+Until 0.1.0, the only way to run Orrery was to clone the repository, and the
+only way to build a module was to work inside it. Every package was private,
+and each one exported its TypeScript source. The `@orrery` scope on npm
+belongs to an unrelated project.
+
+<<adr-0013,ADR 0013>> named "someone outside this repository writes a module,
+so the kit needs a version" as a reason to revisit it. Putting the kit on npm
+is that event.
+
+==== Decision
+
+===== 1. Four packages, under the maintainer's scope
+
+Every workspace package moves to the `@avrilfanomar` scope. Three libraries are
+published: `orrery-core`, `orrery-module-kit` and `orrery-prometheus`. So is
+the app, `@avrilfanomar/orrery`, which installs one command, `orrery`, with
+`serve`, `reset` and `simulate`. The console is not published on its own; it
+ships inside the app.
+
+===== 2. The repository runs the source; the package carries the build
+
+In the repository, each package still exports its source, so development,
+tests and the dogfood never wait for a build. Packing swaps in a manifest that
+points at `dist/`. A library's `dist/` is compiler output with declarations.
+The app's `dist/` is one bundle of the server with the built console beside
+it. The bundle keeps its npm dependencies external, and the build refuses a
+bundle that loads a package the app does not declare.
+
+===== 3. Installed, there is no repository
+
+From the bundle, the log goes to `orrery-data/events.jsonl` in the directory
+the command was typed in, and the console is served from beside the bundle.
+Every other setting, and every check on it, is the one
+<<adr-0007,ADR 0007>> describes. No variable is added.
+
+===== 4. What a version promises
+
+All four packages share one version and are released together from one tag.
+While it is 0.x, any minor release may break any of them, and a patch release
+only fixes. A log written by an earlier release keeps loading, as
+<<adr-0005,ADR 0005>> already promises. The HTTP API and the console may
+change in any minor release.
+
+===== 5. A module can be built outside, not yet plugged in
+
+The kit now has a version that a module elsewhere can build and test against.
+The app still installs modules in one file of its own (ADR 0013, decision 4),
+so a module from outside can't be added to the published app without
+changing it. Loading modules from configuration stays undecided, as ADR 0013
+left it.
+
+==== Consequences
+
+* `npx @avrilfanomar/orrery` runs the demo with no clone, no pnpm and no tsx.
+* ADR 0013 names the kit `@orrery/module-kit`. It is now
+  `@avrilfanomar/orrery-module-kit`.
+* The seam and import-cycle probes key on a list of workspace packages, which
+  a test holds to the manifests. Before, they keyed on a scope, and a rename
+  would have switched them off without failing anything.
+* A release now needs an npm login and `pnpm -r publish`, after `pnpm build`.
+* The app bundles the dogfood seed, so it carries the probe code it never
+  runs. Its dynamic import of the TypeScript compiler is the one undeclared
+  package the build allows.
+* A fresh install resolves the newest versions within the app's ranges, not
+  the ones the lockfile pins. Two of them (under fastify and @fastify/static)
+  already declare Node 22 while Orrery declares Node 20.19. npm only warns, and
+  the published app was checked on Node 20.
+
+==== Revisit when
+
+* someone wants to add a module to the published app without forking it;
+* a dependency stops running on the oldest Node the app declares;
+* a release is meant to be the first that must not break its users (1.0);
+* the dogfood has to leave the app package.

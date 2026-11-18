@@ -30,13 +30,13 @@ decisions everything rests on. The whole architecture is in
 ## Commands
 
 ```bash
-pnpm dev | start | reset | verify
-pnpm --filter @avrilfanomar/orrery-core test      # domain unit tests
+pnpm dev | start | reset | verify | build
+pnpm --filter @avrilfanomar/orrery-core test       # domain unit tests
 pnpm --filter @avrilfanomar/orrery-core exec vitest run --coverage   # its statement coverage (ADR 0006)
-pnpm --filter @avrilfanomar/orrery test    # API + demo-story tests
-pnpm --filter @avrilfanomar/orrery-web e2e        # browser smoke test (needs a running app)
-pnpm --filter @avrilfanomar/orrery-web a11y       # accessibility scan (needs a running app; reads only)
-pnpm --filter @avrilfanomar/orrery-web readme-gif # re-record docs/tour.gif (needs a freshly reset, running app and ffmpeg)
+pnpm --filter @avrilfanomar/orrery test            # API + demo-story tests
+pnpm --filter @avrilfanomar/orrery-web e2e         # browser smoke test (needs a running app)
+pnpm --filter @avrilfanomar/orrery-web a11y        # accessibility scan (needs a running app; reads only)
+pnpm --filter @avrilfanomar/orrery-web readme-gif  # re-record docs/tour.gif (needs a freshly reset, running app and ffmpeg)
 pnpm dogfood [--dry-run]         # measure this repo against its own model (ADR 0003)
 pnpm dogfood:serve               # that universe in the UI on :4711
 ```
@@ -47,6 +47,14 @@ Work on `main`. Never create a feature branch (or a worktree on a new branch)
 unless the user explicitly asks for one in that conversation. An earlier
 request for a branch does not carry over. If a task seems to call for a branch,
 ask first.
+
+## Releases
+
+What goes to npm, and what a version promises, is ADR 0016. All five
+manifests and the root share one version; bump them together, add a
+`CHANGELOG.md` entry, and tag `v<version>`. Publish only when the user asks:
+`pnpm build`, `pnpm -r publish --dry-run`, then `pnpm -r publish --access public`.
+A published version can never be published again.
 
 ## Conventions
 
@@ -166,5 +174,11 @@ ask first.
   number.
 - Every package declares what it imports in its own `package.json`. Commit
   `pnpm-lock.yaml` with any manifest change.
+- A workspace package is known to the seam and cycle probes by its manifest
+  name, through `WORKSPACE_PACKAGES` in `apps/server/src/dogfood/flexibility.ts`.
+  A new or renamed package goes there too (`dogfood.test.ts` checks it).
+- The app's bundle (`apps/server/build.mjs`) keeps npm packages external and
+  fails on one `apps/server` does not list under `dependencies`. What only the
+  repo's scripts use belongs in `devDependencies`.
 - A suite probe names `describe` titles. `dogfood.test.ts` checks they exist,
   so rename the test and the probe together.

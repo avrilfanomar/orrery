@@ -173,6 +173,8 @@ include::adr/0014-traceability-one-step-from-a-requirement-to-its-metrics-and-co
 
 include::adr/0015-suspect-contributions-a-change-of-meaning-asks-for-review.adoc[]
 
+include::adr/0016-what-we-publish-and-what-a-version-promises.adoc[]
+
 === Revisit Triggers
 
 Nothing has fallen due yet. `arc42ext status docs/architecture.adoc` lists

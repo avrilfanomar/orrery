@@ -1,6 +1,6 @@
 {
   "name": "@avrilfanomar/orrery",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "type": "module",
   "description": "Requirements, constraints and quality KPIs as one living, observable graph: the server and its console in one command",

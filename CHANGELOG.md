@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.0 — 2026-11-18
+
+Orrery is on npm. Nothing changed in what the model, the server or the console
+do.
+
+### Added
+
+- `npx @avrilfanomar/orrery` runs the server with its console, no clone
+  needed. `orrery reset` re-seeds the demo and `orrery simulate` keeps its
+  signals moving. Installed this way, the log goes to `orrery-data/` in the
+  directory you run it from.
+- The libraries are published with type declarations:
+  `@avrilfanomar/orrery-core`, `@avrilfanomar/orrery-module-kit` and
+  `@avrilfanomar/orrery-prometheus`.
+- `pnpm build` builds what goes to npm.
+- [ADR 0016](docs/adr/0016-what-we-publish-and-what-a-version-promises.adoc):
+  what we publish, and what a 0.x version promises.
+
+### Changed
+
+- Every package moved from the `@orrery` scope, which belongs to another
+  project on npm, to `@avrilfanomar`. `@orrery/server` is now
+  `@avrilfanomar/orrery`, and the others are prefixed `orrery-`.
+- The `seam-crossings` and `import-cycles` probes are at version 3. They now
+  find workspace packages by their manifest names, so the rename can't switch
+  them off.
+- `tsx` is now a development dependency of the server.
+- Core declares that it has no side effects, so the console's script went from
+  109 kB to 82 kB gzipped.
+
 ## 0.1.0 — 2026-11-18
 
 The first release of Orrery, a proof of concept: requirements, constraints and

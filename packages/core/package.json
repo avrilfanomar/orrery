@@ -1,6 +1,6 @@
 {
   "name": "@avrilfanomar/orrery-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "type": "module",
   "description": "The pure domain of Orrery: node graph, append-only events, projection, evaluation and rollup",
