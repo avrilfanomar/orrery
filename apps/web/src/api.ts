@@ -1,4 +1,4 @@
-import type { CommandInput, NodeDetailView, OrreryEvent, Repository, TimelineEntry, UniverseView } from '@orrery/core';
+import type { CommandInput, NodeDetailView, OrreryEvent, Repository, TimelineEntry, UniverseView } from '@avrilfanomar/orrery-core';
 
 export class ApiError extends Error {
   constructor(

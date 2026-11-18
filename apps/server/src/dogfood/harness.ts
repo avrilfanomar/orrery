@@ -4,7 +4,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
-import { applyEvent, decide, parseCommand, project, type OrreryEvent } from '@orrery/core';
+import { applyEvent, decide, parseCommand, project, type OrreryEvent } from '@avrilfanomar/orrery-core';
 import { PROFILES } from '../demo.js';
 import { binPath, isSkip, lastLine, runProgram } from './collectors.js';
 import type { ProbeContext, ProbeOutcome } from './probes.js';

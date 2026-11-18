@@ -9,16 +9,16 @@
     "node": ">=20.19"
   },
   "scripts": {
-    "dev": "concurrently -k -n api,web,sim -c blue,green,yellow \"pnpm --filter @orrery/server dev\" \"pnpm --filter @orrery/web dev\" \"pnpm --filter @orrery/server simulate\"",
-    "start": "pnpm --filter @orrery/web build && pnpm --filter @orrery/server start",
-    "simulate": "pnpm --filter @orrery/server simulate",
-    "reset": "pnpm --filter @orrery/server reset",
-    "dogfood": "pnpm --filter @orrery/server dogfood",
-    "dogfood:serve": "pnpm --filter @orrery/web build && pnpm --filter @orrery/server dogfood:serve",
-    "tags": "pnpm --filter @orrery/server tags",
+    "dev": "concurrently -k -n api,web,sim -c blue,green,yellow \"pnpm --filter @avrilfanomar/orrery dev\" \"pnpm --filter @avrilfanomar/orrery-web dev\" \"pnpm --filter @avrilfanomar/orrery simulate\"",
+    "start": "pnpm --filter @avrilfanomar/orrery-web build && pnpm --filter @avrilfanomar/orrery start",
+    "simulate": "pnpm --filter @avrilfanomar/orrery simulate",
+    "reset": "pnpm --filter @avrilfanomar/orrery reset",
+    "dogfood": "pnpm --filter @avrilfanomar/orrery dogfood",
+    "dogfood:serve": "pnpm --filter @avrilfanomar/orrery-web build && pnpm --filter @avrilfanomar/orrery dogfood:serve",
+    "tags": "pnpm --filter @avrilfanomar/orrery tags",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "verify": "pnpm typecheck && pnpm test && pnpm --filter @orrery/web build"
+    "verify": "pnpm typecheck && pnpm test && pnpm --filter @avrilfanomar/orrery-web build"
   },
   "devDependencies": {
     "@types/node": "^20.19.9",

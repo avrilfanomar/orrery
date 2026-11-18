@@ -10,8 +10,8 @@
 // page at one width. The value is the number of checks that fail, not of
 // elements, so it does not grow with the demo data (ADR 0004).
 //
-//   pnpm --filter @orrery/web a11y
-//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @orrery/web a11y
+//   pnpm --filter @avrilfanomar/orrery-web a11y
+//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @avrilfanomar/orrery-web a11y
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright-core';

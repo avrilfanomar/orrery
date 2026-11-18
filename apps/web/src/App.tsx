@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { ReferenceTarget, UniverseView } from '@orrery/core';
+import type { ReferenceTarget, UniverseView } from '@avrilfanomar/orrery-core';
 import { api } from './api.js';
 import { ActionDialog, type Action } from './components/ActionDialog.js';
 import { ChangeFeed } from './components/ChangeFeed.js';

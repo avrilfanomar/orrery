@@ -9,8 +9,8 @@ import { scrub } from './harness.js';
 import type { Probe, ProbeContext } from './probes.js';
 
 const V1 = 'First version of this method (ADR 0005)';
-const V2_SEAMS =
-  'ADR 0013: the Prometheus adapter left apps/server for the @orrery/prometheus module, so the rule keyed to its old path could never fire. The seams now say which package may load which — the UI no package but core, a module only core and the kit, the server a module only through its registry — and a source adapter is reached by calling it, so that rule counts calls';
+const V3_SEAMS =
+  'The packages moved to the @avrilfanomar scope to be published on npm (ADR 0016), so every rule keyed to the old scope matched nothing. The rules now key on a list of workspace packages, name to directory, that dogfood.test.ts holds to the manifests';
 const read = (ctx: ProbeContext, f: string) => readFileSync(join(ctx.root, f), 'utf8');
 const sources = (ctx: ProbeContext, pattern: RegExp) => ctx.tracked().filter((f) => pattern.test(f));
 const tally = (hits: readonly string[]) => {
@@ -30,20 +30,50 @@ export function resolveImport(from: string, spec: string): string {
   return spec.startsWith('.') ? posix.normalize(posix.join(posix.dirname(from), spec)).replace(/\.(?:[cm]?js|tsx?|jsx)$/, '') : spec;
 }
 
-/** The package a repository path or an `@orrery/` specifier belongs to (`packages/core`, `@orrery/core` → `core`), or null. */
-const packageOf = (t: string) => {
-  const [root, name] = t.split('/');
-  return root === 'packages' || root === 'apps' || root === '@orrery' ? (name ?? null) : null;
+/**
+ * Every workspace package by the name it is published under, mapped to its directory. The seams and
+ * import-cycles key on this, not on a scope pattern, so a rename that misses one fails `dogfood.test.ts`
+ * instead of switching the rules off.
+ */
+export const WORKSPACE_PACKAGES: ReadonlyMap<string, string> = new Map([
+  ['@avrilfanomar/orrery-core', 'packages/core'],
+  ['@avrilfanomar/orrery-module-kit', 'packages/module-kit'],
+  ['@avrilfanomar/orrery-prometheus', 'packages/prometheus'],
+  ['@avrilfanomar/orrery', 'apps/server'],
+  ['@avrilfanomar/orrery-web', 'apps/web'],
+]);
+/** The workspace package a specifier names (`@avrilfanomar/orrery-core/src/x.js` → its entry name), or null. */
+const workspaceEntry = (spec: string) => {
+  const [scope, name] = spec.split('/');
+  const entry = `${scope}/${name}`;
+  return spec.startsWith('@') && WORKSPACE_PACKAGES.has(entry) ? entry : null;
 };
-/** A module (ADR 0013): any workspace package that is not core, the kit or an app. */
-const isModule = (t: string) => /^@orrery\/(?!core$|module-kit$|server$|web$)[^/]+$/.test(t);
+/** The directory a repository path or a workspace specifier belongs to (`packages/core/src/x`, `@avrilfanomar/orrery-core` → `packages/core`), or null. */
+const dirOf = (t: string) => {
+  const entry = workspaceEntry(t);
+  if (entry) return WORKSPACE_PACKAGES.get(entry)!;
+  const [root, name] = t.split('/');
+  return (root === 'packages' || root === 'apps') && name ? `${root}/${name}` : null;
+};
+const CORE = 'packages/core';
+const KIT = 'packages/module-kit';
+/** A module (ADR 0013): any workspace package under packages/ but core and the kit, named by its entry. */
+const isModule = (t: string) => {
+  const dir = workspaceEntry(t) === t ? dirOf(t) : null;
+  return dir !== null && dir.startsWith('packages/') && dir !== CORE && dir !== KIT;
+};
+/** True when `t` lies outside `f`'s own directory and outside every directory in `allowed`. */
+const reachesPast = (f: string, t: string, ...allowed: string[]) => {
+  const dir = dirOf(t);
+  return dir !== null && dir !== dirOf(f) && !allowed.includes(dir);
+};
 
 /** Component boundaries no source import may cross, each kept for a reason ADR 0005 or ADR 0013 gives. */
 export const SEAMS: readonly { rule: string; crosses(from: string, to: string): boolean }[] = [
-  { rule: 'a package is used through its entry', crosses: (f, t) => (t.startsWith('@orrery/') && t.split('/').length > 2) || (t.startsWith('packages/') && packageOf(t) !== packageOf(f)) },
-  { rule: 'core depends on no other package or app', crosses: (f, t) => f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@orrery\/(?!core$)/.test(t)) },
-  { rule: 'a module depends only on core and the kit', crosses: (f, t) => f.startsWith('packages/') && !f.startsWith('packages/core/') && (t.startsWith('apps/') || /^@orrery\/(?!core$|module-kit$)/.test(t)) },
-  { rule: 'the UI and the server share only core and HTTP', crosses: (f, t) => (f.startsWith('apps/web/') && (t.startsWith('apps/server/') || /^@orrery\/(?!core$)/.test(t))) || (f.startsWith('apps/server/') && /^(?:apps\/web\/|@orrery\/web)/.test(t)) },
+  { rule: 'a package is used through its entry', crosses: (f, t) => (workspaceEntry(t) !== null && workspaceEntry(t) !== t) || (t.startsWith('packages/') && dirOf(t) !== dirOf(f)) },
+  { rule: 'core depends on no other package or app', crosses: (f, t) => f.startsWith(`${CORE}/`) && reachesPast(f, t) },
+  { rule: 'a module depends only on core and the kit', crosses: (f, t) => f.startsWith('packages/') && !f.startsWith(`${CORE}/`) && reachesPast(f, t, CORE, KIT) },
+  { rule: 'the UI and the server share only core and HTTP', crosses: (f, t) => (f.startsWith('apps/web/') && reachesPast(f, t, CORE)) || (f.startsWith('apps/server/') && dirOf(t) === 'apps/web') },
   { rule: 'only the registry installs a module', crosses: (f, t) => f.startsWith('apps/') && f !== 'apps/server/src/modules.ts' && isModule(t) },
 ];
 /** A source adapter is reached through its kind (`kindOf(src).queryRange(…)`); only the collector, which schedules pulls and records their answers, may call one. */
@@ -93,9 +123,9 @@ export const FLEXIBILITY_PROBES: readonly Probe[] = [
   },
   {
     id: 'seam-crossings',
-    version: 2,
-    since: V2_SEAMS,
-    method: `Resolves every import in tracked packages/*/src and apps/*/src (comments ignored) and counts those that break a boundary: ${SEAMS.map((s) => s.rule).join('; ')}. A module is any workspace package but core, module-kit and the apps. Calls of a source adapter (\`.queryRange(\`) outside ${ADAPTER_CALLER} count too: only the collector talks to a source. So do network calls (fetch, XMLHttpRequest, EventSource, WebSocket) in apps/web/src outside api.ts: the UI reaches the server through one module.`,
+    version: 3,
+    since: V3_SEAMS,
+    method: `Resolves every import in tracked packages/*/src and apps/*/src (comments ignored) and counts those that break a boundary: ${SEAMS.map((s) => s.rule).join('; ')}. A workspace package is named by its manifest; a module is any under packages/ but core and module-kit. Calls of a source adapter (\`.queryRange(\`) outside ${ADAPTER_CALLER} count too: only the collector talks to a source. So do network calls (fetch, XMLHttpRequest, EventSource, WebSocket) in apps/web/src outside api.ts: the UI reaches the server through one module.`,
     measure(ctx) {
       const hits = sources(ctx, /^(?:packages|apps)\/[^/]+\/src\/.+\.tsx?$/).flatMap((f) => crossingsIn(f, scrub(read(ctx, f), false)));
       return { value: hits.length, detail: hits.slice(0, 3).join('; ') || undefined };

@@ -20,18 +20,18 @@ importers:
 
   apps/server:
     dependencies:
+      '@avrilfanomar/orrery-core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@avrilfanomar/orrery-module-kit':
+        specifier: workspace:*
+        version: link:../../packages/module-kit
+      '@avrilfanomar/orrery-prometheus':
+        specifier: workspace:*
+        version: link:../../packages/prometheus
       '@fastify/static':
         specifier: ^10.1.8
         version: 10.1.8
-      '@orrery/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@orrery/module-kit':
-        specifier: workspace:*
-        version: link:../../packages/module-kit
-      '@orrery/prometheus':
-        specifier: workspace:*
-        version: link:../../packages/prometheus
       fastify:
         specifier: ^5.2.1
         version: 5.12.8
@@ -51,7 +51,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@orrery/core':
+      '@avrilfanomar/orrery-core':
         specifier: workspace:*
         version: link:../../packages/core
       '@tanstack/react-query':
@@ -107,7 +107,7 @@ importers:
 
   packages/prometheus:
     dependencies:
-      '@orrery/module-kit':
+      '@avrilfanomar/orrery-module-kit':
         specifier: workspace:*
         version: link:../module-kit
       zod:

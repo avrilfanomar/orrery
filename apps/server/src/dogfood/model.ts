@@ -6,7 +6,7 @@
 //
 // Anchors: the invariants in CLAUDE.md, ADR 0001, ADR 0002 and the README.
 // Thresholds cite the baseline measured on 2026-11-04 when they were set.
-import { PASS_FAIL_UNIT, type CommandInput } from '@orrery/core';
+import { PASS_FAIL_UNIT, type CommandInput } from '@avrilfanomar/orrery-core';
 
 type CreateData = Extract<CommandInput, { type: 'node.create' }>['data'];
 export type ModelNode = Omit<CreateData, 'id' | 'binding' | 'description'> & {

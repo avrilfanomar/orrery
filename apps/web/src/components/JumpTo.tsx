@@ -5,7 +5,7 @@
 // list and then clears the text. Ctrl+K (⌘K) brings focus here; the shortcut
 // takes a modifier, since a bare character key would need a way to turn it
 // off (WCAG 2.2 SC 2.1.4).
-import { describeTarget, searchUniverse, type ReferenceTarget, type SearchHit, type UniverseView } from '@orrery/core';
+import { describeTarget, searchUniverse, type ReferenceTarget, type SearchHit, type UniverseView } from '@avrilfanomar/orrery-core';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { KindTag, StatusDot } from './bits.js';
 

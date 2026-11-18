@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { decide, parseCommand, project, type NewEvent, type OrreryEvent } from '@orrery/core';
+import { decide, parseCommand, project, type NewEvent, type OrreryEvent } from '@avrilfanomar/orrery-core';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';

@@ -1,5 +1,5 @@
 {
-  "name": "@orrery/server",
+  "name": "@avrilfanomar/orrery",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@fastify/static": "^10.1.8",
-    "@orrery/core": "workspace:*",
-    "@orrery/module-kit": "workspace:*",
-    "@orrery/prometheus": "workspace:*",
+    "@avrilfanomar/orrery-core": "workspace:*",
+    "@avrilfanomar/orrery-module-kit": "workspace:*",
+    "@avrilfanomar/orrery-prometheus": "workspace:*",
     "fastify": "^5.2.1",
     "tsx": "^4.19.2",
     "zod": "^4.6.7"

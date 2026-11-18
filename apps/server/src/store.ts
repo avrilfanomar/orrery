@@ -9,7 +9,7 @@
 // replaces (ADR 0009): nothing it does destroys the record.
 import { closeSync, constants, copyFileSync, existsSync, fsyncSync, ftruncateSync, linkSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { checkLogEntry, type NewEvent, type OrreryEvent } from '@orrery/core';
+import { checkLogEntry, type NewEvent, type OrreryEvent } from '@avrilfanomar/orrery-core';
 
 /**
  * A crash during a write can leave the last line cut short. That line was

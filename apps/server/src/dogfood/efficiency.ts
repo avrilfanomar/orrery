@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { setFlagsFromString } from 'node:v8';
 import { runInNewContext } from 'node:vm';
 import { gzipSync } from 'node:zlib';
-import type { OrreryEvent } from '@orrery/core';
+import type { OrreryEvent } from '@avrilfanomar/orrery-core';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../app.js';
 import { EventStore } from '../store.js';

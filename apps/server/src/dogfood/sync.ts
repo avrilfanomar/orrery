@@ -16,7 +16,7 @@ import {
   type RollupRule,
   type ScenarioSpec,
   type UniverseView,
-} from '@orrery/core';
+} from '@avrilfanomar/orrery-core';
 import type { ModelNode } from './model.js';
 
 /** What the planner needs to know about a probe; the measuring part stays in probes.ts. */

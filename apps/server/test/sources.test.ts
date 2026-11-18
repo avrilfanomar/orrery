@@ -4,8 +4,8 @@
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { evaluateUniverse, LanguageIdSchema, project, type OrreryEvent } from '@orrery/core';
-import { endpoint } from '@orrery/prometheus';
+import { evaluateUniverse, LanguageIdSchema, project, type OrreryEvent } from '@avrilfanomar/orrery-core';
+import { endpoint } from '@avrilfanomar/orrery-prometheus';
 import { buildApp } from '../src/app.js';
 import { MODULES, registryProblems, SOURCE_KINDS } from '../src/modules.js';
 import { Collector } from '../src/sources/collector.js';

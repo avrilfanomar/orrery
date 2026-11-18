@@ -7,8 +7,8 @@
 // it stops the API's answers and checks the console stops calling itself live.
 // It writes to the event log — run `pnpm reset` afterwards for a clean demo.
 //
-//   pnpm --filter @orrery/web e2e
-//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @orrery/web e2e
+//   pnpm --filter @avrilfanomar/orrery-web e2e
+//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @avrilfanomar/orrery-web e2e
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 

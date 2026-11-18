@@ -1,6 +1,6 @@
 // What an empty log starts as. The choice is explicit, so pointing ORRERY_DATA_FILE
 // at the dogfood log can never plant the Larch Store demo in it (ADR 0003).
-import { applyEvent, decide, emptyUniverse, parseCommand, type OrreryEvent } from '@orrery/core';
+import { applyEvent, decide, emptyUniverse, parseCommand, type OrreryEvent } from '@avrilfanomar/orrery-core';
 import { generateDemo } from './demo.js';
 import { DOGFOOD_MODEL } from './dogfood/model.js';
 import { PROBE_SPECS } from './dogfood/probes.js';

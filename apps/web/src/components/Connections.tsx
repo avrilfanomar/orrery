@@ -21,7 +21,7 @@ import {
   type ReferenceTarget,
   type Repository,
   type UniverseView,
-} from '@orrery/core';
+} from '@avrilfanomar/orrery-core';
 import { useMemo, type ReactNode } from 'react';
 import type { Action } from './ActionDialog.js';
 import { StatusDot } from './bits.js';

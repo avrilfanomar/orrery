@@ -7,7 +7,7 @@
 // The binding only supplies the query text. Path, method and host are fixed
 // here, so a binding can't reach admin endpoints through the Grafana proxy or
 // point the server anywhere new.
-import { defineSourceKind, type OrreryModule, type PullResult, type RangeQuery, type Sample, type SourceBasics } from '@orrery/module-kit';
+import { defineSourceKind, type OrreryModule, type PullResult, type RangeQuery, type Sample, type SourceBasics } from '@avrilfanomar/orrery-module-kit';
 import { z } from 'zod';
 
 /** Reach Prometheus through Grafana's datasource proxy instead of directly. Grafana is a route, not a kind. */

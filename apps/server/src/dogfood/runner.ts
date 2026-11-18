@@ -1,7 +1,7 @@
 // One dogfood run (ADR 0003): sync the model, measure, record, report. Every
 // write goes through the public API — in-process or to a running dogfood
 // server — so `decide` judges the dogfood exactly as it judges anyone else.
-import { PASS_FAIL_UNIT, type CommandInput, type TimelineEntry, type UniverseView } from '@orrery/core';
+import { PASS_FAIL_UNIT, type CommandInput, type TimelineEntry, type UniverseView } from '@avrilfanomar/orrery-core';
 import type { FastifyInstance } from 'fastify';
 import type { GitSnapshot } from './collectors.js';
 import { DOGFOOD_MODEL, type ModelNode } from './model.js';

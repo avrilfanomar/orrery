@@ -13,7 +13,7 @@ import {
   project,
   type NewEvent,
   type Repository,
-} from '@orrery/core';
+} from '@avrilfanomar/orrery-core';
 import { z } from 'zod';
 import { bearerMatches, guard, refuse, RESERVED_ACTORS } from './guard.js';
 import { publicLanguages } from './modules.js';

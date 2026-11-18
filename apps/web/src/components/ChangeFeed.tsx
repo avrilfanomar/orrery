@@ -1,4 +1,4 @@
-import type { TimelineEntry, UniverseView } from '@orrery/core';
+import type { TimelineEntry, UniverseView } from '@avrilfanomar/orrery-core';
 import { fmtDate, fmtDateTime } from './bits.js';
 
 interface Props {

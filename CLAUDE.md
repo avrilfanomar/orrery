@@ -22,7 +22,7 @@ decisions everything rests on. The whole architecture is in
    (`definitionAt`). Never evaluate history against the current definition.
 5. **`packages/core` stays pure** — no Node or DOM APIs, so the UI can import it.
 6. **Core names no integration** (ADR 0013). A query language or a source kind
-   is a module: a package under `packages/` implementing `@orrery/module-kit`,
+   is a module: a package under `packages/` implementing `@avrilfanomar/orrery-module-kit`,
    installed in `apps/server/src/modules.ts` and nowhere else. A module loads
    only core and the kit; the console loads none and learns what to show from
    `GET /api/sources`. `seam-crossings` counts every import that breaks this.
@@ -31,12 +31,12 @@ decisions everything rests on. The whole architecture is in
 
 ```bash
 pnpm dev | start | reset | verify
-pnpm --filter @orrery/core test      # domain unit tests
-pnpm --filter @orrery/core exec vitest run --coverage   # its statement coverage (ADR 0006)
-pnpm --filter @orrery/server test    # API + demo-story tests
-pnpm --filter @orrery/web e2e        # browser smoke test (needs a running app)
-pnpm --filter @orrery/web a11y       # accessibility scan (needs a running app; reads only)
-pnpm --filter @orrery/web readme-gif # re-record docs/tour.gif (needs a freshly reset, running app and ffmpeg)
+pnpm --filter @avrilfanomar/orrery-core test      # domain unit tests
+pnpm --filter @avrilfanomar/orrery-core exec vitest run --coverage   # its statement coverage (ADR 0006)
+pnpm --filter @avrilfanomar/orrery test    # API + demo-story tests
+pnpm --filter @avrilfanomar/orrery-web e2e        # browser smoke test (needs a running app)
+pnpm --filter @avrilfanomar/orrery-web a11y       # accessibility scan (needs a running app; reads only)
+pnpm --filter @avrilfanomar/orrery-web readme-gif # re-record docs/tour.gif (needs a freshly reset, running app and ffmpeg)
 pnpm dogfood [--dry-run]         # measure this repo against its own model (ADR 0003)
 pnpm dogfood:serve               # that universe in the UI on :4711
 ```

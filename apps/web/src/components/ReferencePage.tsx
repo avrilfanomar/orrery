@@ -14,7 +14,7 @@ import {
   type Referrer,
   type Repository,
   type UniverseView,
-} from '@orrery/core';
+} from '@avrilfanomar/orrery-core';
 import { useMemo } from 'react';
 import { KindTag } from './bits.js';
 import { NodeButton } from './Connections.js';

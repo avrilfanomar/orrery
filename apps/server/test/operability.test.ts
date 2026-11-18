@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { buildChangeFeed, evaluateUniverse, project, type OrreryEvent, type TimelineEntry, type UniverseView } from '@orrery/core';
+import { buildChangeFeed, evaluateUniverse, project, type OrreryEvent, type TimelineEntry, type UniverseView } from '@avrilfanomar/orrery-core';
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
@@ -429,7 +429,7 @@ describe('documented operations', () => {
       }
     }
     expect(missing).toEqual([]);
-    for (const known of ['pnpm dev', 'pnpm start', 'pnpm reset', 'pnpm verify', 'pnpm dogfood', 'pnpm dogfood:serve', 'pnpm --filter @orrery/web e2e', 'pnpm --filter @orrery/server test']) expect(seen).toContain(known);
+    for (const known of ['pnpm dev', 'pnpm start', 'pnpm reset', 'pnpm verify', 'pnpm dogfood', 'pnpm dogfood:serve', 'pnpm --filter @avrilfanomar/orrery-web e2e', 'pnpm --filter @avrilfanomar/orrery test']) expect(seen).toContain(known);
   });
 
   it('states one Node floor: in engines, .nvmrc, the README and the Node types the code is checked against', () => {

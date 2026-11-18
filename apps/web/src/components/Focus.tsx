@@ -18,7 +18,7 @@ import {
   type ReferenceTarget,
   type Repository,
   type UniverseView,
-} from '@orrery/core';
+} from '@avrilfanomar/orrery-core';
 import { useMemo } from 'react';
 import { api } from '../api.js';
 import type { Action } from './ActionDialog.js';

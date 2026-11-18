@@ -12,7 +12,7 @@ import {
   type Definition,
   type MeasureSpec,
   type SeriesPoint,
-} from '@orrery/core';
+} from '@avrilfanomar/orrery-core';
 import { StatusIcon, fmtDate, fmtDateTime } from './bits.js';
 
 interface Props {

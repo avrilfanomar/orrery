@@ -5,7 +5,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildNodeDetail, buildUniverseView, checkLogEntry, CommandSchema, EventSchema, type OrreryEvent, type UniverseView } from '@orrery/core';
+import { buildNodeDetail, buildUniverseView, checkLogEntry, CommandSchema, EventSchema, type OrreryEvent, type UniverseView } from '@avrilfanomar/orrery-core';
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';

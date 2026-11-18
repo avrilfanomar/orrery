@@ -5,8 +5,8 @@
 // and their checks, live here; a kind's module adds only its own fields
 // (ADR 0013), so no kind can loosen them.
 import { existsSync, readFileSync } from 'node:fs';
-import { HttpUrlSchema, SourceIdSchema, type SourceCatalog } from '@orrery/core';
-import type { DrillOut, PublicSettings, PublicValue, SourceBasics, SourceKind } from '@orrery/module-kit';
+import { HttpUrlSchema, SourceIdSchema, type SourceCatalog } from '@avrilfanomar/orrery-core';
+import type { DrillOut, PublicSettings, PublicValue, SourceBasics, SourceKind } from '@avrilfanomar/orrery-module-kit';
 import { z } from 'zod';
 import { SOURCE_KINDS } from '../modules.js';
 

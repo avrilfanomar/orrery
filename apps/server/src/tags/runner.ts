@@ -3,7 +3,7 @@
 // a clean tree; anything else is a dry run, so CI on every branch cannot add
 // and remove the same references in a permanent log. Every write goes through
 // the API, so `decide` judges a harvested reference like anyone else's.
-import type { Repository, UniverseView } from '@orrery/core';
+import type { Repository, UniverseView } from '@avrilfanomar/orrery-core';
 import type { Transport } from '../dogfood/runner.js';
 import { danglingReferences, harvestTags, planTags, type DanglingReference, type ScanOptions, type TagPlan } from './scan.js';
 

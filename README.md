@@ -37,9 +37,9 @@ Open <http://localhost:5710>. The first start seeds `data/events.jsonl`.
 | `pnpm start` | Build the UI and serve everything from :4710 |
 | `pnpm reset` | Re-seed the demo relative to now. Stop the server first; the old log is kept as `<log>.<instant>.bak` |
 | `pnpm verify` | Typecheck, unit and API tests, UI build |
-| `pnpm --filter @orrery/web e2e` | Browser smoke test against a running app (writes to the log) |
-| `pnpm --filter @orrery/web a11y` | Accessibility scan against a running app (reads only) |
-| `pnpm --filter @orrery/web readme-gif` | Re-record the picture above against a freshly reset, running app (reads only; needs ffmpeg) |
+| `pnpm --filter @avrilfanomar/orrery-web e2e` | Browser smoke test against a running app (writes to the log) |
+| `pnpm --filter @avrilfanomar/orrery-web a11y` | Accessibility scan against a running app (reads only) |
+| `pnpm --filter @avrilfanomar/orrery-web readme-gif` | Re-record the picture above against a freshly reset, running app (reads only; needs ffmpeg) |
 | `pnpm dogfood` | Measure this repository against its own requirements ([below](#the-repository-measures-itself)) |
 | `pnpm tags --repo <id>` | Harvest a repository's `orrery:` tags into references ([below](#linking-code-and-everything-else)) |
 
@@ -301,7 +301,7 @@ docs/architecture.adoc the architecture, in arc42; docs/adr holds its decisions
 ```
 
 A system to pull from, or a language a binding is written in, is a module: a
-package implementing `@orrery/module-kit`, added to `apps/server/src/modules.ts`
+package implementing `@avrilfanomar/orrery-module-kit`, added to `apps/server/src/modules.ts`
 and to the server's dependencies. Core, the log's shape and the console stay as
 they are. The console learns what to say about a language, and where a query
 opens, from `GET /api/sources`.

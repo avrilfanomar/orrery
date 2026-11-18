@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildUniverseView, evaluateUniverse, project, referencedBy, signalPath, type UniverseView } from '@orrery/core';
+import { buildUniverseView, evaluateUniverse, project, referencedBy, signalPath, type UniverseView } from '@avrilfanomar/orrery-core';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
 import { EventStore } from '../src/store.js';

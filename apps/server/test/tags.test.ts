@@ -2,7 +2,7 @@
 // one repository reconciles only its own harvested references. Tag text is
 // built at runtime, so a scan of this repository never harvests this file.
 import { describe, expect, it } from 'vitest';
-import { buildUniverseView, type OrreryEvent, type Reference } from '@orrery/core';
+import { buildUniverseView, type OrreryEvent, type Reference } from '@avrilfanomar/orrery-core';
 import { buildApp } from '../src/app.js';
 import { injectTransport } from '../src/dogfood/runner.js';
 import { EventStore } from '../src/store.js';

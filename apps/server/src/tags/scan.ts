@@ -3,7 +3,7 @@
 // tags in text, turn them into references, and plan the commands that bring one
 // repository's harvested references in line with its tags. Applying the plan is
 // the caller's job, through the API and so through `decide`. Tag: orrery:r-traceable
-import { NodeIdSchema, refKey, type CommandInput, type Reference } from '@orrery/core';
+import { NodeIdSchema, refKey, type CommandInput, type Reference } from '@avrilfanomar/orrery-core';
 
 /** Never harvested: prose that shows the syntax, and frozen logs. */
 export const DEFAULT_EXCLUDE: readonly string[] = ['**/*.md', '**/fixtures/**'];
@@ -14,7 +14,7 @@ const PREFIX = 'orrery';
 const ID = '[a-z0-9][a-z0-9-]{0,63}';
 /**
  * The token, then node ids, comma-separated. It must not follow a letter, digit,
- * `/`, `.`, `-` or `@`, so a package name (`@orrery/core`) or a URL never
+ * `/`, `.`, `-` or `@`, so a package name (`@avrilfanomar/orrery-core`) or a URL never
  * matches. No comment syntax is parsed: a tag counts in any language, strings
  * included, which is why tests build their tag text at runtime.
  */

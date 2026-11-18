@@ -8,7 +8,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { buildUniverseView, EventSchema, type OrreryEvent } from '@orrery/core';
+import { buildUniverseView, EventSchema, type OrreryEvent } from '@avrilfanomar/orrery-core';
 import { generateDemo } from '../demo.js';
 import { EventStore } from '../store.js';
 import {

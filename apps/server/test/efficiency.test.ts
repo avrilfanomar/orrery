@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { buildUniverseView, type OrreryEvent } from '@orrery/core';
+import { buildUniverseView, type OrreryEvent } from '@avrilfanomar/orrery-core';
 import type { InjectOptions } from 'fastify';
 import { buildApp, MAX_READINGS_PER_REQUEST } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';

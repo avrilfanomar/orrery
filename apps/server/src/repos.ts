@@ -4,7 +4,7 @@
 // logged event. Everything here is public — every browser is shown it — so a
 // browse template may carry no credentials.
 import { existsSync, readFileSync } from 'node:fs';
-import { RepoIdSchema, type Repository } from '@orrery/core';
+import { RepoIdSchema, type Repository } from '@avrilfanomar/orrery-core';
 import { z } from 'zod';
 
 const PLACEHOLDER = '{path}';

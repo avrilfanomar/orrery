@@ -8,7 +8,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { decide, parseCommand, project, type CommandInput, type OrreryEvent } from '@orrery/core';
+import { decide, parseCommand, project, type CommandInput, type OrreryEvent } from '@avrilfanomar/orrery-core';
 import { buildApp } from '../src/app.js';
 import { DEMO_PRODUCT, generateDemo, simulatorRefusal } from '../src/demo.js';
 import { freePort } from '../src/dogfood/harness.js';

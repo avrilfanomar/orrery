@@ -21,7 +21,7 @@ import {
   type CommandInput,
   type OrreryEvent,
   type SourceCatalog,
-} from '@orrery/core';
+} from '@avrilfanomar/orrery-core';
 
 const H = 3.6e6;
 // The seed's bindings document provenance only; it pulls from nothing.

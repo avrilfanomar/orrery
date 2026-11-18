@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type TS from 'typescript';
 import { isSkip, lastLine, runProgram, type RunOutput, type Skip } from './collectors.js';
-import { resolveImport } from './flexibility.js';
+import { resolveImport, WORKSPACE_PACKAGES } from './flexibility.js';
 import { scrub } from './harness.js';
 import type { Probe, ProbeContext } from './probes.js';
 
@@ -268,17 +268,17 @@ export const MAINTAINABILITY_PROBES: readonly Probe[] = [
   },
   {
     id: 'import-cycles',
-    version: 2,
-    since: 'ADR 0013: code now crosses packages — the server loads the module packages, which load the kit — so every `@orrery/<name>` resolves to packages/<name>/src/index.ts, not only `@orrery/core`, and a cycle through a module counts',
+    version: 3,
+    since: 'The packages moved to the @avrilfanomar scope to be published on npm (ADR 0016), and their names no longer end in their directory, so a workspace import is resolved through the list of workspace packages, name to directory, instead of a pattern on the old scope that matched nothing',
     method:
-      'Parses tracked packages/*/src and apps/*/src (*.ts, *.tsx) with the TypeScript compiler API and links each file to the source files it loads at run time: relative imports and re-exports, and each workspace package `@orrery/<name>` as packages/<name>/src/index.ts when that file is tracked. `import type` and `export type` are erased and left out; dynamic import() is left out. The value is the number of cycles — groups of modules that reach each other — plus modules importing themselves. No reading when the compiler API cannot be loaded.',
+      'Parses tracked packages/*/src and apps/*/src (*.ts, *.tsx) with the TypeScript compiler API and links each file to the source files it loads at run time: relative imports and re-exports, and each workspace package, named as its manifest names it, as <its directory>/src/index.ts when that file is tracked. `import type` and `export type` are erased and left out; dynamic import() is left out. The value is the number of cycles — groups of modules that reach each other — plus modules importing themselves. No reading when the compiler API cannot be loaded.',
     async measure(ctx) {
       const ts = await loadTypescript();
       if (isSkip(ts)) return ts;
       const files = new Set(sources(ctx));
       const target = (from: string, spec: string) => {
-        const entry = /^@orrery\/([\w-]+)$/.exec(spec);
-        if (entry) return files.has(`packages/${entry[1]}/src/index.ts`) ? `packages/${entry[1]}/src/index.ts` : null;
+        const dir = WORKSPACE_PACKAGES.get(spec);
+        if (dir) return files.has(`${dir}/src/index.ts`) ? `${dir}/src/index.ts` : null;
         if (!spec.startsWith('.')) return null;
         const base = resolveImport(from, spec);
         return [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`].find((c) => files.has(c)) ?? null;

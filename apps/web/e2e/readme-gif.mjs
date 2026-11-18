@@ -7,8 +7,8 @@
 // the screenshots, so the console in the picture is exactly the console.
 // Needs ffmpeg on PATH.
 //
-//   pnpm --filter @orrery/web readme-gif
-//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @orrery/web readme-gif
+//   pnpm --filter @avrilfanomar/orrery-web readme-gif
+//   ORRERY_URL=http://127.0.0.1:5710 PW_CHROMIUM=/path/to/chrome pnpm --filter @avrilfanomar/orrery-web readme-gif
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

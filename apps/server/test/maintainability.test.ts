@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildUniverseView, signalPath, type OrreryEvent, type UniverseView } from '@orrery/core';
+import { buildUniverseView, signalPath, type OrreryEvent, type UniverseView } from '@avrilfanomar/orrery-core';
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { generateDemo } from '../src/demo.js';
@@ -184,7 +184,7 @@ describe('declared dependencies', () => {
     }
     expect(undeclared).toEqual([]);
     // The scan sees static, type-only, dynamic and .mjs imports alike, or it would pass by seeing nothing.
-    for (const used of ['packages/core zod', 'packages/prometheus @orrery/module-kit', 'apps/server fastify', 'apps/server typescript', 'apps/web react', 'apps/web playwright-core', 'apps/web vite']) expect(seen).toContain(used);
+    for (const used of ['packages/core zod', 'packages/prometheus @avrilfanomar/orrery-module-kit', 'apps/server fastify', 'apps/server typescript', 'apps/web react', 'apps/web playwright-core', 'apps/web vite']) expect(seen).toContain(used);
   });
 
   it('records in the lockfile exactly the ranges the manifests ask for', () => {

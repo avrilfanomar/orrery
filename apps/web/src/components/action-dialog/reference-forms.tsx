@@ -1,7 +1,7 @@
 // Adding and removing a reference (ADR 0014). A reference moves no status and
 // no yardstick, so neither asks for a reason; one can be given.
 import { useQuery } from '@tanstack/react-query';
-import { REFERENCE_KINDS, describeTarget, type Reference } from '@orrery/core';
+import { REFERENCE_KINDS, describeTarget, type Reference } from '@avrilfanomar/orrery-core';
 import { useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { Field, ReasonField } from './fields.js';

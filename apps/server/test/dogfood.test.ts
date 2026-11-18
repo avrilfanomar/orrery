@@ -5,10 +5,10 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildUniverseView, evaluateUniverse, PASS_FAIL_UNIT, project, type OrreryEvent } from '@orrery/core';
+import { buildUniverseView, evaluateUniverse, PASS_FAIL_UNIT, project, type OrreryEvent } from '@avrilfanomar/orrery-core';
 import { buildApp } from '../src/app.js';
 import { parseVitestJson, type GitSnapshot } from '../src/dogfood/collectors.js';
-import { crossingsIn } from '../src/dogfood/flexibility.js';
+import { crossingsIn, WORKSPACE_PACKAGES } from '../src/dogfood/flexibility.js';
 import { scrub } from '../src/dogfood/harness.js';
 import { cognitiveComplexity, duplicatedLines, importCycles, majorBehind, parseSource } from '../src/dogfood/maintainability.js';
 import { DOGFOOD_MODEL, type ModelNode } from '../src/dogfood/model.js';
@@ -246,24 +246,30 @@ describe('measurement helpers', () => {
     });
   });
 
+  it('know every workspace package by the name its manifest gives it, so no seam is keyed to a stale name', () => {
+    const dirs = execFileSync('git', ['ls-files', 'packages/*/package.json', 'apps/*/package.json'], { cwd: repoRoot, encoding: 'utf8' }).trim().split('\n');
+    const named = new Map(dirs.map((f) => [(JSON.parse(readFileSync(join(repoRoot, f), 'utf8')) as { name: string }).name, f.replace(/\/package\.json$/, '')]));
+    expect(new Map([...WORKSPACE_PACKAGES].sort())).toEqual(new Map([...named].sort()));
+  });
+
   it('count the imports and calls that cross a seam, and none of the ones the layout allows (ADR 0013)', () => {
     const crossings = (f: string, src: string) => crossingsIn(f, scrub(src, false)).length;
     const imports = (f: string, ...specs: string[]) => crossings(f, specs.map((s) => `import { x } from '${s}';`).join('\n'));
     // What the layout allows.
-    expect(imports('apps/server/src/modules.ts', '@orrery/prometheus', '@orrery/module-kit', './dogfood/module.js')).toBe(0);
-    expect(imports('packages/prometheus/src/index.ts', '@orrery/module-kit', '@orrery/core', 'zod')).toBe(0);
-    expect(imports('apps/web/src/api.ts', '@orrery/core')).toBe(0);
+    expect(imports('apps/server/src/modules.ts', '@avrilfanomar/orrery-prometheus', '@avrilfanomar/orrery-module-kit', './dogfood/module.js')).toBe(0);
+    expect(imports('packages/prometheus/src/index.ts', '@avrilfanomar/orrery-module-kit', '@avrilfanomar/orrery-core', 'zod')).toBe(0);
+    expect(imports('apps/web/src/api.ts', '@avrilfanomar/orrery-core')).toBe(0);
     expect(imports('packages/core/src/decide.ts', './constants.js', 'zod')).toBe(0);
     expect(crossings('apps/server/src/sources/collector.ts', 'await kindOf(src).queryRange(src, q, f);')).toBe(0);
     // Each seam, crossed once.
-    expect(imports('apps/server/src/app.ts', '@orrery/core/src/decide.js')).toBe(1); // around a package's entry
+    expect(imports('apps/server/src/app.ts', '@avrilfanomar/orrery-core/src/decide.js')).toBe(1); // around a package's entry
     expect(imports('apps/server/src/app.ts', '../../../packages/module-kit/src/index.js')).toBe(1);
-    expect(imports('packages/core/src/decide.ts', '@orrery/module-kit')).toBe(1); // core reaching out
-    expect(imports('packages/prometheus/src/index.ts', '@orrery/server')).toBe(1); // a module reaching past the kit
-    expect(imports('packages/module-kit/src/index.ts', '@orrery/prometheus')).toBe(1);
-    expect(imports('apps/web/src/components/Provenance.tsx', '@orrery/prometheus')).toBe(1); // the UI loading a module
-    expect(imports('apps/web/src/components/Provenance.tsx', '@orrery/module-kit')).toBe(1);
-    expect(imports('apps/server/src/sources/config.ts', '@orrery/prometheus')).toBe(1); // installed past the registry
+    expect(imports('packages/core/src/decide.ts', '@avrilfanomar/orrery-module-kit')).toBe(1); // core reaching out
+    expect(imports('packages/prometheus/src/index.ts', '@avrilfanomar/orrery')).toBe(1); // a module reaching past the kit
+    expect(imports('packages/module-kit/src/index.ts', '@avrilfanomar/orrery-prometheus')).toBe(1);
+    expect(imports('apps/web/src/components/Provenance.tsx', '@avrilfanomar/orrery-prometheus')).toBe(1); // the UI loading a module
+    expect(imports('apps/web/src/components/Provenance.tsx', '@avrilfanomar/orrery-module-kit')).toBe(1);
+    expect(imports('apps/server/src/sources/config.ts', '@avrilfanomar/orrery-prometheus')).toBe(1); // installed past the registry
     expect(crossings('apps/server/src/app.ts', 'const r = await kind.queryRange(src, q, fetch); // not in a comment: .queryRange(')).toBe(1);
   });
 
