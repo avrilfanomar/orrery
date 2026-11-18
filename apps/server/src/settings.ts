@@ -5,7 +5,7 @@
 // serves and names the variable. Entry points call these; nothing reads the
 // environment at import time, so a test passes in the environment it means.
 import { isAbsolute, resolve } from 'node:path';
-import { repoRoot } from './paths.js';
+import { bundleDir, repoRoot } from './paths.js';
 
 export type Env = Readonly<Record<string, string | undefined>>;
 
@@ -90,12 +90,22 @@ export interface ServerSettings {
   allowedHosts: string[];
 }
 
-/** The API server and `reset`. */
-export function serverSettings(env: Env): ServerSettings {
+/**
+ * Where the log and the console are when nothing says otherwise. The npm package (ADR 0016) has no
+ * repository around it: the log goes where the command was typed, and the console sits beside the bundle.
+ */
+function serverDefaults(env: Env, bundled: string | null): Pick<ServerSettings, 'dataFile' | 'webDist'> {
+  if (bundled === null) return { dataFile: resolve(repoRoot, 'data/events.jsonl'), webDist: resolve(repoRoot, 'apps/web/dist') };
+  return { dataFile: resolve(given(env.INIT_CWD) ?? process.cwd(), 'orrery-data/events.jsonl'), webDist: resolve(bundled, 'web') };
+}
+
+/** The API server and `reset`. `bundled` is the npm bundle's directory, or null in the repository. */
+export function serverSettings(env: Env, bundled: string | null = bundleDir): ServerSettings {
+  const fallback = serverDefaults(env, bundled);
   return {
     ...listenOn(env),
-    dataFile: pathOf(env.ORRERY_DATA_FILE, env) ?? resolve(repoRoot, 'data/events.jsonl'),
-    webDist: pathOf(env.ORRERY_WEB_DIST, env) ?? resolve(repoRoot, 'apps/web/dist'),
+    dataFile: pathOf(env.ORRERY_DATA_FILE, env) ?? fallback.dataFile,
+    webDist: pathOf(env.ORRERY_WEB_DIST, env) ?? fallback.webDist,
     seed: seedKindFrom(env.ORRERY_SEED),
     ingestToken: given(env.ORRERY_INGEST_TOKEN) ?? null,
     sourcesFile: pathOf(env.ORRERY_SOURCES_FILE, env),

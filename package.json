@@ -16,6 +16,7 @@
     "dogfood": "pnpm --filter @avrilfanomar/orrery dogfood",
     "dogfood:serve": "pnpm --filter @avrilfanomar/orrery-web build && pnpm --filter @avrilfanomar/orrery dogfood:serve",
     "tags": "pnpm --filter @avrilfanomar/orrery tags",
+    "build": "pnpm --filter './packages/*' build && pnpm --filter @avrilfanomar/orrery build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "verify": "pnpm typecheck && pnpm test && pnpm --filter @avrilfanomar/orrery-web build"

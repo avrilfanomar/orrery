@@ -170,6 +170,14 @@ describe('startup refusals explain themselves', () => {
     expect(simulatorSettings({ ORRERY_SIM_TICK_MS: '' }).tickMs).toBe(30_000);
   });
 
+  it('puts the log where the command was typed and serves the packaged console when run from the npm bundle (ADR 0016)', () => {
+    const work = join(tmpdir(), 'work');
+    const bundle = join(tmpdir(), 'pkg', 'dist');
+    expect(serverSettings({ INIT_CWD: work }, bundle)).toMatchObject({ dataFile: join(work, 'orrery-data/events.jsonl'), webDist: join(bundle, 'web') });
+    expect(serverSettings({ INIT_CWD: work, ORRERY_DATA_FILE: 'mine.jsonl', ORRERY_WEB_DIST: '/srv/web' }, bundle)).toMatchObject({ dataFile: join(work, 'mine.jsonl'), webDist: '/srv/web' });
+    expect(serverSettings({}).webDist).toBe(join(repoRoot, 'apps/web/dist')); // under tsx there is no bundle
+  });
+
   it('refuses a damaged log, naming the file and the line, and says what to do with a cut-off last write', () => {
     const event = (seq: number) => JSON.stringify(generateDemo(NOW)[seq - 1]);
     const cases: [string, string, RegExp][] = [

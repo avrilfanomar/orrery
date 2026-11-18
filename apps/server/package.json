@@ -1,11 +1,39 @@
 {
   "name": "@avrilfanomar/orrery",
   "version": "0.1.0",
-  "private": true,
   "license": "Apache-2.0",
   "type": "module",
-  "description": "HTTP API, append-only event store, demo seed and live signal simulator",
+  "description": "Requirements, constraints and quality KPIs as one living, observable graph: the server and its console in one command",
+  "keywords": [
+    "requirements",
+    "kpi",
+    "slo",
+    "quality",
+    "observability",
+    "arc42",
+    "event-sourcing"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/avrilfanomar/orrery.git",
+    "directory": "apps/server"
+  },
+  "homepage": "https://github.com/avrilfanomar/orrery#readme",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "bin": {
+      "orrery": "dist/cli.js"
+    }
+  },
   "scripts": {
+    "build": "pnpm --filter @avrilfanomar/orrery-web build && node build.mjs",
+    "prepack": "pnpm run build && node -e \"fs.copyFileSync('../../LICENSE','LICENSE')\"",
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
     "simulate": "tsx src/simulate.ts",
@@ -17,15 +45,16 @@
     "tags": "tsx src/tags/run.ts"
   },
   "dependencies": {
-    "@fastify/static": "^10.1.8",
     "@avrilfanomar/orrery-core": "workspace:*",
     "@avrilfanomar/orrery-module-kit": "workspace:*",
     "@avrilfanomar/orrery-prometheus": "workspace:*",
+    "@fastify/static": "^10.1.8",
     "fastify": "^5.2.1",
-    "tsx": "^4.19.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
   }
